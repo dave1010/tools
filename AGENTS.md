@@ -4,7 +4,7 @@
 
 - add a new dir in ./tools
 - add index.html and any other files
-- add a link from README.md. eg https://html-preview.github.io/?url=https://github.com/dave1010/tools/blob/main/tools/a-new-tool/index.html
+- add a link from README.md.
 
 ## Tests
 
