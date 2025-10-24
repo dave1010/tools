@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lux ↔ ANSI Throw Converter</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.5;
+      }
+
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top, #0e1f3a, #05060a 60%);
+        color: #eef2ff;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+      }
+
+      main {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 18px;
+        max-width: 680px;
+        width: min(100%, 680px);
+        padding: 2.5rem 2.25rem;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.45);
+      }
+
+      h1 {
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        margin: 0 0 1rem;
+        text-align: center;
+      }
+
+      p.description {
+        margin: 0 0 2rem;
+        text-align: center;
+        color: rgba(226, 232, 240, 0.85);
+      }
+
+      section {
+        background: rgba(30, 41, 59, 0.65);
+        border-radius: 14px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      section:last-of-type {
+        margin-bottom: 0;
+      }
+
+      h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.3rem;
+      }
+
+      .field-group {
+        display: grid;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      label {
+        font-weight: 600;
+        color: rgba(226, 232, 240, 0.95);
+      }
+
+      input[type="number"] {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.7);
+        color: #f8fafc;
+        font-size: 1rem;
+        transition: border-color 120ms ease, box-shadow 120ms ease;
+      }
+
+      input[type="number"]:focus {
+        outline: none;
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+      }
+
+      .hint {
+        font-size: 0.9rem;
+        color: rgba(148, 163, 184, 0.9);
+        margin: -0.25rem 0 0.75rem;
+      }
+
+      .results {
+        font-family: "Fira Mono", "Roboto Mono", monospace;
+        display: grid;
+        gap: 0.35rem;
+        background: rgba(15, 23, 42, 0.55);
+        border-radius: 10px;
+        padding: 0.9rem;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+      }
+
+      .results span {
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .results strong {
+        color: #fbbf24;
+      }
+
+      .note {
+        margin: 2rem 0 0;
+        font-size: 0.85rem;
+        color: rgba(148, 163, 184, 0.85);
+        text-align: center;
+      }
+
+      @media (max-width: 520px) {
+        main {
+          padding: 2rem 1.25rem;
+        }
+
+        section {
+          padding: 1.25rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Lux ↔ ANSI Throw Converter</h1>
+      <p class="description">
+        Quickly translate between illuminance readings and ANSI FL1 throw distance
+        for flashlight measurements.
+      </p>
+
+      <section>
+        <h2>Lux to ANSI Throw</h2>
+        <div class="field-group">
+          <label for="lux-input">Measured illuminance (lux)</label>
+          <input id="lux-input" type="number" min="0" step="0.01" placeholder="e.g. 45000" />
+        </div>
+        <div class="field-group">
+          <label for="lux-distance">Measurement distance (meters)</label>
+          <input id="lux-distance" type="number" min="0.01" step="0.01" value="1" />
+          <p class="hint">Use 1 meter for standard candela readings.</p>
+        </div>
+        <div class="results" aria-live="polite">
+          <span>
+            <span>Candela</span>
+            <strong id="lux-cd">—</strong>
+          </span>
+          <span>
+            <span>ANSI throw distance</span>
+            <strong id="lux-throw">—</strong>
+          </span>
+        </div>
+      </section>
+
+      <section>
+        <h2>ANSI Throw to Lux</h2>
+        <div class="field-group">
+          <label for="throw-input">ANSI throw distance (meters)</label>
+          <input id="throw-input" type="number" min="0" step="0.01" placeholder="e.g. 400" />
+        </div>
+        <div class="field-group">
+          <label for="throw-distance">Distance for lux reading (meters)</label>
+          <input id="throw-distance" type="number" min="0.01" step="0.01" value="1" />
+          <p class="hint">Lux will scale with distance squared (inverse-square law).</p>
+        </div>
+        <div class="results" aria-live="polite">
+          <span>
+            <span>Candela</span>
+            <strong id="throw-cd">—</strong>
+          </span>
+          <span>
+            <span>Lux at chosen distance</span>
+            <strong id="throw-lux">—</strong>
+          </span>
+        </div>
+      </section>
+
+      <p class="note">
+        ANSI FL1 defines throw as the distance where beam intensity falls to 0.25 lux.
+        Candela = lux × distance² and throw = √(candela ÷ 0.25).
+      </p>
+    </main>
+
+    <script>
+      const luxInput = document.getElementById("lux-input");
+      const luxDistanceInput = document.getElementById("lux-distance");
+      const luxCandela = document.getElementById("lux-cd");
+      const luxThrow = document.getElementById("lux-throw");
+
+      const throwInput = document.getElementById("throw-input");
+      const throwDistanceInput = document.getElementById("throw-distance");
+      const throwCandela = document.getElementById("throw-cd");
+      const throwLux = document.getElementById("throw-lux");
+
+      function formatNumber(value) {
+        if (!Number.isFinite(value)) {
+          return "—";
+        }
+
+        if (value === 0) {
+          return "0";
+        }
+
+        if (value >= 1000) {
+          return value.toLocaleString(undefined, {
+            maximumFractionDigits: 0,
+          });
+        }
+
+        return value.toLocaleString(undefined, {
+          maximumFractionDigits: 2,
+        });
+      }
+
+      function updateLuxToThrow() {
+        const lux = parseFloat(luxInput.value);
+        const distance = parseFloat(luxDistanceInput.value);
+
+        if (!(lux >= 0) || !(distance > 0)) {
+          luxCandela.textContent = "—";
+          luxThrow.textContent = "—";
+          return;
+        }
+
+        const candela = lux * distance * distance;
+        const throwDistance = Math.sqrt(candela / 0.25);
+
+        luxCandela.textContent = formatNumber(candela) + " cd";
+        luxThrow.textContent = formatNumber(throwDistance) + " m";
+      }
+
+      function updateThrowToLux() {
+        const throwDistance = parseFloat(throwInput.value);
+        const luxDistance = parseFloat(throwDistanceInput.value);
+
+        if (!(throwDistance >= 0) || !(luxDistance > 0)) {
+          throwCandela.textContent = "—";
+          throwLux.textContent = "—";
+          return;
+        }
+
+        const candela = 0.25 * throwDistance * throwDistance;
+        const lux = candela / (luxDistance * luxDistance);
+
+        throwCandela.textContent = formatNumber(candela) + " cd";
+        throwLux.textContent = formatNumber(lux) + " lx";
+      }
+
+      luxInput.addEventListener("input", updateLuxToThrow);
+      luxDistanceInput.addEventListener("input", updateLuxToThrow);
+      throwInput.addEventListener("input", updateThrowToLux);
+      throwDistanceInput.addEventListener("input", updateThrowToLux);
+    </script>
+  </body>
+</html>
