@@ -1,6 +1,6 @@
 # Tools
 
-Collection of tools.
+Collection of tools. Inspired by (simonw/tools)[https://github.com/simonw/tools].
 
 Tools live in the [`./tools`](./tools) directory.
 
