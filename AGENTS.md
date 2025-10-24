@@ -5,6 +5,7 @@
 - add a new dir in ./tools
 - add index.html and any other files
 - add a link from README.md.
+-  amd top level index.html
 
 ## Tests
 
