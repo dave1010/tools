@@ -12,3 +12,4 @@ Tools live in the [`./tools`](./tools) directory.
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table)
 - [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html)
 - [Word & Character Count](https://tools.dave.engineer/tools/word-character-count)
+- [Speed Unit Converter](https://tools.dave.engineer/tools/speed-unit-converter)
