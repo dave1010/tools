@@ -15,6 +15,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Bubble Level](https://tools.dave.engineer/tools/bubble-level) — Simple digital bubble level
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
 - [Device & Browser Info](https://tools.dave.engineer/tools/device-browser-info) — Display current device and browser details
+- [GitHub Device Login](https://tools.dave.engineer/tools/github-device-login) — Start the GitHub device flow and store the resulting access token locally.
 - [JSON Formatter](https://tools.dave.engineer/tools/json-formatter) — Format and validate JSON data
 - [Local Storage Viewer](https://tools.dave.engineer/tools/local-storage-viewer) — Inspect and manage browser localStorage
 - [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw) — Estimate projector throw from lux readings

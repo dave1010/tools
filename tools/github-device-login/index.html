@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub Device Login</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto flex min-h-screen max-w-3xl flex-col space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">GitHub Device Login</h1>
+        <p class="text-gray-600">
+          Run the GitHub OAuth device flow right in your browser. Request the scopes you need,
+          approve the device, and we will store the resulting access token in local storage.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
+        <div class="space-y-1">
+          <label for="scopes" class="block text-sm font-medium text-gray-700">Scopes</label>
+          <input
+            id="scopes"
+            type="text"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            placeholder="repo gist read:user"
+          />
+          <p class="text-sm text-gray-500">
+            Provide a space-separated list of scopes. Leave blank for the default (no extra scopes).
+          </p>
+        </div>
+        <button
+          id="startButton"
+          class="bg-brand-600 text-white rounded-lg px-3 py-2 font-medium hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:cursor-not-allowed disabled:bg-brand-300"
+        >
+          Start device flow
+        </button>
+        <p id="status" class="text-sm text-gray-600"></p>
+      </section>
+
+      <section id="verificationSection" class="hidden space-y-4 rounded-2xl bg-white p-6 shadow">
+        <h2 class="text-lg font-semibold text-gray-900">Authorize this device</h2>
+        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-sm text-gray-500">Enter this code at GitHub:</p>
+            <p id="userCode" class="text-2xl font-mono font-semibold text-brand-700"></p>
+          </div>
+          <div class="flex gap-2">
+            <button
+              id="copyCode"
+              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+            >
+              Copy code
+            </button>
+            <a
+              id="verificationLink"
+              class="bg-gray-900 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-gray-800"
+              href="https://github.com/login/device"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open GitHub
+            </a>
+          </div>
+        </div>
+        <p class="text-sm text-gray-600" id="verificationHint"></p>
+      </section>
+
+      <section id="tokenSection" class="hidden space-y-4 rounded-2xl bg-white p-6 shadow">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-900">Stored access token</h2>
+          <div class="flex gap-2">
+            <button
+              id="revealToken"
+              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+            >
+              Reveal
+            </button>
+            <button
+              id="copyToken"
+              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+            >
+              Copy
+            </button>
+            <button
+              id="clearToken"
+              class="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:border-red-300 hover:text-red-700"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <p id="tokenValue" class="break-all rounded-lg bg-gray-50 p-3 font-mono text-sm text-gray-800"></p>
+        <p class="text-sm text-gray-500">
+          The token is saved as <code>github-device-login-token</code> in <code>localStorage</code>.
+        </p>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+      </footer>
+    </main>
+
+    <script>
+      const CLIENT_ID = "Ov23lixSWZwZVeDeb8t9";
+      const STORAGE_KEY = "github-device-login-token";
+
+      const startButton = document.getElementById("startButton");
+      const scopesInput = document.getElementById("scopes");
+      const statusEl = document.getElementById("status");
+      const verificationSection = document.getElementById("verificationSection");
+      const userCodeEl = document.getElementById("userCode");
+      const verificationLink = document.getElementById("verificationLink");
+      const verificationHint = document.getElementById("verificationHint");
+      const copyCodeButton = document.getElementById("copyCode");
+      const tokenSection = document.getElementById("tokenSection");
+      const tokenValueEl = document.getElementById("tokenValue");
+      const revealTokenButton = document.getElementById("revealToken");
+      const copyTokenButton = document.getElementById("copyToken");
+      const clearTokenButton = document.getElementById("clearToken");
+
+      let pollTimer = null;
+      let pollDelayMs = 5000;
+      let tokenVisible = false;
+
+      function setStatus(message, type = "info") {
+        statusEl.textContent = message;
+        statusEl.className = `text-sm ${
+          type === "error"
+            ? "text-red-600"
+            : type === "success"
+            ? "text-brand-700"
+            : "text-gray-600"
+        }`;
+      }
+
+      function showVerificationSection({ user_code, verification_uri, expires_in }) {
+        verificationSection.classList.remove("hidden");
+        userCodeEl.textContent = user_code;
+        verificationLink.href = verification_uri;
+        verificationHint.textContent = `Code expires in ${Math.floor(
+          expires_in / 60
+        )} minutes (${expires_in} seconds).`;
+      }
+
+      function hideVerificationSection() {
+        verificationSection.classList.add("hidden");
+        userCodeEl.textContent = "";
+        verificationHint.textContent = "";
+      }
+
+      function updateStoredTokenDisplay() {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          tokenSection.classList.remove("hidden");
+          tokenValueEl.textContent = tokenVisible ? stored : maskToken(stored);
+          revealTokenButton.textContent = tokenVisible ? "Hide" : "Reveal";
+        } else {
+          tokenSection.classList.add("hidden");
+          tokenValueEl.textContent = "";
+          tokenVisible = false;
+        }
+      }
+
+      function maskToken(token) {
+        if (!token || token.length <= 8) {
+          return "••••";
+        }
+        return `${token.slice(0, 4)}…${token.slice(-4)}`;
+      }
+
+      function clearPolling() {
+        if (pollTimer) {
+          clearTimeout(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      async function requestDeviceCode() {
+        setStatus("Requesting device and user codes…");
+        startButton.disabled = true;
+        hideVerificationSection();
+        clearPolling();
+
+        const body = new URLSearchParams({ client_id: CLIENT_ID });
+        const scope = scopesInput.value.trim();
+        if (scope) {
+          body.set("scope", scope);
+        }
+
+        try {
+          const response = await fetch("https://github.com/login/device/code", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
+            },
+            body,
+          });
+
+          if (!response.ok) {
+            throw new Error(`GitHub responded with ${response.status}`);
+          }
+
+          const data = await response.json();
+          showVerificationSection(data);
+          setStatus("Waiting for you to authorize the device on GitHub…", "info");
+          beginPolling({
+            deviceCode: data.device_code,
+            interval: data.interval,
+          });
+        } catch (error) {
+          console.error(error);
+          setStatus(`Failed to start device flow: ${error.message}`, "error");
+          startButton.disabled = false;
+        }
+      }
+
+      async function pollForToken({ deviceCode }) {
+        try {
+          const response = await fetch("https://github.com/login/oauth/access_token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
+            },
+            body: new URLSearchParams({
+              client_id: CLIENT_ID,
+              device_code: deviceCode,
+              grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`GitHub responded with ${response.status}`);
+          }
+
+          const result = await response.json();
+
+          if (result.error) {
+            switch (result.error) {
+              case "authorization_pending":
+                setStatus("Still waiting for authorization…", "info");
+                scheduleNextPoll({ deviceCode });
+                return;
+              case "slow_down":
+                pollDelayMs += 5000;
+                setStatus("Asked to slow down. Polling less frequently…", "info");
+                scheduleNextPoll({ deviceCode });
+                return;
+              case "access_denied":
+                setStatus("Authorization denied in GitHub.", "error");
+                startButton.disabled = false;
+                clearPolling();
+                return;
+              case "expired_token":
+                setStatus("The device code expired. Start again.", "error");
+                startButton.disabled = false;
+                clearPolling();
+                hideVerificationSection();
+                return;
+              default:
+                throw new Error(result.error_description || result.error);
+            }
+          }
+
+          if (result.access_token) {
+            localStorage.setItem(STORAGE_KEY, result.access_token);
+            tokenVisible = false;
+            updateStoredTokenDisplay();
+            setStatus("Success! Access token saved to local storage.", "success");
+            startButton.disabled = false;
+            hideVerificationSection();
+            clearPolling();
+          } else {
+            throw new Error("Unexpected response from GitHub.");
+          }
+        } catch (error) {
+          console.error(error);
+          setStatus(`Polling failed: ${error.message}`, "error");
+          startButton.disabled = false;
+          clearPolling();
+        }
+      }
+
+      function scheduleNextPoll({ deviceCode }) {
+        clearTimeout(pollTimer);
+        pollTimer = setTimeout(() => pollForToken({ deviceCode }), pollDelayMs);
+      }
+
+      function beginPolling({ deviceCode, interval }) {
+        pollDelayMs = Math.max((interval || 5) * 1000, 5000);
+        scheduleNextPoll({ deviceCode });
+      }
+
+      startButton.addEventListener("click", () => {
+        requestDeviceCode();
+      });
+
+      copyCodeButton.addEventListener("click", async () => {
+        const code = userCodeEl.textContent.trim();
+        if (!code) return;
+        try {
+          await navigator.clipboard.writeText(code);
+          setStatus("Verification code copied to clipboard.", "success");
+        } catch (error) {
+          setStatus("Unable to copy code. Copy it manually.", "error");
+        }
+      });
+
+      revealTokenButton.addEventListener("click", () => {
+        tokenVisible = !tokenVisible;
+        updateStoredTokenDisplay();
+      });
+
+      copyTokenButton.addEventListener("click", async () => {
+        const token = localStorage.getItem(STORAGE_KEY);
+        if (!token) return;
+        try {
+          await navigator.clipboard.writeText(token);
+          setStatus("Access token copied to clipboard.", "success");
+        } catch (error) {
+          setStatus("Unable to copy the token automatically.", "error");
+        }
+      });
+
+      clearTokenButton.addEventListener("click", () => {
+        localStorage.removeItem(STORAGE_KEY);
+        tokenVisible = false;
+        updateStoredTokenDisplay();
+        setStatus("Stored token cleared.", "info");
+      });
+
+      updateStoredTokenDisplay();
+    </script>
+  </body>
+</html>
