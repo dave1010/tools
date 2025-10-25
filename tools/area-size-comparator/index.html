@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2D Size Comparator</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100">
+    <main class="mx-auto max-w-5xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-3 text-center md:text-left">
+        <p class="text-sm font-semibold uppercase tracking-wide text-brand-400">Visual Tool</p>
+        <h1 class="text-3xl font-semibold text-white md:text-4xl">2D Size Comparator</h1>
+        <p class="text-lg text-slate-300">
+          Compare two rectangular objects with true-to-scale overlays, side-by-side views, and instant area ratios. Handy for
+          visualising paper sizes, device screens, photos, floor plans, and more.
+        </p>
+      </header>
+
+      <section class="grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
+        <div class="space-y-6">
+          <form class="space-y-6" id="inputs">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-white">Objects</h2>
+                <button
+                  type="button"
+                  id="swap"
+                  class="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/20"
+                >
+                  Swap A &amp; B
+                </button>
+              </div>
+              <p class="text-sm text-slate-400">
+                Enter dimensions using the same units (millimetres, inches, metres, etc.). The visualisation uses the largest
+                side to determine scale.
+              </p>
+            </div>
+
+            <div class="space-y-4">
+              <fieldset class="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20">
+                <legend class="px-2 text-sm font-medium uppercase tracking-wide text-brand-300">Object A</legend>
+                <div class="space-y-3">
+                  <label class="block text-sm font-medium text-slate-200" for="label-a">Label</label>
+                  <input
+                    id="label-a"
+                    name="label-a"
+                    class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white shadow-inner focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    value="A4 Paper"
+                  />
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="space-y-1 text-sm text-slate-200">
+                      <span class="font-medium">Width</span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        id="width-a"
+                        class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        value="210"
+                      />
+                    </label>
+                    <label class="space-y-1 text-sm text-slate-200">
+                      <span class="font-medium">Height</span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        id="height-a"
+                        class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        value="297"
+                      />
+                    </label>
+                  </div>
+                  <label class="block text-sm font-medium text-slate-200" for="units-a">Units (optional)</label>
+                  <input
+                    id="units-a"
+                    name="units-a"
+                    class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    value="mm"
+                  />
+                </div>
+              </fieldset>
+
+              <fieldset class="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20">
+                <legend class="px-2 text-sm font-medium uppercase tracking-wide text-brand-300">Object B</legend>
+                <div class="space-y-3">
+                  <label class="block text-sm font-medium text-slate-200" for="label-b">Label</label>
+                  <input
+                    id="label-b"
+                    name="label-b"
+                    class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    value="8×10 Photo"
+                  />
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="space-y-1 text-sm text-slate-200">
+                      <span class="font-medium">Width</span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        id="width-b"
+                        class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        value="203.2"
+                      />
+                    </label>
+                    <label class="space-y-1 text-sm text-slate-200">
+                      <span class="font-medium">Height</span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        id="height-b"
+                        class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        value="254"
+                      />
+                    </label>
+                  </div>
+                  <label class="block text-sm font-medium text-slate-200" for="units-b">Units (optional)</label>
+                  <input
+                    id="units-b"
+                    name="units-b"
+                    class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-base text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    value="mm"
+                  />
+                </div>
+              </fieldset>
+            </div>
+
+            <div class="space-y-3">
+              <label class="block text-sm font-medium text-slate-200" for="pair-presets">Quick presets</label>
+              <select
+                id="pair-presets"
+                class="w-full rounded-xl border border-white/10 bg-black/40 p-2.5 text-sm text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Choose preset pair…</option>
+                <option value="a4-a3">A4 vs A3 paper</option>
+                <option value="letter-legal">US Letter vs Legal</option>
+                <option value="poster-a4">Movie poster vs A4</option>
+                <option value="ipad-mini-pro">iPad mini vs iPad Pro 12.9"</option>
+                <option value="credit-passport">Credit card vs Passport</option>
+              </select>
+            </div>
+
+            <div class="space-y-3">
+              <label class="flex items-center gap-2 text-sm font-medium text-slate-200">
+                <input type="checkbox" id="lock-orientation" class="h-4 w-4 rounded border-white/20 bg-black/40" />
+                Rotate so the longest side is vertical
+              </label>
+              <label class="flex items-center gap-2 text-sm font-medium text-slate-200">
+                <input type="checkbox" id="show-grid" class="h-4 w-4 rounded border-white/20 bg-black/40" checked />
+                Show background grid
+              </label>
+              <label class="flex items-center gap-2 text-sm font-medium text-slate-200">
+                <input type="checkbox" id="show-diagonal" class="h-4 w-4 rounded border-white/20 bg-black/40" />
+                Display diagonals
+              </label>
+            </div>
+          </form>
+
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 shadow-lg shadow-black/20">
+            <h2 class="text-base font-semibold text-white">Tips</h2>
+            <ul class="list-disc space-y-2 pl-5 pt-2">
+              <li>Use the same unit for both objects to keep the comparison accurate.</li>
+              <li>Click “Swap A &amp; B” to quickly compare area ratios from the opposite perspective.</li>
+              <li>Enable diagonals to compare aspect ratios at a glance.</li>
+              <li>Hover objects in the visual to highlight a single rectangle.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <section class="space-y-3 rounded-3xl border border-white/10 bg-slate-900/80 p-4 shadow-xl shadow-black/30 md:p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-lg font-semibold text-white">Overlay comparison</h2>
+              <p id="scale-info" class="text-xs text-slate-400"></p>
+            </div>
+            <div class="relative overflow-hidden rounded-2xl border border-white/10">
+              <svg id="overlay" viewBox="0 0 420 420" class="h-96 w-full bg-slate-950/90">
+                <defs>
+                  <pattern id="grid-pattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M20 0H0V20" fill="none" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" />
+                  </pattern>
+                </defs>
+                <rect id="grid" x="0" y="0" width="420" height="420" fill="url(#grid-pattern)" visibility="hidden"></rect>
+              </svg>
+            </div>
+            <div class="grid gap-3 rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-slate-200 md:grid-cols-2">
+              <dl class="space-y-1">
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">Area of A</dt>
+                  <dd id="area-a" class="font-medium text-white"></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">Area of B</dt>
+                  <dd id="area-b" class="font-medium text-white"></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">A vs B</dt>
+                  <dd id="ratio" class="font-medium text-white"></dd>
+                </div>
+              </dl>
+              <dl class="space-y-1">
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">Diagonal A</dt>
+                  <dd id="diagonal-a" class="font-medium text-white"></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">Diagonal B</dt>
+                  <dd id="diagonal-b" class="font-medium text-white"></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">Aspect ratios</dt>
+                  <dd id="aspect-info" class="font-medium text-white"></dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          <section class="space-y-3 rounded-3xl border border-white/10 bg-slate-900/80 p-4 shadow-xl shadow-black/30 md:p-6">
+            <h2 class="text-lg font-semibold text-white">Side-by-side</h2>
+            <div id="side-by-side" class="grid gap-4 md:grid-cols-2">
+              <div class="space-y-2 rounded-2xl border border-white/10 bg-black/40 p-4">
+                <h3 class="text-base font-medium text-white">Object A</h3>
+                <div class="relative aspect-square overflow-hidden rounded-xl border border-white/10">
+                  <svg viewBox="0 0 420 420" class="h-full w-full bg-slate-950/80" data-object="A"></svg>
+                </div>
+              </div>
+              <div class="space-y-2 rounded-2xl border border-white/10 bg-black/40 p-4">
+                <h3 class="text-base font-medium text-white">Object B</h3>
+                <div class="relative aspect-square overflow-hidden rounded-xl border border-white/10">
+                  <svg viewBox="0 0 420 420" class="h-full w-full bg-slate-950/80" data-object="B"></svg>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-slate-500">
+        <a href="/" class="font-medium text-brand-400 hover:text-brand-300">&larr; Back to tools.dave.engineer</a>
+      </footer>
+    </main>
+
+    <script>
+      const inputs = {
+        labelA: document.getElementById("label-a"),
+        widthA: document.getElementById("width-a"),
+        heightA: document.getElementById("height-a"),
+        unitsA: document.getElementById("units-a"),
+        labelB: document.getElementById("label-b"),
+        widthB: document.getElementById("width-b"),
+        heightB: document.getElementById("height-b"),
+        unitsB: document.getElementById("units-b"),
+        pairPresets: document.getElementById("pair-presets"),
+        lockOrientation: document.getElementById("lock-orientation"),
+        showGrid: document.getElementById("show-grid"),
+        showDiagonal: document.getElementById("show-diagonal"),
+        swapButton: document.getElementById("swap"),
+        scaleInfo: document.getElementById("scale-info"),
+        overlaySvg: document.getElementById("overlay"),
+        gridRect: document.getElementById("grid"),
+        stats: {
+          areaA: document.getElementById("area-a"),
+          areaB: document.getElementById("area-b"),
+          ratio: document.getElementById("ratio"),
+          diagonalA: document.getElementById("diagonal-a"),
+          diagonalB: document.getElementById("diagonal-b"),
+          aspect: document.getElementById("aspect-info"),
+        },
+        sideSvgs: Array.from(document.querySelectorAll("#side-by-side svg[data-object]")),
+      };
+
+      const PRESETS = {
+        "a4-a3": {
+          A: { label: "A4 Paper", width: 210, height: 297, units: "mm" },
+          B: { label: "A3 Paper", width: 297, height: 420, units: "mm" },
+        },
+        "letter-legal": {
+          A: { label: "US Letter", width: 8.5, height: 11, units: "in" },
+          B: { label: "US Legal", width: 8.5, height: 14, units: "in" },
+        },
+        "poster-a4": {
+          A: { label: "27×40 in Poster", width: 27, height: 40, units: "in" },
+          B: { label: "A4 Paper", width: 21, height: 29.7, units: "cm" },
+        },
+        "ipad-mini-pro": {
+          A: { label: "iPad mini 8.3\"", width: 134.8, height: 195.4, units: "mm" },
+          B: { label: "iPad Pro 12.9\"", width: 214.9, height: 280.6, units: "mm" },
+        },
+        "credit-passport": {
+          A: { label: "Credit card", width: 85.6, height: 53.98, units: "mm" },
+          B: { label: "Passport", width: 125, height: 88, units: "mm" },
+        },
+      };
+
+      const formatNumber = new Intl.NumberFormat("en-US", {
+        maximumFractionDigits: 2,
+      });
+
+      const SVG_NS = "http://www.w3.org/2000/svg";
+      const COLORS = {
+        A: {
+          fill: "rgba(96, 165, 250, 0.35)",
+          stroke: "rgb(59, 130, 246)",
+        },
+        B: {
+          fill: "rgba(248, 113, 113, 0.35)",
+          stroke: "rgb(239, 68, 68)",
+        },
+      };
+
+      const getValues = () => {
+        const data = {
+          A: {
+            label: inputs.labelA.value.trim() || "Object A",
+            width: Number.parseFloat(inputs.widthA.value),
+            height: Number.parseFloat(inputs.heightA.value),
+            units: inputs.unitsA.value.trim(),
+          },
+          B: {
+            label: inputs.labelB.value.trim() || "Object B",
+            width: Number.parseFloat(inputs.widthB.value),
+            height: Number.parseFloat(inputs.heightB.value),
+            units: inputs.unitsB.value.trim(),
+          },
+        };
+
+        return data;
+      };
+
+      const applyPreset = (id) => {
+        const preset = PRESETS[id];
+        if (!preset) return;
+
+        inputs.labelA.value = preset.A.label;
+        inputs.widthA.value = preset.A.width;
+        inputs.heightA.value = preset.A.height;
+        inputs.unitsA.value = preset.A.units;
+
+        inputs.labelB.value = preset.B.label;
+        inputs.widthB.value = preset.B.width;
+        inputs.heightB.value = preset.B.height;
+        inputs.unitsB.value = preset.B.units;
+
+        update();
+      };
+
+      const computeStats = ({ A, B }) => {
+        const areaA = A.width * A.height;
+        const areaB = B.width * B.height;
+        const diagonalA = Math.hypot(A.width, A.height);
+        const diagonalB = Math.hypot(B.width, B.height);
+        const ratio = areaB === 0 ? Infinity : areaA / areaB;
+        const aspectA = A.width && A.height ? `${formatNumber.format(Math.max(A.width, A.height) / Math.min(A.width, A.height))}:1` : "–";
+        const aspectB = B.width && B.height ? `${formatNumber.format(Math.max(B.width, B.height) / Math.min(B.width, B.height))}:1` : "–";
+
+        return {
+          areaA,
+          areaB,
+          diagonalA,
+          diagonalB,
+          ratio,
+          aspectA,
+          aspectB,
+        };
+      };
+
+      const renderSvg = (svg, objects, scale, showDiagonal) => {
+        svg.querySelectorAll("g[data-object]").forEach((node) => node.remove());
+        const center = 210;
+        objects.forEach((object) => {
+          if (!Number.isFinite(object.width) || !Number.isFinite(object.height)) return;
+          if (object.width <= 0 || object.height <= 0) return;
+
+          const scaledWidth = object.width * scale;
+          const scaledHeight = object.height * scale;
+          const x = center - scaledWidth / 2;
+          const y = center - scaledHeight / 2;
+
+          const group = document.createElementNS(SVG_NS, "g");
+          group.setAttribute("data-object", object.id);
+          group.setAttribute("tabindex", "0");
+          group.setAttribute("class", "focus:outline-none");
+
+          const rect = document.createElementNS(SVG_NS, "rect");
+          rect.setAttribute("x", x);
+          rect.setAttribute("y", y);
+          rect.setAttribute("width", scaledWidth);
+          rect.setAttribute("height", scaledHeight);
+          rect.setAttribute("fill", COLORS[object.id].fill);
+          rect.setAttribute("stroke", COLORS[object.id].stroke);
+          rect.setAttribute("stroke-width", "2");
+          rect.setAttribute("rx", "8");
+
+          const label = document.createElementNS(SVG_NS, "text");
+          label.setAttribute("x", x + scaledWidth / 2);
+          label.setAttribute("y", y + scaledHeight / 2);
+          label.setAttribute("fill", "white");
+          label.setAttribute("font-size", "16");
+          label.setAttribute("text-anchor", "middle");
+          label.setAttribute("dominant-baseline", "middle");
+          label.textContent = object.label;
+
+          group.appendChild(rect);
+
+          if (showDiagonal) {
+            const diag = document.createElementNS(SVG_NS, "line");
+            diag.setAttribute("x1", x);
+            diag.setAttribute("y1", y);
+            diag.setAttribute("x2", x + scaledWidth);
+            diag.setAttribute("y2", y + scaledHeight);
+            diag.setAttribute("stroke", COLORS[object.id].stroke);
+            diag.setAttribute("stroke-dasharray", "6 4");
+            diag.setAttribute("stroke-width", "1.5");
+            diag.setAttribute("opacity", "0.7");
+            group.appendChild(diag);
+          }
+
+          group.appendChild(label);
+          svg.appendChild(group);
+        });
+
+        svg.querySelectorAll("g[data-object]").forEach((group) => {
+          group.addEventListener("mouseenter", () => {
+            svg.querySelectorAll("g[data-object]").forEach((other) => {
+              if (other !== group) {
+                other.style.opacity = "0.35";
+              }
+            });
+          });
+          group.addEventListener("mouseleave", () => {
+            svg.querySelectorAll("g[data-object]").forEach((other) => {
+              other.style.opacity = "1";
+            });
+          });
+          group.addEventListener("focus", () => {
+            svg.querySelectorAll("g[data-object]").forEach((other) => {
+              if (other !== group) {
+                other.style.opacity = "0.35";
+              }
+            });
+          });
+          group.addEventListener("blur", () => {
+            svg.querySelectorAll("g[data-object]").forEach((other) => {
+              other.style.opacity = "1";
+            });
+          });
+        });
+      };
+
+      const renderSideBySide = (svgs, objects, scale, showDiagonal) => {
+        svgs.forEach((svg) => {
+          svg.querySelectorAll("g[data-object]").forEach((node) => node.remove());
+        });
+
+        objects.forEach((object) => {
+          const svg = svgs.find((item) => item.dataset.object === object.id);
+          if (!svg) return;
+          if (!Number.isFinite(object.width) || !Number.isFinite(object.height)) return;
+          if (object.width <= 0 || object.height <= 0) return;
+
+          const center = 210;
+          const scaledWidth = object.width * scale;
+          const scaledHeight = object.height * scale;
+          const x = center - scaledWidth / 2;
+          const y = center - scaledHeight / 2;
+
+          const group = document.createElementNS(SVG_NS, "g");
+          group.setAttribute("data-object", object.id);
+
+          const rect = document.createElementNS(SVG_NS, "rect");
+          rect.setAttribute("x", x);
+          rect.setAttribute("y", y);
+          rect.setAttribute("width", scaledWidth);
+          rect.setAttribute("height", scaledHeight);
+          rect.setAttribute("fill", COLORS[object.id].fill);
+          rect.setAttribute("stroke", COLORS[object.id].stroke);
+          rect.setAttribute("stroke-width", "2");
+          rect.setAttribute("rx", "12");
+
+          group.appendChild(rect);
+
+          if (showDiagonal) {
+            const diag = document.createElementNS(SVG_NS, "line");
+            diag.setAttribute("x1", x);
+            diag.setAttribute("y1", y);
+            diag.setAttribute("x2", x + scaledWidth);
+            diag.setAttribute("y2", y + scaledHeight);
+            diag.setAttribute("stroke", COLORS[object.id].stroke);
+            diag.setAttribute("stroke-dasharray", "6 4");
+            diag.setAttribute("stroke-width", "1.5");
+            diag.setAttribute("opacity", "0.7");
+            group.appendChild(diag);
+          }
+
+          svg.appendChild(group);
+        });
+      };
+
+      const updateStats = (stats, units) => {
+        const { areaA, areaB, ratio, diagonalA, diagonalB, aspectA, aspectB } = stats;
+        const areaUnit = units ? `${units}²` : "units²";
+        inputs.stats.areaA.textContent = Number.isFinite(areaA)
+          ? `${formatNumber.format(areaA)} ${areaUnit}`
+          : "–";
+        inputs.stats.areaB.textContent = Number.isFinite(areaB)
+          ? `${formatNumber.format(areaB)} ${areaUnit}`
+          : "–";
+
+        inputs.stats.ratio.textContent = Number.isFinite(ratio)
+          ? `A is ${formatNumber.format(ratio)}× the area of B`
+          : "–";
+
+        const diagUnit = units || "units";
+        inputs.stats.diagonalA.textContent = Number.isFinite(diagonalA)
+          ? `${formatNumber.format(diagonalA)} ${diagUnit}`
+          : "–";
+        inputs.stats.diagonalB.textContent = Number.isFinite(diagonalB)
+          ? `${formatNumber.format(diagonalB)} ${diagUnit}`
+          : "–";
+
+        inputs.stats.aspect.textContent = `${aspectA} vs ${aspectB}`;
+      };
+
+      const calculateScale = (objects) => {
+        const validSides = objects
+          .map((object) => Math.max(object.width || 0, object.height || 0))
+          .filter((value) => Number.isFinite(value) && value > 0);
+
+        if (!validSides.length) {
+          return { scale: 0, pixelsPerUnit: 0 };
+        }
+
+        const maxSide = Math.max(...validSides);
+        const available = 320;
+        const scale = available / maxSide;
+        return { scale, pixelsPerUnit: scale };
+      };
+
+      const rotateIfNeeded = (objects) => {
+        if (!inputs.lockOrientation.checked) return objects;
+        return objects.map((object) => {
+          if (!Number.isFinite(object.width) || !Number.isFinite(object.height)) return object;
+          if (object.width <= 0 || object.height <= 0) return object;
+          if (object.height >= object.width) return object;
+          return { ...object, width: object.height, height: object.width };
+        });
+      };
+
+      const update = () => {
+        const rawData = getValues();
+        const objects = [
+          { id: "A", ...rawData.A },
+          { id: "B", ...rawData.B },
+        ];
+
+        const adjustedObjects = rotateIfNeeded(objects);
+        const { scale, pixelsPerUnit } = calculateScale(adjustedObjects);
+
+        inputs.scaleInfo.textContent = Number.isFinite(pixelsPerUnit) && pixelsPerUnit > 0
+          ? `${formatNumber.format(pixelsPerUnit)} pixels ≈ 1 ${rawData.A.units || rawData.B.units || "unit"}`
+          : "";
+
+        inputs.gridRect.setAttribute("visibility", inputs.showGrid.checked ? "visible" : "hidden");
+
+        const stats = computeStats(rawData);
+        updateStats(stats, rawData.A.units && rawData.A.units === rawData.B.units ? rawData.A.units : "");
+
+        if (scale <= 0) {
+          inputs.overlaySvg.querySelectorAll("g[data-object]").forEach((node) => node.remove());
+          inputs.sideSvgs.forEach((svg) => svg.querySelectorAll("g[data-object]").forEach((node) => node.remove()));
+          return;
+        }
+
+        renderSvg(inputs.overlaySvg, adjustedObjects, scale, inputs.showDiagonal.checked);
+        renderSideBySide(inputs.sideSvgs, adjustedObjects, scale, inputs.showDiagonal.checked);
+      };
+
+      const bindEvents = () => {
+        [
+          inputs.labelA,
+          inputs.widthA,
+          inputs.heightA,
+          inputs.unitsA,
+          inputs.labelB,
+          inputs.widthB,
+          inputs.heightB,
+          inputs.unitsB,
+          inputs.lockOrientation,
+          inputs.showGrid,
+          inputs.showDiagonal,
+        ].forEach((input) => {
+          input.addEventListener("input", () => {
+            if (input === inputs.widthA || input === inputs.heightA || input === inputs.widthB || input === inputs.heightB) {
+              if (Number.parseFloat(input.value) < 0) {
+                input.value = "";
+              }
+            }
+            update();
+          });
+        });
+
+        inputs.swapButton.addEventListener("click", () => {
+          const rawData = getValues();
+          inputs.labelA.value = rawData.B.label;
+          inputs.widthA.value = rawData.B.width || "";
+          inputs.heightA.value = rawData.B.height || "";
+          inputs.unitsA.value = rawData.B.units;
+          inputs.labelB.value = rawData.A.label;
+          inputs.widthB.value = rawData.A.width || "";
+          inputs.heightB.value = rawData.A.height || "";
+          inputs.unitsB.value = rawData.A.units;
+          update();
+        });
+
+        inputs.pairPresets.addEventListener("change", (event) => {
+          const value = event.target.value;
+          if (!value) return;
+          applyPreset(value);
+          event.target.value = "";
+        });
+      };
+
+      bindEvents();
+      update();
+    </script>
+  </body>
+</html>
