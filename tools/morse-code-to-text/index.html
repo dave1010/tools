@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Morse Code to Text</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      .input-button {
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 text-slate-900">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-6 font-sans">
+      <header class="space-y-2">
+        <h1 class="text-3xl font-semibold text-slate-900">Morse Code to Text</h1>
+        <p class="text-slate-600">
+          Tap or hold the button to enter Morse code. Short presses create dots, longer presses create dashes. Pauses turn symbols into letters and words automatically.
+        </p>
+      </header>
+
+      <section class="space-y-4 bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+        <div class="flex items-center gap-4 flex-wrap">
+          <label for="threshold" class="font-medium text-slate-800">
+            Dot/Dash threshold: <span id="thresholdValue">200</span> ms
+          </label>
+          <input
+            id="threshold"
+            type="range"
+            min="80"
+            max="800"
+            step="10"
+            value="200"
+            class="w-full md:w-64 accent-brand-600"
+          />
+        </div>
+
+        <button
+          id="tapButton"
+          class="input-button w-full bg-brand-600 text-white rounded-lg px-4 py-12 text-xl font-semibold tracking-wide hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-200 transition"
+        >
+          Tap or hold for Morse input
+        </button>
+
+        <div class="flex gap-3 flex-wrap">
+          <button
+            id="clearButton"
+            class="bg-white text-brand-700 border border-brand-200 rounded-lg px-3 py-1.5 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-200"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <h2 class="text-lg font-semibold text-slate-800">Decoded text</h2>
+            <div
+              id="decodedText"
+              class="min-h-[6rem] whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-lg font-mono"
+            ></div>
+          </div>
+          <div class="space-y-2">
+            <h2 class="text-lg font-semibold text-slate-800">Current sequence</h2>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-1">
+              <div>
+                <span class="text-sm uppercase text-slate-500">Symbol</span>
+                <div id="currentSymbol" class="text-xl font-mono text-slate-800">(none)</div>
+              </div>
+              <div>
+                <span class="text-sm uppercase text-slate-500">Morse buffer</span>
+                <div id="morseBuffer" class="text-lg font-mono text-slate-700">(empty)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="space-y-3 text-sm text-slate-600">
+        <h2 class="text-base font-semibold text-slate-800">Timing reference</h2>
+        <ul class="list-disc list-inside space-y-1">
+          <li>Dots are presses shorter than the threshold; longer presses are dashes.</li>
+          <li>The tool uses standard spacing: 1 unit between symbols, 3 units between letters, and 7 units between words.</li>
+          <li>Adjust the threshold slider if your taps are interpreted incorrectly.</li>
+        </ul>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+      </footer>
+    </main>
+
+    <script>
+      const MORSE_TO_TEXT = {
+        '.-': 'A',
+        '-...': 'B',
+        '-.-.': 'C',
+        '-..': 'D',
+        '.': 'E',
+        '..-.': 'F',
+        '--.': 'G',
+        '....': 'H',
+        '..': 'I',
+        '.---': 'J',
+        '-.-': 'K',
+        '.-..': 'L',
+        '--': 'M',
+        '-.': 'N',
+        '---': 'O',
+        '.--.': 'P',
+        '--.-': 'Q',
+        '.-.': 'R',
+        '...': 'S',
+        '-': 'T',
+        '..-': 'U',
+        '...-': 'V',
+        '.--': 'W',
+        '-..-': 'X',
+        '-.--': 'Y',
+        '--..': 'Z',
+        '-----': '0',
+        '.----': '1',
+        '..---': '2',
+        '...--': '3',
+        '....-': '4',
+        '.....': '5',
+        '-....': '6',
+        '--...': '7',
+        '---..': '8',
+        '----.': '9',
+        '.-.-.-': '.',
+        '--..--': ',',
+        '..--..': '?',
+        '.----.': '\'',
+        '-.-.--': '!',
+        '-..-.': '/',
+        '-.--.': '(',
+        '-.--.-': ')',
+        '.-...': '&',
+        '---...': ':',
+        '-.-.-.': ';',
+        '-...-': '=',
+        '.-.-.': '+',
+        '-....-': '-',
+        '..--.-': '_',
+        '.-..-.': '"',
+        '...-..-': '$',
+        '.--.-.': '@'
+      };
+
+      const tapButton = document.getElementById('tapButton');
+      const clearButton = document.getElementById('clearButton');
+      const decodedTextEl = document.getElementById('decodedText');
+      const currentSymbolEl = document.getElementById('currentSymbol');
+      const morseBufferEl = document.getElementById('morseBuffer');
+      const thresholdInput = document.getElementById('threshold');
+      const thresholdValueEl = document.getElementById('thresholdValue');
+
+      let pressStart = null;
+      let symbolBuffer = '';
+      let decoded = '';
+      let morseHistory = [];
+      let letterTimeoutId = null;
+      let wordTimeoutId = null;
+
+      function updateDisplays() {
+        currentSymbolEl.textContent = symbolBuffer || '(none)';
+        const morseDisplay = [...morseHistory, symbolBuffer ? symbolBuffer : null]
+          .filter(Boolean)
+          .join(' ');
+        morseBufferEl.textContent = morseDisplay || '(empty)';
+        decodedTextEl.textContent = decoded || '';
+      }
+
+      function getUnit() {
+        return Number(thresholdInput.value);
+      }
+
+      function classifySymbol(duration) {
+        const threshold = getUnit();
+        return duration <= threshold ? '.' : '-';
+      }
+
+      function finalizeLetter() {
+        if (!symbolBuffer) {
+          return;
+        }
+        const letter = MORSE_TO_TEXT[symbolBuffer] || '□';
+        morseHistory.push(symbolBuffer);
+        decoded += letter;
+        symbolBuffer = '';
+        updateDisplays();
+      }
+
+      function finalizeWord() {
+        finalizeLetter();
+        if (morseHistory.length && morseHistory[morseHistory.length - 1] !== '/') {
+          morseHistory.push('/');
+        }
+        if (!decoded.endsWith(' ') && decoded.trim().length > 0) {
+          decoded += ' ';
+        }
+        updateDisplays();
+      }
+
+      function clearPendingTimers() {
+        if (letterTimeoutId) {
+          clearTimeout(letterTimeoutId);
+          letterTimeoutId = null;
+        }
+        if (wordTimeoutId) {
+          clearTimeout(wordTimeoutId);
+          wordTimeoutId = null;
+        }
+      }
+
+      tapButton.addEventListener('pointerdown', (event) => {
+        if (tapButton.setPointerCapture && (!tapButton.hasPointerCapture || !tapButton.hasPointerCapture(event.pointerId))) {
+          tapButton.setPointerCapture(event.pointerId);
+        }
+        pressStart = performance.now();
+        clearPendingTimers();
+        tapButton.classList.add('bg-brand-700');
+      });
+
+      function handlePointerEnd(event) {
+        if (pressStart === null) {
+          return;
+        }
+        if (tapButton.releasePointerCapture && tapButton.hasPointerCapture && tapButton.hasPointerCapture(event.pointerId)) {
+          tapButton.releasePointerCapture(event.pointerId);
+        }
+        const duration = performance.now() - pressStart;
+        pressStart = null;
+        tapButton.classList.remove('bg-brand-700');
+
+        const symbol = classifySymbol(duration);
+        symbolBuffer += symbol;
+        updateDisplays();
+
+        const unit = getUnit();
+        letterTimeoutId = setTimeout(() => {
+          finalizeLetter();
+          letterTimeoutId = null;
+        }, unit * 3);
+
+        wordTimeoutId = setTimeout(() => {
+          finalizeWord();
+          wordTimeoutId = null;
+        }, unit * 7);
+      }
+
+      tapButton.addEventListener('pointerup', handlePointerEnd);
+      tapButton.addEventListener('pointercancel', handlePointerEnd);
+      tapButton.addEventListener('pointerleave', (event) => {
+        if (pressStart !== null) {
+          handlePointerEnd(event);
+        }
+      });
+
+      clearButton.addEventListener('click', () => {
+        pressStart = null;
+        symbolBuffer = '';
+        decoded = '';
+        morseHistory = [];
+        clearPendingTimers();
+        updateDisplays();
+      });
+
+      thresholdInput.addEventListener('input', () => {
+        thresholdValueEl.textContent = thresholdInput.value;
+      });
+
+      updateDisplays();
+    </script>
+  </body>
+</html>
