@@ -48,7 +48,7 @@
           <div class="flex gap-2">
             <button
               id="copyCode"
-              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
               Copy code
             </button>
@@ -72,19 +72,19 @@
           <div class="flex gap-2">
             <button
               id="revealToken"
-              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
               Reveal
             </button>
             <button
               id="copyToken"
-              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
               Copy
             </button>
             <button
               id="clearToken"
-              class="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:border-red-300 hover:text-red-700"
+              class="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
             >
               Clear
             </button>
@@ -104,6 +104,7 @@
     <script>
       const CLIENT_ID = "Ov23lixSWZwZVeDeb8t9";
       const STORAGE_KEY = "github-device-login-token";
+      const PROXY_URL = "/github-device-proxy";
 
       const startButton = document.getElementById("startButton");
       const scopesInput = document.getElementById("scopes");
@@ -123,6 +124,11 @@
       let pollDelayMs = 5000;
       let tokenVisible = false;
 
+      const requestHeaders = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      };
+
       function setStatus(message, type = "info") {
         statusEl.textContent = message;
         statusEl.className = `text-sm ${
@@ -132,6 +138,30 @@
             ? "text-brand-700"
             : "text-gray-600"
         }`;
+      }
+
+      function describeNetworkError(error) {
+        if (error instanceof TypeError) {
+          return "Network request failed. Try again in a moment.";
+        }
+        return error?.message || String(error);
+      }
+
+      function postToGitHub(path, params) {
+        const endpoint = `https://github.com${path}`;
+        const body = new URLSearchParams(params).toString();
+
+        return fetch(PROXY_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            endpoint,
+            body,
+            headers: requestHeaders,
+          }),
+        });
       }
 
       function showVerificationSection({ user_code, verification_uri, expires_in }) {
@@ -182,21 +212,14 @@
         hideVerificationSection();
         clearPolling();
 
-        const body = new URLSearchParams({ client_id: CLIENT_ID });
+        const params = { client_id: CLIENT_ID };
         const scope = scopesInput.value.trim();
         if (scope) {
-          body.set("scope", scope);
+          params.scope = scope;
         }
 
         try {
-          const response = await fetch("https://github.com/login/device/code", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              Accept: "application/json",
-            },
-            body,
-          });
+          const response = await postToGitHub("/login/device/code", params);
 
           if (!response.ok) {
             throw new Error(`GitHub responded with ${response.status}`);
@@ -211,24 +234,17 @@
           });
         } catch (error) {
           console.error(error);
-          setStatus(`Failed to start device flow: ${error.message}`, "error");
+          setStatus(`Failed to start device flow: ${describeNetworkError(error)}`, "error");
           startButton.disabled = false;
         }
       }
 
       async function pollForToken({ deviceCode }) {
         try {
-          const response = await fetch("https://github.com/login/oauth/access_token", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              Accept: "application/json",
-            },
-            body: new URLSearchParams({
-              client_id: CLIENT_ID,
-              device_code: deviceCode,
-              grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-            }),
+          const response = await postToGitHub("/login/oauth/access_token", {
+            client_id: CLIENT_ID,
+            device_code: deviceCode,
+            grant_type: "urn:ietf:params:oauth:grant-type:device_code",
           });
 
           if (!response.ok) {
@@ -277,7 +293,7 @@
           }
         } catch (error) {
           console.error(error);
-          setStatus(`Polling failed: ${error.message}`, "error");
+          setStatus(`Polling failed: ${describeNetworkError(error)}`, "error");
           startButton.disabled = false;
           clearPolling();
         }
