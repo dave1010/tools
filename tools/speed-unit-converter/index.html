@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Speed Unit Converter</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+</head>
+<body>
+  <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+    <header class="space-y-2 text-center">
+      <h1 class="text-3xl font-semibold text-gray-900">Speed Unit Converter</h1>
+      <p class="text-gray-600">Convert between speed and pace units instantly as you type.</p>
+    </header>
+
+    <section class="card space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-soft md:p-8">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-2">
+          <span class="text-sm font-medium text-gray-700">Value</span>
+          <input
+            id="input-value"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="e.g. 7.5"
+          >
+          <div id="pace-inputs" class="grid grid-cols-2 gap-3 hidden" aria-describedby="pace-hint">
+            <label class="space-y-1">
+              <span class="text-sm font-medium text-gray-700">Minutes</span>
+              <input
+                id="pace-minutes"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="e.g. 4"
+              >
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm font-medium text-gray-700">Seconds</span>
+              <input
+                id="pace-seconds"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="e.g. 30"
+              >
+            </label>
+          </div>
+        </div>
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-gray-700">From unit</span>
+          <select
+            id="input-unit"
+            class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <option value="mph">Miles per hour (mph)</option>
+            <option value="kmh">Kilometres per hour (km/h)</option>
+            <option value="ms">Metres per second (m/s)</option>
+            <option value="fps">Feet per second (ft/s)</option>
+            <option value="knots">Knots (kt)</option>
+            <option value="pace-km">Pace – minutes per kilometre</option>
+            <option value="pace-mile">Pace – minutes per mile</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-gray-700">Converted unit</span>
+          <select
+            id="output-unit"
+            class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <option value="kmh">Kilometres per hour (km/h)</option>
+            <option value="mph">Miles per hour (mph)</option>
+            <option value="ms">Metres per second (m/s)</option>
+            <option value="fps">Feet per second (ft/s)</option>
+            <option value="knots">Knots (kt)</option>
+            <option value="pace-km">Pace – minutes per kilometre</option>
+            <option value="pace-mile">Pace – minutes per mile</option>
+          </select>
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-gray-700">Result</span>
+          <input
+            id="output-value"
+            type="text"
+            readonly
+            class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-lg text-gray-900 focus:outline-none"
+            value="—"
+          >
+        </label>
+      </div>
+
+      <p id="pace-hint" class="text-sm text-gray-600">When using a pace input, enter minutes and optional seconds in the separate fields. Decimal minutes are also supported.</p>
+    </section>
+  </main>
+
+  <script>
+    const inputValueEl = document.getElementById('input-value');
+    const inputUnitEl = document.getElementById('input-unit');
+    const outputUnitEl = document.getElementById('output-unit');
+    const outputValueEl = document.getElementById('output-value');
+    const paceInputsContainer = document.getElementById('pace-inputs');
+    const paceMinutesEl = document.getElementById('pace-minutes');
+    const paceSecondsEl = document.getElementById('pace-seconds');
+
+    const isPaceUnit = (unit) => unit === 'pace-km' || unit === 'pace-mile';
+
+    const updateInputMode = () => {
+      const paceSelected = isPaceUnit(inputUnitEl.value);
+      if (paceSelected) {
+        inputValueEl.classList.add('hidden');
+        paceInputsContainer.classList.remove('hidden');
+      } else {
+        inputValueEl.classList.remove('hidden');
+        paceInputsContainer.classList.add('hidden');
+      }
+    };
+
+    const formatNumber = (value, maximumFractionDigits = 2) => {
+      if (!Number.isFinite(value)) return '—';
+      return value.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits,
+      });
+    };
+
+    const parseNumber = (value) => {
+      if (!value) return NaN;
+      const normalised = value.replace(/,/g, '').trim();
+      if (!normalised) return NaN;
+      const number = Number(normalised);
+      return Number.isFinite(number) ? number : NaN;
+    };
+
+    const parsePace = ({ minutes, seconds }) => {
+      const minutesValue = minutes.trim();
+      const secondsValue = seconds.trim();
+
+      if (!minutesValue && !secondsValue) return NaN;
+
+      const minutesNumber = minutesValue ? Number(minutesValue) : 0;
+      const secondsNumber = secondsValue ? Number(secondsValue) : 0;
+
+      if (
+        !Number.isFinite(minutesNumber) ||
+        !Number.isFinite(secondsNumber) ||
+        minutesNumber < 0 ||
+        secondsNumber < 0
+      ) {
+        return NaN;
+      }
+
+      const totalSeconds = minutesNumber * 60 + secondsNumber;
+      return totalSeconds > 0 ? totalSeconds : NaN;
+    };
+
+    const formatPace = (secondsPerUnit) => {
+      if (!Number.isFinite(secondsPerUnit) || secondsPerUnit <= 0) return '—';
+      const rounded = Math.round(secondsPerUnit * 10) / 10;
+      let minutes = Math.floor(rounded / 60);
+      let seconds = rounded - minutes * 60;
+      if (seconds >= 60) {
+        minutes += 1;
+        seconds -= 60;
+      }
+      const secondsFixed = seconds % 1 === 0 ? seconds.toFixed(0) : seconds.toFixed(1);
+      const [whole, fraction] = secondsFixed.split('.');
+      const wholePadded = whole.padStart(2, '0');
+      return fraction ? `${minutes}:${wholePadded}.${fraction}` : `${minutes}:${wholePadded}`;
+    };
+
+    const toMetresPerSecond = {
+      mph: (value) => value * 0.44704,
+      kmh: (value) => value / 3.6,
+      ms: (value) => value,
+      fps: (value) => value * 0.3048,
+      knots: (value) => value * 0.514444,
+      'pace-km': (value) => 1000 / value,
+      'pace-mile': (value) => 1609.344 / value,
+    };
+
+    const fromMetresPerSecond = {
+      mph: (value) => value / 0.44704,
+      kmh: (value) => value * 3.6,
+      ms: (value) => value,
+      fps: (value) => value / 0.3048,
+      knots: (value) => value / 0.514444,
+      'pace-km': (value) => 1000 / value,
+      'pace-mile': (value) => 1609.344 / value,
+    };
+
+    const unitParsers = {
+      mph: parseNumber,
+      kmh: parseNumber,
+      ms: parseNumber,
+      fps: parseNumber,
+      knots: parseNumber,
+      'pace-km': parsePace,
+      'pace-mile': parsePace,
+    };
+
+    const unitFormatters = {
+      mph: (value) => `${formatNumber(value, 2)} mph`,
+      kmh: (value) => `${formatNumber(value, 2)} km/h`,
+      ms: (value) => `${formatNumber(value, 3)} m/s`,
+      fps: (value) => `${formatNumber(value, 2)} ft/s`,
+      knots: (value) => `${formatNumber(value, 2)} kt`,
+      'pace-km': (value) => `${formatPace(value)} min/km`,
+      'pace-mile': (value) => `${formatPace(value)} min/mile`,
+    };
+
+    const convert = () => {
+      const inputUnit = inputUnitEl.value;
+      const outputUnit = outputUnitEl.value;
+      const rawValue = isPaceUnit(inputUnit)
+        ? { minutes: paceMinutesEl.value || '', seconds: paceSecondsEl.value || '' }
+        : inputValueEl.value;
+
+      const parser = unitParsers[inputUnit];
+      const parsed = parser ? parser(rawValue) : NaN;
+
+      if (!Number.isFinite(parsed)) {
+        outputValueEl.value = 'Enter a valid value';
+        return;
+      }
+
+      const toMs = toMetresPerSecond[inputUnit];
+      const fromMs = fromMetresPerSecond[outputUnit];
+
+      if (!toMs || !fromMs) {
+        outputValueEl.value = 'Conversion not available';
+        return;
+      }
+
+      const metresPerSecond = toMs(parsed);
+      if (!Number.isFinite(metresPerSecond) || metresPerSecond <= 0) {
+        outputValueEl.value = 'Enter a positive value';
+        return;
+      }
+
+      const convertedRaw = fromMs(metresPerSecond);
+      const formatter = unitFormatters[outputUnit];
+      outputValueEl.value = formatter ? formatter(convertedRaw) : formatNumber(convertedRaw);
+    };
+
+    inputValueEl.addEventListener('input', convert);
+    paceMinutesEl.addEventListener('input', convert);
+    paceSecondsEl.addEventListener('input', convert);
+    inputUnitEl.addEventListener('change', () => {
+      updateInputMode();
+      convert();
+    });
+    outputUnitEl.addEventListener('change', convert);
+
+    inputUnitEl.value = 'mph';
+    outputUnitEl.value = 'kmh';
+    inputValueEl.value = '10';
+    paceMinutesEl.value = '';
+    paceSecondsEl.value = '';
+    updateInputMode();
+    convert();
+  </script>
+</body>
+</html>

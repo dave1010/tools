@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bubble Level</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+</head>
+<body class="bg-gray-900">
+  <main class="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center space-y-6 p-4 font-sans text-white md:p-6">
+    <header class="space-y-1 text-center">
+      <h1 class="text-3xl font-semibold">Bubble Level</h1>
+      <p class="text-sm text-gray-300">Turn your device into a digital spirit level. Grant motion access to get started.</p>
+    </header>
+
+    <section class="flex w-full flex-1 flex-col items-center justify-center space-y-4">
+      <div id="status" class="text-xs text-gray-300"></div>
+
+      <button id="request-permission" class="hidden rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+        Enable motion access
+      </button>
+
+      <div class="flex flex-col items-center space-y-4">
+        <div id="level-surface" class="relative h-72 w-72 rounded-full border-8 border-gray-700 bg-gray-800 shadow-lg">
+          <div class="absolute inset-6 rounded-full border-2 border-dashed border-gray-600"></div>
+          <div class="absolute inset-14 rounded-full border border-gray-700"></div>
+          <div class="absolute inset-24 rounded-full border border-gray-600"></div>
+          <div class="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gray-500"></div>
+          <div class="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gray-400"></div>
+          <div id="bubble" class="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-400 shadow-[0_0_20px_rgba(163,230,53,0.6)] transition-all duration-150 ease-out"></div>
+        </div>
+        <div id="precision-indicator" class="text-xs text-gray-400">Keep adjusting until the bubble is centered.</div>
+        <div class="grid w-full max-w-sm grid-cols-1 gap-3 text-center sm:grid-cols-3">
+          <div class="rounded-lg bg-gray-800 p-3 shadow-inner">
+            <p class="text-xs uppercase tracking-wide text-gray-400">Pitch (β)</p>
+            <p id="pitch" class="text-xl font-semibold">0.0°</p>
+          </div>
+          <div class="rounded-lg bg-gray-800 p-3 shadow-inner">
+            <p class="text-xs uppercase tracking-wide text-gray-400">Roll (γ)</p>
+            <p id="roll" class="text-xl font-semibold">0.0°</p>
+          </div>
+          <div class="rounded-lg bg-gray-800 p-3 shadow-inner">
+            <p class="text-xs uppercase tracking-wide text-gray-400">Tilt</p>
+            <p id="tilt" class="text-xl font-semibold">0.0°</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-gray-500">
+      <p>Place your device on the surface you want to level. Keep the bubble centered for perfect alignment.</p>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const bubble = document.getElementById('bubble');
+      const levelSurface = document.getElementById('level-surface');
+      const statusEl = document.getElementById('status');
+      const permissionButton = document.getElementById('request-permission');
+      const pitchEl = document.getElementById('pitch');
+      const rollEl = document.getElementById('roll');
+      const tiltEl = document.getElementById('tilt');
+      const indicatorEl = document.getElementById('precision-indicator');
+
+      const baseBubbleClasses = 'absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-400 shadow-[0_0_20px_rgba(163,230,53,0.6)] transition-all duration-150 ease-out';
+
+      let isListening = false;
+
+      function updateStatus(message, type = 'info') {
+        statusEl.textContent = message;
+        statusEl.className = type === 'error' ? 'text-xs text-red-400 text-center' : 'text-xs text-gray-300 text-center';
+      }
+
+      function formatAngle(value) {
+        return `${value.toFixed(1)}°`;
+      }
+
+      function updatePrecisionIndicator(tilt) {
+        bubble.className = baseBubbleClasses;
+
+        if (tilt <= 0.5) {
+          indicatorEl.textContent = 'Perfectly level (within 0.5°).';
+          indicatorEl.className = 'text-sm font-semibold text-lime-300 text-center';
+          bubble.className += ' ring-4 ring-lime-300';
+        } else if (tilt <= 1) {
+          indicatorEl.textContent = 'Nearly level (within 1°).';
+          indicatorEl.className = 'text-xs font-medium text-amber-200 text-center';
+          bubble.className += ' ring-2 ring-amber-200';
+        } else {
+          indicatorEl.textContent = 'Keep adjusting until the bubble is centered.';
+          indicatorEl.className = 'text-xs text-gray-400 text-center';
+          bubble.className += ' ring-0';
+        }
+      }
+
+      function handleOrientation(event) {
+        if (event.beta == null && event.gamma == null) {
+          return;
+        }
+
+        const beta = typeof event.beta === 'number' ? event.beta : 0; // front-to-back tilt, -180 to 180
+        const gamma = typeof event.gamma === 'number' ? event.gamma : 0; // left-to-right tilt, -90 to 90
+
+        const tilt = Math.sqrt(beta * beta + gamma * gamma);
+
+        pitchEl.textContent = formatAngle(beta);
+        rollEl.textContent = formatAngle(gamma);
+        tiltEl.textContent = formatAngle(tilt);
+
+        const maxTilt = 45;
+        const clampedX = Math.max(-maxTilt, Math.min(maxTilt, gamma));
+        const clampedY = Math.max(-maxTilt, Math.min(maxTilt, beta));
+
+        const radiusX = (levelSurface.clientWidth - bubble.clientWidth) / 2;
+        const radiusY = (levelSurface.clientHeight - bubble.clientHeight) / 2;
+
+        const translateX = (clampedX / maxTilt) * radiusX;
+        const translateY = (clampedY / maxTilt) * radiusY;
+
+        bubble.style.transform = `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px))`;
+        updatePrecisionIndicator(tilt);
+      }
+
+      function startListening() {
+        if (isListening) return;
+        window.addEventListener('deviceorientation', handleOrientation, true);
+        isListening = true;
+        updateStatus('Move your device to see the bubble shift.');
+      }
+
+      function requestPermissionIfNeeded() {
+        if (typeof DeviceOrientationEvent === 'undefined') {
+          updateStatus('Device orientation is not supported on this device.', 'error');
+          return;
+        }
+
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          permissionButton.classList.remove('hidden');
+          permissionButton.addEventListener('click', async () => {
+            try {
+              const response = await DeviceOrientationEvent.requestPermission();
+              if (response === 'granted') {
+                permissionButton.classList.add('hidden');
+                startListening();
+              } else {
+                updateStatus('Motion access denied. Enable it in Settings to use the bubble level.', 'error');
+              }
+            } catch (error) {
+              updateStatus('Unable to request motion access. Try reloading the page.', 'error');
+            }
+          }, { once: true });
+          updateStatus('Tap the button above to enable motion access.');
+        } else {
+          startListening();
+        }
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && isListening) {
+          updateStatus('Move your device to see the bubble shift.');
+        }
+      });
+
+      requestPermissionIfNeeded();
+    })();
+  </script>
+</body>
+</html>

@@ -4,6 +4,8 @@
 
 - add a new dir in ./tools
 - add index.html and any other files
+- add a README.md with YAML front matter defining `title` and a 4-8 word `description`
+- run `npm run build` to regenerate the top level index.html from README metadata
 - add a link from README.md and top level index.html
 
 ## Tests
