@@ -15,7 +15,7 @@
 
     <section class="card space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-soft md:p-8">
       <div class="grid gap-4 md:grid-cols-2">
-        <label class="space-y-2">
+        <div class="space-y-2">
           <span class="text-sm font-medium text-gray-700">Value</span>
           <input
             id="input-value"
@@ -23,10 +23,33 @@
             inputmode="decimal"
             autocomplete="off"
             class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            placeholder="e.g. 7.5 or 4:30"
-            aria-describedby="pace-hint"
+            placeholder="e.g. 7.5"
           >
-        </label>
+          <div id="pace-inputs" class="grid grid-cols-2 gap-3 hidden" aria-describedby="pace-hint">
+            <label class="space-y-1">
+              <span class="text-sm font-medium text-gray-700">Minutes</span>
+              <input
+                id="pace-minutes"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="e.g. 4"
+              >
+            </label>
+            <label class="space-y-1">
+              <span class="text-sm font-medium text-gray-700">Seconds</span>
+              <input
+                id="pace-seconds"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                class="w-full rounded-xl border border-gray-200 bg-white p-3 text-lg shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="e.g. 30"
+              >
+            </label>
+          </div>
+        </div>
         <label class="space-y-2">
           <span class="text-sm font-medium text-gray-700">From unit</span>
           <select
@@ -72,7 +95,7 @@
         </label>
       </div>
 
-      <p id="pace-hint" class="text-sm text-gray-600">For pace units, enter minutes and seconds as <code>mm:ss</code> (for example, <code>4:30</code>). You can also enter decimal minutes like <code>7.5</code>.</p>
+      <p id="pace-hint" class="text-sm text-gray-600">When using a pace input, enter minutes and optional seconds in the separate fields. Decimal minutes are also supported.</p>
     </section>
   </main>
 
@@ -81,6 +104,22 @@
     const inputUnitEl = document.getElementById('input-unit');
     const outputUnitEl = document.getElementById('output-unit');
     const outputValueEl = document.getElementById('output-value');
+    const paceInputsContainer = document.getElementById('pace-inputs');
+    const paceMinutesEl = document.getElementById('pace-minutes');
+    const paceSecondsEl = document.getElementById('pace-seconds');
+
+    const isPaceUnit = (unit) => unit === 'pace-km' || unit === 'pace-mile';
+
+    const updateInputMode = () => {
+      const paceSelected = isPaceUnit(inputUnitEl.value);
+      if (paceSelected) {
+        inputValueEl.classList.add('hidden');
+        paceInputsContainer.classList.remove('hidden');
+      } else {
+        inputValueEl.classList.remove('hidden');
+        paceInputsContainer.classList.add('hidden');
+      }
+    };
 
     const formatNumber = (value, maximumFractionDigits = 2) => {
       if (!Number.isFinite(value)) return '—';
@@ -98,26 +137,26 @@
       return Number.isFinite(number) ? number : NaN;
     };
 
-    const parsePace = (value) => {
-      if (!value) return NaN;
-      const trimmed = value.trim();
-      if (!trimmed) return NaN;
+    const parsePace = ({ minutes, seconds }) => {
+      const minutesValue = minutes.trim();
+      const secondsValue = seconds.trim();
 
-      let seconds;
-      if (trimmed.includes(':')) {
-        const parts = trimmed.split(':');
-        if (parts.length !== 2) return NaN;
-        const minutes = Number(parts[0]);
-        const secs = Number(parts[1]);
-        if (!Number.isFinite(minutes) || !Number.isFinite(secs)) return NaN;
-        seconds = minutes * 60 + secs;
-      } else {
-        const minutes = Number(trimmed);
-        if (!Number.isFinite(minutes)) return NaN;
-        seconds = minutes * 60;
+      if (!minutesValue && !secondsValue) return NaN;
+
+      const minutesNumber = minutesValue ? Number(minutesValue) : 0;
+      const secondsNumber = secondsValue ? Number(secondsValue) : 0;
+
+      if (
+        !Number.isFinite(minutesNumber) ||
+        !Number.isFinite(secondsNumber) ||
+        minutesNumber < 0 ||
+        secondsNumber < 0
+      ) {
+        return NaN;
       }
 
-      return seconds > 0 ? seconds : NaN;
+      const totalSeconds = minutesNumber * 60 + secondsNumber;
+      return totalSeconds > 0 ? totalSeconds : NaN;
     };
 
     const formatPace = (secondsPerUnit) => {
@@ -178,7 +217,9 @@
     const convert = () => {
       const inputUnit = inputUnitEl.value;
       const outputUnit = outputUnitEl.value;
-      const rawValue = inputValueEl.value;
+      const rawValue = isPaceUnit(inputUnit)
+        ? { minutes: paceMinutesEl.value || '', seconds: paceSecondsEl.value || '' }
+        : inputValueEl.value;
 
       const parser = unitParsers[inputUnit];
       const parsed = parser ? parser(rawValue) : NaN;
@@ -208,12 +249,20 @@
     };
 
     inputValueEl.addEventListener('input', convert);
-    inputUnitEl.addEventListener('change', convert);
+    paceMinutesEl.addEventListener('input', convert);
+    paceSecondsEl.addEventListener('input', convert);
+    inputUnitEl.addEventListener('change', () => {
+      updateInputMode();
+      convert();
+    });
     outputUnitEl.addEventListener('change', convert);
 
     inputUnitEl.value = 'mph';
     outputUnitEl.value = 'kmh';
     inputValueEl.value = '10';
+    paceMinutesEl.value = '';
+    paceSecondsEl.value = '';
+    updateInputMode();
     convert();
   </script>
 </body>
