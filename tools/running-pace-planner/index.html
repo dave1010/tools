@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Running Pace Planner</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+    <header class="space-y-2 text-center">
+      <h1 class="text-3xl font-semibold">Running Pace Planner</h1>
+      <p class="text-gray-600">Set a race distance and goal time to instantly see pace targets and detailed splits.</p>
+    </header>
+
+    <section class="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-soft md:p-8">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-2">
+          <label for="distancePreset" class="text-sm font-medium text-gray-700">Preset distance</label>
+          <select id="distancePreset" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="">Custom</option>
+            <option value="5k">5K (3.11 mi)</option>
+            <option value="10k">10K (6.21 mi)</option>
+            <option value="hm">Half Marathon (13.11 mi)</option>
+            <option value="fm">Marathon (26.22 mi)</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-2">
+            <label for="distance" class="text-sm font-medium text-gray-700">Distance</label>
+            <input id="distance" type="number" min="0" step="0.1" value="5" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+          <div class="space-y-2">
+            <label for="distanceUnit" class="text-sm font-medium text-gray-700">Unit</label>
+            <select id="distanceUnit" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <option value="kilometers" selected>Kilometers</option>
+              <option value="miles">Miles</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-4">
+        <div class="space-y-2">
+          <label for="hours" class="text-sm font-medium text-gray-700">Hours</label>
+          <input id="hours" type="number" min="0" value="0" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div class="space-y-2">
+          <label for="minutes" class="text-sm font-medium text-gray-700">Minutes</label>
+          <input id="minutes" type="number" min="0" max="59" value="25" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div class="space-y-2">
+          <label for="seconds" class="text-sm font-medium text-gray-700">Seconds</label>
+          <input id="seconds" type="number" min="0" max="59" value="0" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div class="space-y-2">
+          <label for="splitBasis" class="text-sm font-medium text-gray-700">Split by</label>
+          <select id="splitBasis" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="kilometer" selected>Kilometer</option>
+            <option value="mile">Mile</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <article class="rounded-xl bg-brand-50 p-4 text-brand-900">
+          <h2 class="text-sm font-semibold uppercase tracking-wide">Target Pace</h2>
+          <dl class="mt-2 space-y-1 text-sm">
+            <div class="flex justify-between"><dt>Per kilometer</dt><dd id="pacePerKm" class="font-medium">–</dd></div>
+            <div class="flex justify-between"><dt>Per mile</dt><dd id="pacePerMile" class="font-medium">–</dd></div>
+          </dl>
+        </article>
+        <article class="rounded-xl bg-gray-100 p-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Distance &amp; Finish</h2>
+          <dl class="mt-2 space-y-1 text-sm text-gray-700">
+            <div class="flex justify-between"><dt>Total distance</dt><dd id="distanceSummary" class="font-medium">–</dd></div>
+            <div class="flex justify-between"><dt>Goal time</dt><dd id="goalTime" class="font-medium">–</dd></div>
+          </dl>
+        </article>
+      </div>
+    </section>
+
+    <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-soft md:p-8">
+      <div class="flex items-center justify-between gap-4">
+        <h2 class="text-xl font-semibold text-gray-900">Race Splits</h2>
+        <p id="splitSummary" class="text-sm text-gray-500">Enter a distance and goal time to see splits.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
+          <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th class="px-3 py-2 font-medium">Split</th>
+              <th class="px-3 py-2 font-medium">Distance</th>
+              <th class="px-3 py-2 font-medium">Split time</th>
+              <th class="px-3 py-2 font-medium">Cumulative</th>
+            </tr>
+          </thead>
+          <tbody id="splitsTable" class="divide-y divide-gray-100">
+            <tr>
+              <td colspan="4" class="px-3 py-4 text-center text-sm text-gray-500">Enter details above to generate splits.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="py-6 text-center text-sm text-gray-500">
+      <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+    </footer>
+  </main>
+
+  <script>
+    const MILE_IN_KM = 1.609344;
+    const distancePreset = document.getElementById("distancePreset");
+    const distanceInput = document.getElementById("distance");
+    const distanceUnit = document.getElementById("distanceUnit");
+    const hoursInput = document.getElementById("hours");
+    const minutesInput = document.getElementById("minutes");
+    const secondsInput = document.getElementById("seconds");
+    const splitBasisSelect = document.getElementById("splitBasis");
+
+    const pacePerKmEl = document.getElementById("pacePerKm");
+    const pacePerMileEl = document.getElementById("pacePerMile");
+    const distanceSummaryEl = document.getElementById("distanceSummary");
+    const goalTimeEl = document.getElementById("goalTime");
+    const splitSummaryEl = document.getElementById("splitSummary");
+    const splitsTableBody = document.getElementById("splitsTable");
+
+    const presetDistances = {
+      "5k": { value: 5, unit: "kilometers" },
+      "10k": { value: 10, unit: "kilometers" },
+      "hm": { value: 13.1094, unit: "miles" },
+      "fm": { value: 26.2188, unit: "miles" }
+    };
+
+    function toNumber(value) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatTime(seconds) {
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        return "–";
+      }
+      const totalSeconds = Math.round(seconds);
+      const hrs = Math.floor(totalSeconds / 3600);
+      const mins = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      const paddedMins = hrs > 0 ? String(mins).padStart(2, "0") : String(mins);
+      const paddedSecs = String(secs).padStart(2, "0");
+      return hrs > 0 ? `${hrs}:${paddedMins}:${paddedSecs}` : `${paddedMins}:${paddedSecs}`;
+    }
+
+    function formatDistance(value) {
+      if (!Number.isFinite(value)) return "–";
+      const rounded = Math.round(value * 1000) / 1000;
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.0+$/, "");
+    }
+
+    function updateFromPreset() {
+      const preset = presetDistances[distancePreset.value];
+      if (preset) {
+        distanceInput.value = preset.value;
+        distanceUnit.value = preset.unit;
+      }
+      updateResults();
+    }
+
+    function updateResults() {
+      const distanceValue = Number.parseFloat(distanceInput.value);
+      const unit = distanceUnit.value;
+      const hours = toNumber(hoursInput.value);
+      const minutes = toNumber(minutesInput.value);
+      const seconds = toNumber(secondsInput.value);
+
+      if (!Number.isFinite(distanceValue) || distanceValue <= 0) {
+        renderEmptyState("Enter a distance above to see pacing info.");
+        return;
+      }
+
+      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+      if (totalSeconds <= 0) {
+        renderEmptyState("Add a goal time to generate pacing details.");
+        return;
+      }
+
+      const distanceKm = unit === "kilometers" ? distanceValue : distanceValue * MILE_IN_KM;
+      const distanceMiles = distanceKm / MILE_IN_KM;
+
+      const paceSecondsPerKm = totalSeconds / distanceKm;
+      const paceSecondsPerMile = totalSeconds / distanceMiles;
+
+      pacePerKmEl.textContent = `${formatTime(paceSecondsPerKm)} / km`;
+      pacePerMileEl.textContent = `${formatTime(paceSecondsPerMile)} / mi`;
+      distanceSummaryEl.textContent = `${formatDistance(distanceKm)} km · ${formatDistance(distanceMiles)} mi`;
+      goalTimeEl.textContent = formatTime(totalSeconds);
+
+      renderSplits({
+        totalSeconds,
+        distanceKm,
+        paceSecondsPerKm,
+        paceSecondsPerMile,
+        basis: splitBasisSelect.value
+      });
+    }
+
+    function renderEmptyState(message) {
+      pacePerKmEl.textContent = "–";
+      pacePerMileEl.textContent = "–";
+      distanceSummaryEl.textContent = "–";
+      goalTimeEl.textContent = "–";
+      splitSummaryEl.textContent = message;
+      splitsTableBody.innerHTML = `<tr><td colspan="4" class="px-3 py-4 text-center text-sm text-gray-500">${message}</td></tr>`;
+    }
+
+    function renderSplits({ totalSeconds, distanceKm, paceSecondsPerKm, paceSecondsPerMile, basis }) {
+      const basisIsKm = basis === "kilometer";
+      const basisLabel = basisIsKm ? "km" : "mi";
+      const stepKm = basisIsKm ? 1 : MILE_IN_KM;
+      const pacePerStepSeconds = basisIsKm ? paceSecondsPerKm : paceSecondsPerMile;
+      const totalDistanceBase = basisIsKm ? distanceKm : distanceKm / MILE_IN_KM;
+      const totalSteps = Math.floor(totalDistanceBase + 1e-9);
+
+      let rows = "";
+      let cumulativeSeconds = 0;
+      let coveredKm = 0;
+      let hasSplits = false;
+
+      for (let i = 0; i < totalSteps; i += 1) {
+        coveredKm += stepKm;
+        cumulativeSeconds += pacePerStepSeconds;
+        rows += createSplitRow({
+          label: `${basisLabel.toUpperCase()} ${i + 1}`,
+          distanceDisplay: `1 ${basisLabel}`,
+          splitSeconds: pacePerStepSeconds,
+          cumulativeSeconds
+        });
+        hasSplits = true;
+      }
+
+      const remainingKm = Math.max(0, distanceKm - coveredKm);
+      if (remainingKm > 1e-6) {
+        const remainingDistanceBase = basisIsKm ? remainingKm : remainingKm / MILE_IN_KM;
+        const splitSeconds = basisIsKm
+          ? remainingKm * paceSecondsPerKm
+          : remainingDistanceBase * paceSecondsPerMile;
+        cumulativeSeconds = totalSeconds;
+        rows += createSplitRow({
+          label: "Final",
+          distanceDisplay: `${formatDistance(remainingDistanceBase)} ${basisLabel}`,
+          splitSeconds,
+          cumulativeSeconds
+        });
+        hasSplits = true;
+      }
+
+      if (!hasSplits) {
+        splitSummaryEl.textContent = `Distance is shorter than one ${basisLabel}. Switch the split option or increase the distance.`;
+        splitsTableBody.innerHTML = `<tr><td colspan="4" class="px-3 py-4 text-center text-sm text-gray-500">Distance is shorter than one ${basisLabel}. Switch the split option or increase the distance.</td></tr>`;
+        return;
+      }
+
+      splitsTableBody.innerHTML = rows;
+      splitSummaryEl.textContent = `Showing ${basisLabel} splits for ${formatDistance(totalDistanceBase)} ${basisLabel} in ${formatTime(totalSeconds)}.`;
+    }
+
+    function createSplitRow({ label, distanceDisplay, splitSeconds, cumulativeSeconds }) {
+      return `
+        <tr>
+          <td class="px-3 py-2 font-medium text-gray-800">${label}</td>
+          <td class="px-3 py-2 text-gray-600">${distanceDisplay}</td>
+          <td class="px-3 py-2 text-gray-800">${formatTime(splitSeconds)}</td>
+          <td class="px-3 py-2 text-gray-800">${formatTime(cumulativeSeconds)}</td>
+        </tr>
+      `;
+    }
+
+    distancePreset.addEventListener("change", updateFromPreset);
+    distanceInput.addEventListener("input", updateResults);
+    distanceUnit.addEventListener("change", updateResults);
+    hoursInput.addEventListener("input", updateResults);
+    minutesInput.addEventListener("input", updateResults);
+    secondsInput.addEventListener("input", updateResults);
+    splitBasisSelect.addEventListener("change", updateResults);
+
+    updateResults();
+  </script>
+</body>
+</html>
