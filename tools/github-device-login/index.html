@@ -33,13 +33,15 @@
           <label for="proxy" class="block text-sm font-medium text-gray-700">GitHub request proxy</label>
           <input
             id="proxy"
-            type="url"
+            type="text"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            placeholder="https://cors.isomorphic-git.org"
+            placeholder="https://cors.isomorphic-git.org or /github-device-proxy"
+            spellcheck="false"
           />
           <p class="text-sm text-gray-500">
-            GitHub's OAuth endpoints do not send CORS headers, so requests must be routed through a proxy when used from the
-            browser. The default uses <code>https://cors.isomorphic-git.org</code>. Clear this field to call GitHub directly.
+            GitHub's OAuth endpoints do not send CORS headers, so requests are proxied through <code>/github-device-proxy</code>
+            by default. Provide a different proxy URL if you prefer another service, or clear the field to attempt a direct call
+            (likely to fail).
           </p>
         </div>
         <button
@@ -118,7 +120,7 @@
       const CLIENT_ID = "Ov23lixSWZwZVeDeb8t9";
       const STORAGE_KEY = "github-device-login-token";
       const PROXY_KEY = "github-device-login-proxy";
-      const DEFAULT_PROXY = "https://cors.isomorphic-git.org";
+      const DEFAULT_PROXY = new URL("/github-device-proxy", window.location.origin).href;
 
       const startButton = document.getElementById("startButton");
       const scopesInput = document.getElementById("scopes");
@@ -139,6 +141,11 @@
       let pollDelayMs = 5000;
       let tokenVisible = false;
 
+      const requestHeaders = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      };
+
       function setStatus(message, type = "info") {
         statusEl.textContent = message;
         statusEl.className = `text-sm ${
@@ -150,21 +157,80 @@
         }`;
       }
 
-      function getProxyBase() {
-        const raw = proxyInput.value.trim();
-        if (!raw) {
-          return "";
+      function describeNetworkError(error) {
+        if (error instanceof TypeError) {
+          return "Network request failed. Check the proxy setting and try again.";
         }
-        return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+        return error?.message || String(error);
       }
 
-      function githubUrl(path) {
-        const proxyBase = getProxyBase();
-        const target = `https://github.com${path}`;
-        if (!proxyBase) {
-          return target;
+      function getProxyConfiguration() {
+        const raw = proxyInput.value.trim();
+        if (!raw) {
+          return { type: "direct" };
         }
-        return `${proxyBase}/${target}`;
+        try {
+          const resolved = new URL(raw, window.location.origin);
+          const normalizedPath = resolved.pathname.replace(/\/$/, "");
+          const normalizedUrl = `${resolved.origin}${normalizedPath}${resolved.search}${resolved.hash}`;
+          if (resolved.origin === window.location.origin) {
+            return { type: "internal", url: normalizedUrl };
+          }
+          return { type: "external", url: normalizedUrl };
+        } catch (error) {
+          return { type: "external", url: raw };
+        }
+      }
+
+      function buildExternalProxyUrl(base, target) {
+        const encodedTarget = encodeURIComponent(target);
+        if (base.includes("{encodedTarget}")) {
+          return base.replaceAll("{encodedTarget}", encodedTarget);
+        }
+        if (base.includes("{target}")) {
+          return base.replaceAll("{target}", target);
+        }
+        if (base.includes("{url}")) {
+          return base.replaceAll("{url}", encodedTarget);
+        }
+        if (base.includes("?")) {
+          const needsParam =
+            base.endsWith("?") || base.endsWith("&") || base.endsWith("=") ? "" : "&url=";
+          return `${base}${needsParam}${encodedTarget}`;
+        }
+        const trimmed = base.endsWith("/") ? base.slice(0, -1) : base;
+        return `${trimmed}/${target}`;
+      }
+
+      function postToGitHub(path, params) {
+        const proxy = getProxyConfiguration();
+        const endpoint = `https://github.com${path}`;
+        const body = new URLSearchParams(params).toString();
+
+        if (proxy.type === "internal") {
+          return fetch(proxy.url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              endpoint,
+              body,
+              headers: requestHeaders,
+            }),
+          });
+        }
+
+        const targetUrl =
+          proxy.type === "external" ? buildExternalProxyUrl(proxy.url, endpoint) : endpoint;
+
+        return fetch(targetUrl, {
+          method: "POST",
+          headers: requestHeaders,
+          body,
+          mode: "cors",
+          credentials: "omit",
+        });
       }
 
       function showVerificationSection({ user_code, verification_uri, expires_in }) {
@@ -215,23 +281,14 @@
         hideVerificationSection();
         clearPolling();
 
-        const body = new URLSearchParams({ client_id: CLIENT_ID });
+        const params = { client_id: CLIENT_ID };
         const scope = scopesInput.value.trim();
         if (scope) {
-          body.set("scope", scope);
+          params.scope = scope;
         }
 
         try {
-          const response = await fetch(githubUrl("/login/device/code"), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              Accept: "application/json",
-            },
-            body,
-            mode: "cors",
-            credentials: "omit",
-          });
+          const response = await postToGitHub("/login/device/code", params);
 
           if (!response.ok) {
             throw new Error(`GitHub responded with ${response.status}`);
@@ -246,33 +303,17 @@
           });
         } catch (error) {
           console.error(error);
-          setStatus(
-            `Failed to start device flow: ${
-              error instanceof TypeError && error.message === "Failed to fetch"
-                ? "GitHub blocked the request. Provide a proxy URL above or try again."
-                : error.message
-            }`,
-            "error"
-          );
+          setStatus(`Failed to start device flow: ${describeNetworkError(error)}`, "error");
           startButton.disabled = false;
         }
       }
 
       async function pollForToken({ deviceCode }) {
         try {
-          const response = await fetch(githubUrl("/login/oauth/access_token"), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              Accept: "application/json",
-            },
-            body: new URLSearchParams({
-              client_id: CLIENT_ID,
-              device_code: deviceCode,
-              grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-            }),
-            mode: "cors",
-            credentials: "omit",
+          const response = await postToGitHub("/login/oauth/access_token", {
+            client_id: CLIENT_ID,
+            device_code: deviceCode,
+            grant_type: "urn:ietf:params:oauth:grant-type:device_code",
           });
 
           if (!response.ok) {
@@ -321,14 +362,7 @@
           }
         } catch (error) {
           console.error(error);
-          setStatus(
-            `Polling failed: ${
-              error instanceof TypeError && error.message === "Failed to fetch"
-                ? "GitHub blocked the request. Provide a proxy URL above or try again."
-                : error.message
-            }`,
-            "error"
-          );
+          setStatus(`Polling failed: ${describeNetworkError(error)}`, "error");
           startButton.disabled = false;
           clearPolling();
         }
