@@ -9,4 +9,5 @@ Tools live in the [`./tools`](./tools) directory.
 - [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw)
 - [Basic QR Code Generator](https://tools.dave.engineer/tools/basic-qr-code)
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table)
+- [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html)
 - [Word & Character Count](https://tools.dave.engineer/tools/word-character-count)
