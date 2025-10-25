@@ -12,6 +12,7 @@ Tools live in the [`./tools`](./tools) directory.
 
 - [2D Size Comparator](https://tools.dave.engineer/tools/area-size-comparator) — Visualize and compare rectangular dimensions with overlays.
 - [3D Game of Life](https://tools.dave.engineer/tools/3d-game-of-life) — Explore animated voxel life simulation
+- [Ambient Noise Profiler](https://tools.dave.engineer/tools/ambient-noise-profiler) — Real-time ambient frequency visualizer
 - [Basic QR Code Generator](https://tools.dave.engineer/tools/basic-qr-code) — Generate QR codes from text
 - [Bubble Level](https://tools.dave.engineer/tools/bubble-level) — Simple digital bubble level
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
