@@ -4,70 +4,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tools</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 2rem auto;
-      max-width: 720px;
-      line-height: 1.6;
-      color: #1f2933;
-      background: #f8fafc;
-      padding: 0 1.5rem 4rem;
-    }
-    header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-    }
-    p {
-      margin: 0.75rem 0;
-    }
-    ul {
-      padding-left: 1.25rem;
-    }
-    a {
-      color: #0f7ae5;
-      text-decoration: none;
-    }
-    a:hover,
-    a:focus {
-      text-decoration: underline;
-    }
-    footer {
-      margin-top: 3rem;
-      font-size: 0.95rem;
-      color: #52606d;
-      border-top: 1px solid #d9e2ec;
-      padding-top: 1rem;
-    }
-  </style>
+  <link rel="stylesheet" href="/assets/tw.css">
 </head>
 <body>
-  <header>
-    <h1>Tools</h1>
-    <p>Collection of tools. Inspired by <a href="https://github.com/simonw/tools">simonw/tools</a>.</p>
-    <p>Made by <a href="https://dave.engineer/">Dave Hulbert</a>.</p>
-  </header>
+  <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+    <header class="space-y-2 text-center">
+      <h1 class="text-4xl font-semibold text-gray-900">Tools</h1>
+      <p class="text-gray-600">Collection of tools. Inspired by <a href="https://github.com/simonw/tools" class="font-medium">simonw/tools</a>.</p>
+      <p class="text-gray-600">Made by <a href="https://dave.engineer/" class="font-medium">Dave Hulbert</a>.</p>
+    </header>
 
-  <main>
-    <p>Tools live in the <a href="./tools">./tools</a> directory.</p>
+    <p>Tools live in the <a href="./tools" class="font-medium">./tools</a> directory.</p>
 
-    <section>
-      <h2>All tools</h2>
-      <ul>
-        <li><a href="/tools/lux-to-ansi-throw">Lux to ANSI Throw Converter</a></li>
-        <li><a href="/tools/basic-qr-code">Basic QR Code Generator</a></li>
-        <li><a href="/tools/csv-markdown-table">CSV ⇄ Markdown Table Converter</a></li>
-        <li><a href="/tools/word-character-count">Word &amp; Character Count</a></li>
+    <section class="space-y-3">
+      <h2 class="text-2xl font-semibold text-gray-900">All tools</h2>
+      <ul class="space-y-2">
+        <li><a href="/tools/lux-to-ansi-throw" class="font-medium">Lux to ANSI Throw Converter</a></li>
+        <li><a href="/tools/basic-qr-code" class="font-medium">Basic QR Code Generator</a></li>
+        <li><a href="/tools/csv-markdown-table" class="font-medium">CSV ⇄ Markdown Table Converter</a></li>
+        <li><a href="/tools/word-character-count" class="font-medium">Word &amp; Character Count</a></li>
       </ul>
     </section>
-  </main>
 
-  <footer>
-    <p>View the project on <a href="https://github.com/dave1010/tools">GitHub</a>.</p>
-  </footer>
+    <footer class="border-t border-gray-200 pt-4 text-sm text-gray-600">
+      <p>View the project on <a href="https://github.com/dave1010/tools" class="font-medium">GitHub</a>.</p>
+    </footer>
+  </main>
 </body>
 </html>
