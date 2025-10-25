@@ -21,6 +21,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html) — Convert Markdown content into HTML
 - [Morse Code to Text](https://tools.dave.engineer/tools/morse-code-to-text) — Tap or hold to transcribe Morse code into plain text
 - [QR Code Reader](https://tools.dave.engineer/tools/qr-code-reader) — Upload QR code image and extract text/URL
+- [Scratch Pad](https://tools.dave.engineer/tools/scratch-pad) — Quick notes with local storage
 - [Speed Unit Converter](https://tools.dave.engineer/tools/speed-unit-converter) — Convert speed units instantly
 - [Word & Character Count](https://tools.dave.engineer/tools/word-character-count) — Count words and characters instantly
 
