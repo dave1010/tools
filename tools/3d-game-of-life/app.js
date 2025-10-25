@@ -1,10 +1,9 @@
-const container = document.getElementById('life-container');
+document.documentElement.style.height = '100%';
+document.body.style.height = '100%';
+document.body.style.margin = '0';
+document.body.style.overflow = 'hidden';
 
-if (!container) {
-  throw new Error('Unable to find life-container element.');
-}
-
-container.style.touchAction = 'none';
+const container = document.body;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x04110a);
@@ -22,14 +21,16 @@ const ambientColor = new THREE.Color(0x1f2937);
 const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.domElement.style.width = '100%';
-renderer.domElement.style.height = '100%';
-container.appendChild(renderer.domElement);
+const canvas = renderer.domElement;
+canvas.style.width = '100%';
+canvas.style.height = '100%';
+canvas.style.display = 'block';
+canvas.style.touchAction = 'none';
+container.appendChild(canvas);
 
 const resizeRenderer = () => {
-  const { clientWidth, clientHeight } = container;
-  const width = Math.max(1, clientWidth);
-  const height = Math.max(1, clientHeight);
+  const width = Math.max(1, window.innerWidth);
+  const height = Math.max(1, window.innerHeight);
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
@@ -37,8 +38,6 @@ const resizeRenderer = () => {
 
 resizeRenderer();
 
-const resizeObserver = new ResizeObserver(resizeRenderer);
-resizeObserver.observe(container);
 window.addEventListener('resize', resizeRenderer);
 
 const ambientLight = new THREE.AmbientLight(ambientColor, 0.5);
@@ -149,7 +148,7 @@ const updateGrid = () => {
 };
 
 const normalizePointer = (clientX, clientY) => {
-  const rect = container.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
   if (
     clientX < rect.left ||
     clientX > rect.right ||
@@ -204,13 +203,13 @@ const pointerUp = () => {
   isDrawing = false;
 };
 
-container.addEventListener('mousedown', pointerDown);
-container.addEventListener('mousemove', pointerMove);
-container.addEventListener('mouseleave', pointerUp);
+canvas.addEventListener('mousedown', pointerDown);
+canvas.addEventListener('mousemove', pointerMove);
+canvas.addEventListener('mouseleave', pointerUp);
 window.addEventListener('mouseup', pointerUp);
 window.addEventListener('blur', pointerUp);
 
-container.addEventListener(
+canvas.addEventListener(
   'touchstart',
   (event) => {
     event.preventDefault();
@@ -218,7 +217,7 @@ container.addEventListener(
   },
   { passive: false }
 );
-container.addEventListener(
+canvas.addEventListener(
   'touchmove',
   (event) => {
     event.preventDefault();
