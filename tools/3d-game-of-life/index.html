@@ -4,37 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D Game of Life</title>
-    <link rel="stylesheet" href="/assets/tw.css" />
-  </head>
-  <body class="bg-gradient-to-b from-brand-50/60 to-white">
-    <main class="mx-auto flex min-h-screen max-w-5xl flex-col space-y-6 p-4 font-sans md:p-6">
-      <header class="space-y-2 text-center md:text-left">
-        <h1 class="text-3xl font-semibold text-gray-900 md:text-4xl">3D Game of Life</h1>
-        <p class="text-base text-gray-600 md:text-lg">
-          Watch a glowing voxel grid evolve with Conway's rules, toggle cells alive by moving your pointer,
-          and pause the drifting camera to inspect the world from any angle.
-        </p>
-        <div class="flex flex-wrap justify-center gap-3 text-sm text-gray-500 md:justify-start">
-          <span class="rounded-full bg-brand-100 px-3 py-1 font-medium text-brand-700">Space: toggle camera orbit</span>
-          <span class="rounded-full bg-brand-100 px-3 py-1 font-medium text-brand-700">Click / tap & drag: seed cells</span>
-        </div>
-      </header>
-      <section class="flex-1">
-        <div
-          id="life-container"
-          class="relative w-full overflow-hidden rounded-2xl border border-brand-200 bg-gray-900 shadow-lg"
-          style="min-height: clamp(320px, 70vh, 720px);"
-        ></div>
-      </section>
-      <footer class="py-6 text-center text-sm text-gray-500">
-        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
-      </footer>
-    </main>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #04110a;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
       defer
       onerror="alert('Failed to load: ' + this.src)"
     ></script>
     <script src="./app.js" type="module" defer></script>
-  </body>
+  </head>
+  <body></body>
 </html>
