@@ -3,6 +3,7 @@ import path from 'path';
 
 const rootDir = process.cwd();
 const toolsDir = path.join(rootDir, 'tools');
+const templatePath = path.join(rootDir, 'src', 'index.template.html');
 
 const entries = await fs.readdir(toolsDir, { withFileTypes: true });
 const tools = [];
@@ -66,6 +67,12 @@ const listItems = tools
   )
   .join('\n');
 
-const html = `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>Tools</title>\n  <link rel="stylesheet" href="/assets/tw.css">\n</head>\n<body>\n  <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">\n    <header class="space-y-2 text-center">\n      <h1 class="text-4xl font-semibold text-gray-900">Tools</h1>\n      <p class="text-gray-600">Collection of tools. Inspired by <a href="https://github.com/simonw/tools" class="font-medium">simonw/tools</a>.</p>\n      <p class="text-gray-600">Made by <a href="https://dave.engineer/" class="font-medium">Dave Hulbert</a>.</p>\n    </header>\n\n    <p>Tools live in the <a href="./tools" class="font-medium">./tools</a> directory.</p>\n\n    <section class="space-y-3">\n      <h2 class="text-2xl font-semibold text-gray-900">All tools</h2>\n      <ul class="space-y-2">\n${listItems}\n      </ul>\n    </section>\n\n    <footer class="border-t border-gray-200 pt-4 text-sm text-gray-600">\n      <p>View the project on <a href="https://github.com/dave1010/tools" class="font-medium">GitHub</a>.</p>\n    </footer>\n  </main>\n</body>\n</html>\n`;
+const template = await fs.readFile(templatePath, 'utf8');
+
+if (!template.includes('{{TOOLS_LIST}}')) {
+  throw new Error(`Template ${templatePath} must include a {{TOOLS_LIST}} placeholder.`);
+}
+
+const html = template.replace('{{TOOLS_LIST}}', listItems);
 
 await fs.writeFile(path.join(rootDir, 'index.html'), html);
