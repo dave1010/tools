@@ -2,11 +2,14 @@
 
 ## Making a new tool
 
-- add a new dir in ./tools
-- add index.html and any other files
-- add a README.md with YAML front matter defining `title` and a 4-8 word `description`
-- run `npm run build` to regenerate the top level index.html from README metadata
-- add a link from README.md and top level index.html
+- Add a new dir in ./tools
+- Add index.html and any other files
+- Add a README.md with YAML front matter defining `title` and a 4-8 word `description`. Other README.md content is rarely needed.
+
+## Build & Deploy
+
+- Github Actions and Cloudflare automatically run `npm run build`, which will regenerate the top level index.html and README.md from tool README.md metadata.
+- `npm run build` rarey needs to be ran manually.
 
 ## Tests
 
@@ -16,6 +19,7 @@ None.
 
 - UMD is probably best, unkess you're composing multiple modern packages and know they expose export syntax.
 - Skip integrity hashes (LLMs get them wrong)
+- LLM training data may get URLs wrong. Add `onerror="alert('Failed to load: ' + this.src)"`
 
 ### jsDelivr
 
@@ -24,14 +28,16 @@ None.
 
 ### cdnjs
 
-- for well-known libraries
-- eg https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
-- explicit versions (@1.0.0) since it lacks semver resolution.
+- Only for very well-known libraries
+- Eg https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
+- Explicit versions (@1.0.0) since it lacks semver resolution.
 
-## Styling
+## Styling and Page Layout Guidelines
 
-- use the shared `/assets/tw.css`
-- Page wrapper: `<main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">…`
+- Use the shared `/assets/tw.css`
+- Page wrapper: `<main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">`
 - Primary button: `class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700"`
-- Limit inline styles.
-- ensure it works on mobile
+- The page should have the tool as its main focus. Eg use Flexbox (or CSS Grid) to have the tool fill the page
+- Consider how it looks on mobile.
+- Add a footer link to the home page [tools.dave.engineer](/)
+- These are guidelines! Different tools may need to look very different. Consider the request and what's best for the specific tool.
