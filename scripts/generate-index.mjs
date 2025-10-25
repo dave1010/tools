@@ -63,7 +63,19 @@ const escapeHtml = (value) =>
 
 const listItems = tools
   .map(
-    (tool) => `        <li class="space-y-1">\n          <a href="/tools/${tool.slug}" class="font-medium">${escapeHtml(tool.title)}</a>\n          <p class="text-sm text-gray-600">${escapeHtml(tool.description)}</p>\n        </li>`
+    (tool) => `        <li>
+          <a href="/tools/${tool.slug}" class="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-brand-500/60 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-100">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-lg font-semibold text-white transition-colors duration-200 group-hover:text-brand-100">${escapeHtml(tool.title)}</span>
+              <span aria-hidden="true" class="rounded-full bg-brand-500/20 p-2 text-brand-100 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-white">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7" />
+                </svg>
+              </span>
+            </div>
+            <p class="mt-3 text-sm text-white/70">${escapeHtml(tool.description)}</p>
+          </a>
+        </li>`
   )
   .join('\n');
 
@@ -73,7 +85,11 @@ if (!template.includes('{{TOOLS_LIST}}')) {
   throw new Error(`Template ${templatePath} must include a {{TOOLS_LIST}} placeholder.`);
 }
 
-const html = template.replace('{{TOOLS_LIST}}', listItems);
+let html = template.replace('{{TOOLS_LIST}}', listItems);
+
+if (template.includes('{{TOOLS_COUNT}}')) {
+  html = html.replace(/{{TOOLS_COUNT}}/g, String(tools.length));
+}
 
 await fs.writeFile(path.join(rootDir, 'index.html'), html);
 
