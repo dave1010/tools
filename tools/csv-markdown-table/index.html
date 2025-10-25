@@ -4,238 +4,64 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CSV ⇄ Markdown Table Converter</title>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
-    />
-    <style>
-      :root {
-        color-scheme: light dark;
-        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
-        line-height: 1.5;
-        background: radial-gradient(circle at top, #f8fbff 0%, #eef4ff 45%, #edf2ff 100%);
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: clamp(1.5rem, 5vw, 3rem);
-      }
-
-      main {
-        background: rgba(255, 255, 255, 0.92);
-        backdrop-filter: blur(8px);
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
-        padding: clamp(1.75rem, 4vw, 2.75rem);
-        max-width: 960px;
-        width: 100%;
-      }
-
-      header {
-        text-align: center;
-        margin-bottom: 2rem;
-      }
-
-      h1 {
-        margin: 0 0 0.5rem;
-        font-size: clamp(2rem, 3vw + 1rem, 2.7rem);
-        color: #1f2937;
-      }
-
-      p {
-        margin: 0.25rem 0;
-        color: #4b5563;
-      }
-
-      .grid {
-        display: grid;
-        gap: clamp(1.5rem, 4vw, 2.5rem);
-      }
-
-      @media (min-width: 900px) {
-        .grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-
-      section {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-      }
-
-      h2 {
-        margin: 0;
-        font-size: 1.25rem;
-        color: #1f2937;
-      }
-
-      textarea {
-        width: 100%;
-        min-height: 240px;
-        resize: vertical;
-        border-radius: 14px;
-        border: 1px solid rgba(15, 23, 42, 0.12);
-        padding: 1rem 1.1rem;
-        font-size: 0.95rem;
-        font-family: "Fira Code", "SFMono-Regular", ui-monospace, "SF Mono",
-          Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        line-height: 1.6;
-        background: rgba(248, 250, 252, 0.85);
-        transition: border 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-      }
-
-      textarea:focus {
-        outline: none;
-        border-color: rgba(59, 130, 246, 0.7);
-        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
-        background: #ffffff;
-      }
-
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-      }
-
-      button {
-        border: none;
-        border-radius: 999px;
-        padding: 0.75rem 1.6rem;
-        font-size: 0.95rem;
-        font-weight: 600;
-        cursor: pointer;
-        color: white;
-        background: linear-gradient(135deg, #2563eb, #7c3aed);
-        box-shadow: 0 12px 28px rgba(99, 102, 241, 0.25);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-      }
-
-      button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 16px 36px rgba(99, 102, 241, 0.3);
-      }
-
-      button.secondary {
-        background: transparent;
-        color: #1f2937;
-        border: 1px solid rgba(15, 23, 42, 0.1);
-        box-shadow: none;
-      }
-
-      .status {
-        margin-top: 1.5rem;
-        border-radius: 12px;
-        padding: 0.85rem 1rem;
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        background: rgba(59, 130, 246, 0.12);
-        color: #1d4ed8;
-      }
-
-      .status.error {
-        background: rgba(239, 68, 68, 0.12);
-        color: #b91c1c;
-      }
-
-      footer {
-        margin-top: 2rem;
-        font-size: 0.9rem;
-        text-align: center;
-        color: #6b7280;
-      }
-
-      footer a {
-        color: inherit;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          background: radial-gradient(circle at top, #0f172a 0%, #111827 45%, #0b1120 100%);
-        }
-
-        main {
-          background: rgba(15, 23, 42, 0.78);
-          box-shadow: 0 24px 60px rgba(8, 47, 73, 0.55);
-        }
-
-        h1,
-        h2 {
-          color: #e2e8f0;
-        }
-
-        p,
-        footer {
-          color: #94a3b8;
-        }
-
-        textarea {
-          background: rgba(15, 23, 42, 0.85);
-          border-color: rgba(148, 163, 184, 0.25);
-          color: #e2e8f0;
-        }
-
-        button.secondary {
-          color: #e2e8f0;
-          border-color: rgba(148, 163, 184, 0.3);
-        }
-
-        .status {
-          background: rgba(37, 99, 235, 0.18);
-          color: #93c5fd;
-        }
-
-        .status.error {
-          background: rgba(248, 113, 113, 0.18);
-          color: #fecaca;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="/assets/tw.css" />
   </head>
-  <body>
-    <main>
-      <header>
-        <h1>CSV ⇄ Markdown Table Converter</h1>
-        <p>Convert data between CSV and GitHub-flavored Markdown tables.</p>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6 lg:max-w-5xl">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">CSV ⇄ Markdown Table Converter</h1>
+        <p class="text-gray-600">Convert data between CSV and GitHub-flavored Markdown tables.</p>
       </header>
 
-      <div class="grid">
-        <section>
-          <h2>CSV</h2>
-          <textarea id="csv-input" placeholder="name,age\nAda,36\nGrace,45"></textarea>
-          <div class="actions">
-            <button id="csv-to-md">Convert CSV → Markdown</button>
-            <button id="clear-csv" class="secondary">Clear</button>
-          </div>
-        </section>
+      <div class="card mx-auto w-full space-y-8 p-6 shadow-soft md:p-8">
+        <div class="grid gap-6 lg:grid-cols-2">
+          <section class="space-y-3">
+            <h2 class="text-xl font-semibold text-gray-900">CSV</h2>
+            <textarea
+              id="csv-input"
+              class="h-60 w-full rounded-xl border border-gray-200 bg-white p-4 font-mono text-sm leading-6 shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+              placeholder="name,age&#10;Ada,36&#10;Grace,45"
+            ></textarea>
+            <div class="flex flex-wrap gap-3">
+              <button id="csv-to-md" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700">Convert CSV → Markdown</button>
+              <button
+                id="clear-csv"
+                class="rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:border-brand-500 hover:text-brand-600"
+              >
+                Clear
+              </button>
+            </div>
+          </section>
 
-        <section>
-          <h2>Markdown table</h2>
-          <textarea
-            id="markdown-input"
-            placeholder="| name | age |\n| --- | --- |\n| Ada | 36 |\n| Grace | 45 |"
-          ></textarea>
-          <div class="actions">
-            <button id="md-to-csv">Convert Markdown → CSV</button>
-            <button id="clear-md" class="secondary">Clear</button>
-          </div>
-        </section>
+          <section class="space-y-3">
+            <h2 class="text-xl font-semibold text-gray-900">Markdown table</h2>
+            <textarea
+              id="markdown-input"
+              class="h-60 w-full rounded-xl border border-gray-200 bg-white p-4 font-mono text-sm leading-6 shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+              placeholder="| name | age |&#10;| --- | --- |&#10;| Ada | 36 |&#10;| Grace | 45 |"
+            ></textarea>
+            <div class="flex flex-wrap gap-3">
+              <button id="md-to-csv" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700">Convert Markdown → CSV</button>
+              <button
+                id="clear-md"
+                class="rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:border-brand-500 hover:text-brand-600"
+              >
+                Clear
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div
+          id="status"
+          class="hidden rounded-xl border px-4 py-3 text-sm font-medium"
+          hidden
+          role="status"
+        ></div>
       </div>
 
-      <div id="status" class="status" hidden></div>
-
-      <footer>
-        <p>
-          Everything happens locally in your browser. Paste, convert, and share your
-          tables with ease.
-        </p>
+      <footer class="text-center text-sm text-gray-600">
+        <p>Everything happens locally in your browser. Paste, convert, and share your tables with ease.</p>
       </footer>
     </main>
 
@@ -251,13 +77,25 @@
       const showStatus = (message, isError = false) => {
         statusBox.textContent = message;
         statusBox.hidden = false;
-        statusBox.classList.toggle("error", isError);
+        statusBox.classList.toggle("bg-brand-50", !isError);
+        statusBox.classList.toggle("border-brand-100", !isError);
+        statusBox.classList.toggle("text-brand-700", !isError);
+        statusBox.classList.toggle("bg-red-50", isError);
+        statusBox.classList.toggle("border-red-200", isError);
+        statusBox.classList.toggle("text-red-700", isError);
       };
 
       const hideStatus = () => {
         statusBox.hidden = true;
         statusBox.textContent = "";
-        statusBox.classList.remove("error");
+        statusBox.classList.remove(
+          "bg-brand-50",
+          "border-brand-100",
+          "text-brand-700",
+          "bg-red-50",
+          "border-red-200",
+          "text-red-700"
+        );
       };
 
       const parseCSV = (text) => {
@@ -398,15 +236,14 @@
           const rows = parseCSV(csvInput.value);
           if (!rows.length) {
             markdownInput.value = "";
-            showStatus("CSV input cleared. Nothing to convert yet.");
+            showStatus("No CSV data found to convert.");
             return;
           }
-          const markdown = arrayToMarkdown(rows);
-          markdownInput.value = markdown;
+
+          markdownInput.value = arrayToMarkdown(rows);
           showStatus("Converted CSV to Markdown table.");
         } catch (error) {
-          console.error(error);
-          showStatus("Could not convert CSV. Check for balanced quotes or commas.", true);
+          showStatus(`Couldn't convert CSV: ${error.message}`, true);
         }
       };
 
@@ -415,30 +252,31 @@
           const rows = parseMarkdownTable(markdownInput.value);
           if (!rows.length) {
             csvInput.value = "";
-            showStatus("Markdown input cleared. Nothing to convert yet.");
+            showStatus("No Markdown table data found to convert.");
             return;
           }
-          const csv = arrayToCSV(rows);
-          csvInput.value = csv;
+
+          csvInput.value = arrayToCSV(rows);
           showStatus("Converted Markdown table to CSV.");
         } catch (error) {
-          console.error(error);
-          showStatus("Could not convert Markdown. Make sure the table is well-formed.", true);
+          showStatus(`Couldn't convert Markdown table: ${error.message}`, true);
         }
+      };
+
+      const clearCsv = () => {
+        csvInput.value = "";
+        hideStatus();
+      };
+
+      const clearMarkdown = () => {
+        markdownInput.value = "";
+        hideStatus();
       };
 
       csvToMarkdownButton.addEventListener("click", convertCsvToMarkdown);
       markdownToCsvButton.addEventListener("click", convertMarkdownToCsv);
-
-      clearCsvButton.addEventListener("click", () => {
-        csvInput.value = "";
-        hideStatus();
-      });
-
-      clearMarkdownButton.addEventListener("click", () => {
-        markdownInput.value = "";
-        hideStatus();
-      });
+      clearCsvButton.addEventListener("click", clearCsv);
+      clearMarkdownButton.addEventListener("click", clearMarkdown);
 
       csvInput.addEventListener("input", hideStatus);
       markdownInput.addEventListener("input", hideStatus);
