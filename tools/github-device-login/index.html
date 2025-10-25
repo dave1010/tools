@@ -29,21 +29,6 @@
             Provide a space-separated list of scopes. Leave blank for the default (no extra scopes).
           </p>
         </div>
-        <div class="space-y-1">
-          <label for="proxy" class="block text-sm font-medium text-gray-700">GitHub request proxy</label>
-          <input
-            id="proxy"
-            type="text"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            placeholder="https://cors.isomorphic-git.org or /github-device-proxy"
-            spellcheck="false"
-          />
-          <p class="text-sm text-gray-500">
-            GitHub's OAuth endpoints do not send CORS headers, so requests are proxied through <code>/github-device-proxy</code>
-            by default. Provide a different proxy URL if you prefer another service, or clear the field to attempt a direct call
-            (likely to fail).
-          </p>
-        </div>
         <button
           id="startButton"
           class="bg-brand-600 text-white rounded-lg px-3 py-2 font-medium hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:cursor-not-allowed disabled:bg-brand-300"
@@ -63,7 +48,7 @@
           <div class="flex gap-2">
             <button
               id="copyCode"
-              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
               Copy code
             </button>
@@ -87,19 +72,19 @@
           <div class="flex gap-2">
             <button
               id="revealToken"
-              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
               Reveal
             </button>
             <button
               id="copyToken"
-              class="rounded-lg border border-brand-200 px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:text-brand-800"
+              class="rounded-lg border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
               Copy
             </button>
             <button
               id="clearToken"
-              class="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:border-red-300 hover:text-red-700"
+              class="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
             >
               Clear
             </button>
@@ -119,12 +104,10 @@
     <script>
       const CLIENT_ID = "Ov23lixSWZwZVeDeb8t9";
       const STORAGE_KEY = "github-device-login-token";
-      const PROXY_KEY = "github-device-login-proxy";
-      const DEFAULT_PROXY = new URL("/github-device-proxy", window.location.origin).href;
+      const PROXY_URL = "/github-device-proxy";
 
       const startButton = document.getElementById("startButton");
       const scopesInput = document.getElementById("scopes");
-      const proxyInput = document.getElementById("proxy");
       const statusEl = document.getElementById("status");
       const verificationSection = document.getElementById("verificationSection");
       const userCodeEl = document.getElementById("userCode");
@@ -159,77 +142,25 @@
 
       function describeNetworkError(error) {
         if (error instanceof TypeError) {
-          return "Network request failed. Check the proxy setting and try again.";
+          return "Network request failed. Try again in a moment.";
         }
         return error?.message || String(error);
       }
 
-      function getProxyConfiguration() {
-        const raw = proxyInput.value.trim();
-        if (!raw) {
-          return { type: "direct" };
-        }
-        try {
-          const resolved = new URL(raw, window.location.origin);
-          const normalizedPath = resolved.pathname.replace(/\/$/, "");
-          const normalizedUrl = `${resolved.origin}${normalizedPath}${resolved.search}${resolved.hash}`;
-          if (resolved.origin === window.location.origin) {
-            return { type: "internal", url: normalizedUrl };
-          }
-          return { type: "external", url: normalizedUrl };
-        } catch (error) {
-          return { type: "external", url: raw };
-        }
-      }
-
-      function buildExternalProxyUrl(base, target) {
-        const encodedTarget = encodeURIComponent(target);
-        if (base.includes("{encodedTarget}")) {
-          return base.replaceAll("{encodedTarget}", encodedTarget);
-        }
-        if (base.includes("{target}")) {
-          return base.replaceAll("{target}", target);
-        }
-        if (base.includes("{url}")) {
-          return base.replaceAll("{url}", encodedTarget);
-        }
-        if (base.includes("?")) {
-          const needsParam =
-            base.endsWith("?") || base.endsWith("&") || base.endsWith("=") ? "" : "&url=";
-          return `${base}${needsParam}${encodedTarget}`;
-        }
-        const trimmed = base.endsWith("/") ? base.slice(0, -1) : base;
-        return `${trimmed}/${target}`;
-      }
-
       function postToGitHub(path, params) {
-        const proxy = getProxyConfiguration();
         const endpoint = `https://github.com${path}`;
         const body = new URLSearchParams(params).toString();
 
-        if (proxy.type === "internal") {
-          return fetch(proxy.url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              endpoint,
-              body,
-              headers: requestHeaders,
-            }),
-          });
-        }
-
-        const targetUrl =
-          proxy.type === "external" ? buildExternalProxyUrl(proxy.url, endpoint) : endpoint;
-
-        return fetch(targetUrl, {
+        return fetch(PROXY_URL, {
           method: "POST",
-          headers: requestHeaders,
-          body,
-          mode: "cors",
-          credentials: "omit",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            endpoint,
+            body,
+            headers: requestHeaders,
+          }),
         });
       }
 
@@ -382,15 +313,6 @@
         requestDeviceCode();
       });
 
-      proxyInput.addEventListener("change", () => {
-        const value = proxyInput.value.trim();
-        if (value) {
-          localStorage.setItem(PROXY_KEY, value);
-        } else {
-          localStorage.removeItem(PROXY_KEY);
-        }
-      });
-
       copyCodeButton.addEventListener("click", async () => {
         const code = userCodeEl.textContent.trim();
         if (!code) return;
@@ -425,9 +347,6 @@
         setStatus("Stored token cleared.", "info");
       });
 
-      const savedProxy = localStorage.getItem(PROXY_KEY);
-      proxyInput.value = savedProxy || DEFAULT_PROXY;
-      proxyInput.dispatchEvent(new Event("change"));
       updateStoredTokenDisplay();
     </script>
   </body>
