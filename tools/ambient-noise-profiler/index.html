@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ambient Noise Profiler</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto flex min-h-screen max-w-3xl flex-col space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Ambient Noise Profiler</h1>
+        <p class="text-gray-600">
+          Sample your microphone and watch how sound energy moves across low, mid, and high frequency bands in real time.
+        </p>
+      </header>
+
+      <section class="flex flex-1 flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div class="space-y-3">
+            <p class="text-sm text-gray-600">
+              Press start and keep the tab in focus. Everything runs in your browser and the audio stream never leaves this device.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                id="toggle"
+                class="bg-brand-600 text-white rounded-lg px-3 py-1.5 font-medium hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                type="button"
+              >
+                Start profiling
+              </button>
+              <span id="status" class="text-sm text-gray-500">Waiting to start…</span>
+            </div>
+          </div>
+
+          <div class="space-y-2 rounded-xl border border-dashed border-brand-100 bg-brand-50/60 p-3 text-sm text-brand-800 md:max-w-xs">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-700">Tips</h2>
+            <ul class="list-inside list-disc space-y-1">
+              <li>Use headphones to avoid feedback loops.</li>
+              <li>Speak or play music to see peaks appear.</li>
+              <li>Close the tool or hit stop to release the mic.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-6 flex flex-1 flex-col gap-4">
+          <canvas
+            id="spectrum"
+            class="h-64 w-full rounded-2xl border border-gray-900/10 bg-gray-900"
+            role="img"
+            aria-label="Real-time frequency spectrum visualization"
+          ></canvas>
+
+          <div class="grid gap-4 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-sm text-gray-700 md:grid-cols-2">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold text-gray-900">Overall level</span>
+                <span id="levelValue" class="tabular-nums text-gray-900">0%</span>
+              </div>
+              <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div id="levelBar" class="h-full w-0 rounded-full bg-brand-500 transition-all duration-200 ease-out"></div>
+              </div>
+            </div>
+            <div class="space-y-1">
+              <span class="font-semibold text-gray-900">Strongest frequency</span>
+              <p id="peakFrequency" class="text-base font-medium text-brand-700">--</p>
+              <p class="text-xs text-gray-500">Estimated peak from analyser data (Hz).</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <a href="https://tools.dave.engineer" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+      </footer>
+    </main>
+
+    <script>
+      const toggleButton = document.getElementById('toggle');
+      const statusEl = document.getElementById('status');
+      const canvas = document.getElementById('spectrum');
+      const levelBar = document.getElementById('levelBar');
+      const levelValue = document.getElementById('levelValue');
+      const peakFrequencyEl = document.getElementById('peakFrequency');
+      const ctx = canvas.getContext('2d');
+
+      const BAR_COUNT = 48;
+
+      let audioContext = null;
+      let analyser = null;
+      let dataArray = null;
+      let mediaStream = null;
+      let mediaSource = null;
+      let animationId = null;
+      let running = false;
+      let canvasWidth = 0;
+      let canvasHeight = 0;
+
+      function updateStatus(message, isError = false) {
+        statusEl.textContent = message;
+        statusEl.classList.toggle('text-red-600', isError);
+        statusEl.classList.toggle('text-gray-500', !isError);
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        canvasWidth = rect.width;
+        canvasHeight = rect.height;
+      }
+
+      function clearCanvas() {
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
+
+      function resetReadings() {
+        levelBar.style.width = '0%';
+        levelValue.textContent = '0%';
+        peakFrequencyEl.textContent = '--';
+      }
+
+      function stopProfiling(message) {
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+          animationId = null;
+        }
+
+        if (mediaSource) {
+          try {
+            mediaSource.disconnect();
+          } catch (error) {
+            console.warn('Failed to disconnect media source', error);
+          }
+          mediaSource = null;
+        }
+
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+        }
+
+        if (audioContext) {
+          audioContext.close().catch(() => {});
+          audioContext = null;
+        }
+
+        analyser = null;
+        dataArray = null;
+
+        const wasRunning = running;
+        running = false;
+
+        toggleButton.textContent = 'Start profiling';
+        toggleButton.setAttribute('aria-pressed', 'false');
+        toggleButton.disabled = false;
+
+        if (message) {
+          updateStatus(message);
+        } else if (wasRunning) {
+          updateStatus('Microphone stopped. Start again anytime.');
+        }
+
+        resetReadings();
+        clearCanvas();
+      }
+
+      async function startProfiling() {
+        if (running) {
+          return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          updateStatus('Microphone access is not supported in this browser.', true);
+          return;
+        }
+
+        toggleButton.disabled = true;
+        updateStatus('Requesting microphone access…');
+
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              channelCount: 1,
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+            video: false,
+          });
+
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioContext = new AudioContextClass();
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 2048;
+          analyser.smoothingTimeConstant = 0.8;
+
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+          mediaSource = audioContext.createMediaStreamSource(mediaStream);
+          mediaSource.connect(analyser);
+
+          running = true;
+          toggleButton.disabled = false;
+          toggleButton.textContent = 'Stop profiling';
+          toggleButton.setAttribute('aria-pressed', 'true');
+          updateStatus('Listening…');
+
+          drawSpectrum();
+        } catch (error) {
+          const message =
+            error && (error.name === 'NotAllowedError' || error.name === 'SecurityError')
+              ? 'Microphone access was blocked. Adjust your browser permissions to continue.'
+              : 'Unable to access the microphone. Please try again.';
+          updateStatus(message, true);
+          toggleButton.disabled = false;
+          stopProfiling();
+        }
+      }
+
+      function drawSpectrum() {
+        if (!running || !analyser) {
+          return;
+        }
+
+        animationId = requestAnimationFrame(drawSpectrum);
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillStyle = 'rgba(17, 24, 39, 0.9)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        const barWidth = canvasWidth / BAR_COUNT;
+        const step = Math.max(1, Math.floor(dataArray.length / BAR_COUNT));
+        let total = 0;
+        let peak = 0;
+        let peakIndex = 0;
+
+        for (let i = 0; i < dataArray.length; i += 1) {
+          const value = dataArray[i];
+          total += value;
+          if (value > peak) {
+            peak = value;
+            peakIndex = i;
+          }
+        }
+
+        const overallLevel = dataArray.length ? total / dataArray.length / 255 : 0;
+        const levelPercent = Math.min(100, Math.round(overallLevel * 100));
+        levelBar.style.width = `${levelPercent}%`;
+        levelValue.textContent = `${levelPercent}%`;
+
+        if (peak > 0 && audioContext) {
+          const nyquist = audioContext.sampleRate / 2;
+          const frequency = Math.round((peakIndex / dataArray.length) * nyquist);
+          peakFrequencyEl.textContent = `${frequency.toLocaleString()} Hz`;
+        } else {
+          peakFrequencyEl.textContent = '--';
+        }
+
+        for (let i = 0; i < BAR_COUNT; i += 1) {
+          const start = i * step;
+          let sum = 0;
+          for (let j = 0; j < step && start + j < dataArray.length; j += 1) {
+            sum += dataArray[start + j];
+          }
+          const average = sum / step;
+          const magnitude = Number.isFinite(average) ? average / 255 : 0;
+          const barHeight = magnitude * canvasHeight * 0.9;
+          const x = i * barWidth;
+          const y = canvasHeight - barHeight;
+
+          const hue = 190 - magnitude * 80;
+          const lightness = 35 + magnitude * 30;
+          ctx.fillStyle = `hsl(${hue}, 85%, ${lightness}%)`;
+          ctx.fillRect(x + 1, y, Math.max(barWidth - 2, 1), barHeight);
+        }
+      }
+
+      toggleButton.addEventListener('click', () => {
+        if (running) {
+          stopProfiling();
+        } else {
+          startProfiling();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        if (!running) {
+          clearCanvas();
+        }
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && running) {
+          stopProfiling('Paused because the tab lost focus.');
+        }
+      });
+
+      window.addEventListener('pagehide', () => stopProfiling());
+
+      resizeCanvas();
+      clearCanvas();
+      resetReadings();
+    </script>
+  </body>
+</html>
