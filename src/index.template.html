@@ -8,36 +8,50 @@
   <meta name="theme-color" content="#0f172a">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
   <link rel="stylesheet" href="/assets/tw.css">
+  <style>
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 antialiased">
+<body class="bg-black text-slate-100 antialiased">
   <div class="relative isolate min-h-screen overflow-hidden">
-    <div class="pointer-events-none absolute inset-0 -z-10 opacity-80">
-      <div class="absolute inset-x-[-30%] top-[-20%] h-[60vh] rounded-full bg-gradient-to-r from-brand-500/50 via-purple-500/40 to-sky-500/40 blur-3xl"></div>
-      <div class="absolute inset-x-[-30%] bottom-[-25%] h-[55vh] rounded-full bg-gradient-to-r from-sky-500/40 via-brand-500/40 to-purple-500/50 blur-3xl"></div>
+    <div class="pointer-events-none absolute inset-0 -z-10 opacity-90">
+      <div class="absolute inset-x-[-30%] top-[-25%] h-[60vh] rounded-full bg-gradient-to-r from-fuchsia-600/50 via-purple-500/40 to-cyan-500/40 blur-3xl"></div>
+      <div class="absolute inset-x-[-30%] bottom-[-30%] h-[55vh] rounded-full bg-gradient-to-r from-cyan-500/40 via-blue-500/30 to-fuchsia-600/50 blur-3xl"></div>
     </div>
 
     <main class="relative mx-auto max-w-5xl space-y-16 px-4 py-12 font-sans sm:px-6 md:py-20 lg:px-8">
       <header class="space-y-12 text-center">
         <div class="space-y-6">
-          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1 text-sm font-medium text-brand-100 ring-1 ring-inset ring-white/20">
-            <span class="size-2 rounded-full bg-brand-500"></span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-1 text-sm font-medium text-fuchsia-100 ring-1 ring-inset ring-white/10">
+            <span class="size-2 rounded-full bg-cyan-400"></span>
             New tools added regularly
           </span>
-          <h1 class="text-4xl font-semibold tracking-tight text-white sm:text-5xl">Mini tools, maximum impact.</h1>
+          <h1 class="text-4xl font-semibold tracking-tight text-white sm:text-5xl">tools.dave.engineer</h1>
           <p class="mx-auto max-w-2xl text-lg text-slate-100/80">
             Discover a growing library of handy utilities made by
-            <a href="https://dave.engineer/" class="font-semibold text-brand-100 transition hover:text-white">Dave Hulbert</a>.
-            Lightweight, fast, and privacy-friendly by default.
+            <a href="https://dave.engineer/" class="font-semibold text-cyan-200 transition hover:text-white">Dave Hulbert</a>.
+            Lightweight, fast, and privacy-friendly by default. No accounts, tracking, or ads—just useful utilities.
           </p>
-          <div class="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-            <a href="#all-tools" class="inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-500/40 transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-100">
-              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-              Browse all tools
-            </a>
-            <a href="https://github.com/dave1010/tools" class="inline-flex items-center gap-2 text-sm font-semibold text-brand-100 transition hover:text-white">
+          <div class="flex flex-col items-center justify-center gap-3 text-sm sm:flex-row sm:gap-4">
+            <p class="text-fuchsia-100 sm:text-left">
+              Contribute ideas or code on GitHub and shape the toolkit.
+            </p>
+            <a href="https://github.com/dave1010/tools" class="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 transition hover:text-white">
               <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.22.7-3.9-1.55-3.9-1.55-.53-1.36-1.3-1.72-1.3-1.72-1.06-.73.08-.72.08-.72 1.17.08 1.78 1.22 1.78 1.22 1.04 1.8 2.73 1.28 3.4.98.11-.76.41-1.28.75-1.57-2.57-.3-5.27-1.29-5.27-5.74 0-1.27.46-2.31 1.21-3.12-.12-.3-.53-1.52.12-3.17 0 0 .99-.32 3.25 1.19a11.3 11.3 0 0 1 5.92 0c2.26-1.51 3.25-1.19 3.25-1.19.65 1.65.24 2.87.12 3.17.76.81 1.21 1.85 1.21 3.12 0 4.47-2.71 5.43-5.3 5.72.42.37.8 1.1.8 2.22 0 1.6-.02 2.9-.02 3.3 0 .31.21.67.8.55A11.5 11.5 0 0 0 12 .5Z" />
               </svg>
@@ -46,18 +60,14 @@
           </div>
         </div>
 
-        <dl class="grid gap-4 text-left sm:grid-cols-3">
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-            <dt class="text-sm font-medium text-white/60">Available tools</dt>
-            <dd class="mt-2 text-3xl font-semibold text-white">{{TOOLS_COUNT}}</dd>
+        <dl class="grid gap-4 text-left sm:grid-cols-2">
+          <div class="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/10 p-5 backdrop-blur">
+            <dt class="text-sm font-medium uppercase tracking-wide text-fuchsia-200">Privacy first</dt>
+            <dd class="mt-2 text-base text-fuchsia-100">Your data stays on your device.</dd>
           </div>
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-            <dt class="text-sm font-medium text-white/60">Privacy first</dt>
-            <dd class="mt-2 text-base text-white/80">No accounts, analytics, or ads—just useful utilities.</dd>
-          </div>
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-            <dt class="text-sm font-medium text-white/60">Open source</dt>
-            <dd class="mt-2 text-base text-white/80">Contribute ideas or code on GitHub and shape the toolkit.</dd>
+          <div class="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 backdrop-blur">
+            <dt class="text-sm font-medium uppercase tracking-wide text-cyan-200">Open source</dt>
+            <dd class="mt-2 text-base text-cyan-100">Ideas welcome, issues encouraged, pull requests celebrated.</dd>
           </div>
         </dl>
       </header>
@@ -68,7 +78,7 @@
             <h2 class="text-3xl font-semibold text-white">Explore the collection</h2>
             <p class="max-w-2xl text-base text-white/70">Handy converters, debuggers, and tiny experiments ready for your next workflow.</p>
           </div>
-          <a href="https://github.com/dave1010/tools/issues/new" class="inline-flex items-center gap-2 text-sm font-semibold text-brand-100 transition hover:text-white">
+          <a href="https://github.com/dave1010/tools/issues/new" class="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 transition hover:text-white">
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
             </svg>
@@ -81,8 +91,15 @@
       </section>
 
       <footer class="border-t border-white/10 pt-8 text-sm text-white/60">
-        <p>Inspired by <a href="https://github.com/simonw/tools" class="font-semibold text-brand-100 transition hover:text-white">simonw/tools</a>. Have an idea? <a href="https://github.com/dave1010/tools/issues" class="font-semibold text-brand-100 transition hover:text-white">Open an issue</a>.</p>
-        <p class="mt-4"><a href="/" class="font-semibold text-brand-100 transition hover:text-white">← Back to tools.dave.engineer</a></p>
+        <p>
+          Lovingly machine crafted by AI. Inspired by
+          <a href="https://github.com/simonw/tools" class="font-semibold text-fuchsia-200 transition hover:text-white">simonw/tools</a>.
+          Have an idea?
+          <a href="https://github.com/dave1010/tools/issues" class="font-semibold text-cyan-200 transition hover:text-white">Open an issue</a>.
+        </p>
+        <p class="mt-4">
+          <a href="https://dave.engineer/" class="font-semibold text-cyan-200 transition hover:text-white">dave.engineer</a>
+        </p>
       </footer>
     </main>
   </div>
