@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local Storage Viewer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      dialog::backdrop {
+        background-color: rgba(15, 23, 42, 0.45);
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Local Storage Viewer</h1>
+        <p class="text-gray-600">
+          Inspect, search, edit, and export the data stored in your browser's <code>localStorage</code>.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div id="storage-warning" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <p class="font-medium">localStorage is unavailable.</p>
+          <p>Please check your browser privacy settings or try again in a non-private window.</p>
+        </div>
+
+        <div id="controls" class="space-y-4">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+              <span><span id="entry-count" class="font-semibold text-gray-900">0</span> entries</span>
+              <span class="hidden text-gray-300 md:inline" aria-hidden="true">•</span>
+              <span>Total size: <span id="storage-size" class="font-medium text-gray-900">0 B</span></span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                id="add-entry-button"
+                type="button"
+                class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-brand-700"
+              >
+                Add entry
+              </button>
+              <button
+                id="import-button"
+                type="button"
+                class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Import JSON
+              </button>
+              <button
+                id="export-button"
+                type="button"
+                class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Export JSON
+              </button>
+              <button
+                id="clear-button"
+                type="button"
+                class="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                Clear storage
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2 md:flex-row md:items-center">
+            <label for="filter" class="text-sm font-medium text-gray-700">Search entries</label>
+            <input
+              id="filter"
+              type="search"
+              placeholder="Filter by key or value"
+              class="md:max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p class="text-xs text-gray-500 md:ml-auto">Search updates instantly as you type.</p>
+          </div>
+
+          <div id="status" class="hidden rounded-lg border px-3 py-2 text-sm"></div>
+        </div>
+      </section>
+
+      <section class="space-y-3 rounded-2xl border border-gray-200 bg-white p-0 shadow-soft">
+        <div class="overflow-hidden rounded-2xl">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <tr>
+                <th scope="col" class="px-4 py-3">Key</th>
+                <th scope="col" class="px-4 py-3">Value preview</th>
+                <th scope="col" class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="entries-body" class="divide-y divide-gray-100 bg-white"></tbody>
+          </table>
+        </div>
+        <p id="empty-state" class="hidden px-4 pb-4 text-center text-sm text-gray-500">No entries match the current filter.</p>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+      </footer>
+    </main>
+
+    <dialog id="entry-dialog" class="rounded-2xl border-0 p-0 shadow-2xl">
+      <form id="entry-form" method="dialog" class="w-[min(90vw,32rem)] space-y-4 rounded-2xl bg-white p-6">
+        <header class="space-y-1">
+          <h2 id="entry-dialog-title" class="text-lg font-semibold text-gray-900">Add entry</h2>
+          <p class="text-sm text-gray-600">Update the key and value, then save your changes.</p>
+        </header>
+        <div class="space-y-2">
+          <label for="entry-key" class="text-sm font-medium text-gray-700">Key</label>
+          <input
+            id="entry-key"
+            name="key"
+            type="text"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="my-key"
+            required
+          />
+        </div>
+        <div class="space-y-2">
+          <label for="entry-value" class="text-sm font-medium text-gray-700">Value</label>
+          <textarea
+            id="entry-value"
+            name="value"
+            class="h-48 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder='Paste or write a value, e.g. {"theme":"dark"}'
+            spellcheck="false"
+          ></textarea>
+        </div>
+        <p id="entry-error" class="hidden text-sm text-red-600"></p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <button type="button" data-action="cancel" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100">Cancel</button>
+          <button type="submit" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-brand-700">Save entry</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="import-dialog" class="rounded-2xl border-0 p-0 shadow-2xl">
+      <form id="import-form" method="dialog" class="w-[min(90vw,32rem)] space-y-4 rounded-2xl bg-white p-6">
+        <header class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">Import entries</h2>
+          <p class="text-sm text-gray-600">Paste a JSON object where each key maps to the desired value.</p>
+        </header>
+        <textarea
+          id="import-textarea"
+          class="h-48 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          placeholder='{"example":"value"}'
+          spellcheck="false"
+        ></textarea>
+        <p id="import-error" class="hidden text-sm text-red-600"></p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <button type="button" data-action="cancel" class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100">Cancel</button>
+          <button type="submit" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-brand-700">Import</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const entriesBody = document.getElementById('entries-body');
+      const entryCountEl = document.getElementById('entry-count');
+      const storageSizeEl = document.getElementById('storage-size');
+      const emptyStateEl = document.getElementById('empty-state');
+      const filterInput = document.getElementById('filter');
+      const controlsEl = document.getElementById('controls');
+      const warningEl = document.getElementById('storage-warning');
+      const entryDialog = document.getElementById('entry-dialog');
+      const entryForm = document.getElementById('entry-form');
+      const entryKeyInput = document.getElementById('entry-key');
+      const entryValueInput = document.getElementById('entry-value');
+      const entryErrorEl = document.getElementById('entry-error');
+      const entryDialogTitle = document.getElementById('entry-dialog-title');
+      const importDialog = document.getElementById('import-dialog');
+      const importForm = document.getElementById('import-form');
+      const importTextarea = document.getElementById('import-textarea');
+      const importErrorEl = document.getElementById('import-error');
+      const addEntryButton = document.getElementById('add-entry-button');
+      const importButton = document.getElementById('import-button');
+      const exportButton = document.getElementById('export-button');
+      const clearButton = document.getElementById('clear-button');
+
+      let storageAvailable = true;
+
+      try {
+        const testKey = '__tools_local_storage_viewer__';
+        window.localStorage.setItem(testKey, 'test');
+        window.localStorage.removeItem(testKey);
+      } catch (error) {
+        storageAvailable = false;
+      }
+
+      if (!storageAvailable) {
+        warningEl.classList.remove('hidden');
+        controlsEl.classList.add('opacity-60');
+        controlsEl.querySelectorAll('button, input, textarea').forEach((element) => {
+          element.setAttribute('disabled', '');
+        });
+      } else {
+        renderList();
+      }
+
+      function getEntries() {
+        const entries = [];
+        for (let index = 0; index < window.localStorage.length; index += 1) {
+          const key = window.localStorage.key(index);
+          if (key == null) continue;
+          const value = window.localStorage.getItem(key);
+          entries.push({ key, value: value ?? '' });
+        }
+        entries.sort((a, b) => a.key.localeCompare(b.key));
+        return entries;
+      }
+
+      function renderList() {
+        if (!storageAvailable) return;
+
+        const searchTerm = filterInput.value.trim().toLowerCase();
+        const entries = getEntries();
+        const filtered = searchTerm
+          ? entries.filter(
+              (entry) =>
+                entry.key.toLowerCase().includes(searchTerm) ||
+                entry.value.toLowerCase().includes(searchTerm)
+            )
+          : entries;
+
+        entriesBody.innerHTML = '';
+
+        const totalBytes = filtered.reduce(
+          (sum, entry) => sum + estimateBytes(entry.key) + estimateBytes(entry.value),
+          0
+        );
+
+        entryCountEl.textContent = String(filtered.length);
+        storageSizeEl.textContent = formatBytes(totalBytes);
+
+        if (filtered.length === 0) {
+          emptyStateEl.classList.remove('hidden');
+          return;
+        }
+
+        emptyStateEl.classList.add('hidden');
+
+        for (const entry of filtered) {
+          const row = document.createElement('tr');
+          row.className = 'hover:bg-gray-50/80 transition-colors';
+
+          const keyCell = document.createElement('td');
+          keyCell.className = 'px-4 py-3 font-medium text-gray-900 align-top';
+          keyCell.textContent = entry.key;
+
+          const valueCell = document.createElement('td');
+          valueCell.className = 'px-4 py-3 text-gray-700 align-top';
+          valueCell.innerHTML = `<pre class="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-3 font-mono text-xs text-gray-700">${escapeHtml(
+            createPreview(entry.value)
+          )}</pre>`;
+
+          const actionsCell = document.createElement('td');
+          actionsCell.className = 'px-4 py-3 align-top text-right';
+
+          const actionsWrapper = document.createElement('div');
+          actionsWrapper.className = 'flex flex-wrap justify-end gap-2';
+
+          const viewButton = document.createElement('button');
+          viewButton.type = 'button';
+          viewButton.className = 'rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100';
+          viewButton.textContent = 'View / Edit';
+          viewButton.addEventListener('click', () => {
+            openEditor(entry.key, entry.value);
+          });
+
+          const copyButton = document.createElement('button');
+          copyButton.type = 'button';
+          copyButton.className = 'rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100';
+          copyButton.textContent = 'Copy value';
+          copyButton.addEventListener('click', () => {
+            copyValue(entry.value, entry.key);
+          });
+
+          const deleteButton = document.createElement('button');
+          deleteButton.type = 'button';
+          deleteButton.className = 'rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50';
+          deleteButton.textContent = 'Delete';
+          deleteButton.addEventListener('click', () => {
+            deleteEntry(entry.key);
+          });
+
+          actionsWrapper.append(viewButton, copyButton, deleteButton);
+          actionsCell.append(actionsWrapper);
+
+          row.append(keyCell, valueCell, actionsCell);
+          entriesBody.append(row);
+        }
+      }
+
+      function escapeHtml(value) {
+        return value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function createPreview(value) {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return '(empty string)';
+        }
+
+        try {
+          const parsed = JSON.parse(value);
+          if (typeof parsed === 'object' && parsed !== null) {
+            return JSON.stringify(parsed, null, 2);
+          }
+          return String(parsed);
+        } catch (error) {
+          return trimmed.length > 500 ? `${trimmed.slice(0, 500)}…` : trimmed;
+        }
+      }
+
+      function estimateBytes(text) {
+        try {
+          return new Blob([text]).size;
+        } catch (error) {
+          return text.length;
+        }
+      }
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        const value = bytes / 1024 ** exponent;
+        return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+      }
+
+      function setStatus(message, type = 'info') {
+        statusEl.textContent = message;
+        statusEl.classList.remove(
+          'hidden',
+          'border-red-200',
+          'border-green-200',
+          'border-blue-200',
+          'bg-red-50',
+          'bg-green-50',
+          'bg-blue-50',
+          'text-red-700',
+          'text-green-700',
+          'text-blue-700'
+        );
+
+        const typeClasses = {
+          info: ['border-blue-200', 'bg-blue-50', 'text-blue-700'],
+          success: ['border-green-200', 'bg-green-50', 'text-green-700'],
+          error: ['border-red-200', 'bg-red-50', 'text-red-700']
+        };
+
+        const classes = typeClasses[type] ?? typeClasses.info;
+        statusEl.classList.add(...classes);
+      }
+
+      function clearStatus() {
+        statusEl.classList.add('hidden');
+        statusEl.textContent = '';
+      }
+
+      function openEditor(key = '', value = '') {
+        entryForm.dataset.originalKey = key;
+        entryKeyInput.value = key;
+        entryValueInput.value = value;
+        entryDialogTitle.textContent = key ? `Edit entry` : 'Add entry';
+        entryErrorEl.classList.add('hidden');
+        entryErrorEl.textContent = '';
+        entryDialog.showModal();
+        requestAnimationFrame(() => {
+          entryKeyInput.focus();
+          if (key) {
+            entryKeyInput.select();
+          }
+        });
+      }
+
+      function deleteEntry(key) {
+        if (!storageAvailable) return;
+        const confirmed = window.confirm(`Delete the entry "${key}"? This cannot be undone.`);
+        if (!confirmed) return;
+
+        try {
+          window.localStorage.removeItem(key);
+          setStatus(`Deleted entry "${key}"`, 'success');
+          renderList();
+        } catch (error) {
+          setStatus(`Unable to delete "${key}": ${error.message}`, 'error');
+        }
+      }
+
+      async function copyValue(value, key) {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+          } else {
+            throw new Error('Clipboard API unavailable');
+          }
+          setStatus(`Copied value for "${key}"`, 'success');
+        } catch (error) {
+          try {
+            const helper = document.createElement('textarea');
+            helper.value = value;
+            helper.setAttribute('readonly', '');
+            helper.className = 'fixed left-[-9999px] top-[-9999px]';
+            document.body.append(helper);
+            helper.select();
+            document.execCommand('copy');
+            helper.remove();
+            setStatus(`Copied value for "${key}"`, 'success');
+          } catch (clipboardError) {
+            setStatus(`Unable to copy value: ${clipboardError.message}`, 'error');
+          }
+        }
+      }
+
+      function exportEntries() {
+        if (!storageAvailable) return;
+        const entries = getEntries();
+        const data = {};
+        for (const entry of entries) {
+          data[entry.key] = entry.value;
+        }
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:T]/g, '-').split('.')[0];
+        link.href = url;
+        link.download = `local-storage-${timestamp}.json`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        setStatus('Exported localStorage to a JSON file.', 'success');
+      }
+
+      function openImportDialog() {
+        importTextarea.value = '';
+        importErrorEl.classList.add('hidden');
+        importErrorEl.textContent = '';
+        importDialog.showModal();
+        requestAnimationFrame(() => importTextarea.focus());
+      }
+
+      filterInput.addEventListener('input', () => {
+        clearStatus();
+        renderList();
+      });
+
+      addEntryButton.addEventListener('click', () => {
+        openEditor();
+      });
+
+      importButton.addEventListener('click', () => {
+        openImportDialog();
+      });
+
+      exportButton.addEventListener('click', () => {
+        exportEntries();
+      });
+
+      clearButton.addEventListener('click', () => {
+        if (!storageAvailable) return;
+        if (!window.confirm('Clear all entries from localStorage? This cannot be undone.')) {
+          return;
+        }
+        try {
+          window.localStorage.clear();
+          renderList();
+          setStatus('Cleared all localStorage entries.', 'success');
+        } catch (error) {
+          setStatus(`Unable to clear storage: ${error.message}`, 'error');
+        }
+      });
+
+      entryForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!storageAvailable) return;
+
+        const key = entryKeyInput.value.trim();
+        const value = entryValueInput.value;
+
+        if (!key) {
+          entryErrorEl.textContent = 'Key is required.';
+          entryErrorEl.classList.remove('hidden');
+          entryKeyInput.focus();
+          return;
+        }
+
+        try {
+          const originalKey = entryForm.dataset.originalKey;
+          if (originalKey && originalKey !== key) {
+            window.localStorage.removeItem(originalKey);
+          }
+          window.localStorage.setItem(key, value);
+          entryDialog.close();
+          setStatus(`Saved entry "${key}"`, 'success');
+          renderList();
+        } catch (error) {
+          entryErrorEl.textContent = `Unable to save entry: ${error.message}`;
+          entryErrorEl.classList.remove('hidden');
+          entryKeyInput.focus();
+        }
+      });
+
+      importForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!storageAvailable) return;
+
+        const text = importTextarea.value.trim();
+        if (!text) {
+          importErrorEl.textContent = 'Paste a JSON object to import.';
+          importErrorEl.classList.remove('hidden');
+          importTextarea.focus();
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
+            throw new Error('Expected a JSON object of key/value pairs.');
+          }
+
+          let importedCount = 0;
+          for (const [key, value] of Object.entries(parsed)) {
+            const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+            window.localStorage.setItem(key, stringValue);
+            importedCount += 1;
+          }
+
+          importDialog.close();
+          renderList();
+          setStatus(`Imported ${importedCount} entr${importedCount === 1 ? 'y' : 'ies'}.`, 'success');
+        } catch (error) {
+          importErrorEl.textContent = error.message;
+          importErrorEl.classList.remove('hidden');
+        }
+      });
+
+      entryDialog.addEventListener('close', () => {
+        entryForm.reset();
+        delete entryForm.dataset.originalKey;
+        entryErrorEl.classList.add('hidden');
+        entryErrorEl.textContent = '';
+      });
+
+      importDialog.addEventListener('close', () => {
+        importForm.reset();
+        importErrorEl.classList.add('hidden');
+        importErrorEl.textContent = '';
+      });
+
+      entryDialog.addEventListener('click', (event) => {
+        if (event.target.dataset.action === 'cancel') {
+          entryDialog.close();
+        }
+      });
+
+      importDialog.addEventListener('click', (event) => {
+        if (event.target.dataset.action === 'cancel') {
+          importDialog.close();
+        }
+      });
+
+      window.addEventListener('storage', (event) => {
+        if (event.storageArea === window.localStorage) {
+          renderList();
+        }
+      });
+    </script>
+  </body>
+</html>

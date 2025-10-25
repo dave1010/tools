@@ -15,6 +15,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
 - [Device & Browser Info](https://tools.dave.engineer/tools/device-browser-info) — Display current device and browser details
 - [JSON Formatter](https://tools.dave.engineer/tools/json-formatter) — Format and validate JSON data
+- [Local Storage Viewer](https://tools.dave.engineer/tools/local-storage-viewer) — Inspect and manage browser localStorage
 - [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw) — Estimate projector throw from lux readings
 - [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html) — Convert Markdown content into HTML
 - [QR Code Reader](https://tools.dave.engineer/tools/qr-code-reader) — Upload QR code image and extract text/URL
