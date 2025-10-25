@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Device &amp; Browser Info</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Device &amp; Browser Info</h1>
+        <p class="text-gray-600">
+          Quickly inspect details about the current browser, device, and connection. Click refresh to capture the latest values.
+        </p>
+      </header>
+
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <button id="refresh" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700">Refresh info</button>
+        <span id="last-updated" class="text-sm text-gray-600"></span>
+      </div>
+
+      <section class="space-y-3">
+        <h2 class="text-2xl font-semibold text-gray-900">Collected details</h2>
+        <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-soft">
+          <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-700">Property</th>
+                <th scope="col" class="px-4 py-3 font-semibold text-gray-700">Value</th>
+              </tr>
+            </thead>
+            <tbody id="info-rows" class="divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const infoRows = document.getElementById('info-rows');
+      const refreshButton = document.getElementById('refresh');
+      const lastUpdated = document.getElementById('last-updated');
+
+      const formatValue = (value) => {
+        if (value === undefined || value === null || value === '') {
+          return 'Unavailable';
+        }
+
+        if (typeof value === 'boolean') {
+          return value ? 'Yes' : 'No';
+        }
+
+        if (Array.isArray(value)) {
+          if (!value.length) {
+            return 'Unavailable';
+          }
+          return value.map((item) => (typeof item === 'string' ? item : JSON.stringify(item))).join(', ');
+        }
+
+        if (typeof value === 'object') {
+          try {
+            return JSON.stringify(value);
+          } catch (error) {
+            return 'Unavailable';
+          }
+        }
+
+        return String(value);
+      };
+
+      const checkStorageAvailability = (type) => {
+        try {
+          const storage = window[type];
+          if (!storage) {
+            return false;
+          }
+          const testKey = '__storage_test__';
+          storage.setItem(testKey, '1');
+          storage.removeItem(testKey);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      };
+
+      const getConnection = () =>
+        navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+
+      const hasMatchMedia = typeof window.matchMedia === 'function';
+
+      const getPreferredScheme = () => {
+        if (!hasMatchMedia) {
+          return 'Unavailable';
+        }
+
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          return 'Dark';
+        }
+        if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+          return 'Light';
+        }
+        return 'No preference';
+      };
+
+      const getReducedMotionPreference = () => {
+        if (!hasMatchMedia) {
+          return 'Unavailable';
+        }
+
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          return 'Reduce motion';
+        }
+        if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+          return 'No preference';
+        }
+        return 'Unavailable';
+      };
+
+      const getPointerMatch = (query) => {
+        if (!hasMatchMedia) {
+          return 'Unavailable';
+        }
+        return window.matchMedia(query).matches;
+      };
+
+      const collectUserAgentData = async () => {
+        const results = [];
+        const uaData = navigator.userAgentData;
+        if (!uaData) {
+          return results;
+        }
+
+        if (uaData.brands) {
+          results.push({
+            label: 'User agent brands',
+            value: uaData.brands.map((brand) => `${brand.brand} ${brand.version}`),
+          });
+        }
+
+        results.push({ label: 'Is mobile (UA data)', value: uaData.mobile });
+
+        if (typeof uaData.getHighEntropyValues === 'function') {
+          try {
+            const { architecture, bitness, model, platformVersion, uaFullVersion } = await uaData.getHighEntropyValues([
+              'architecture',
+              'bitness',
+              'model',
+              'platformVersion',
+              'uaFullVersion',
+            ]);
+            results.push({ label: 'Architecture', value: architecture });
+            results.push({ label: 'Bitness', value: bitness });
+            results.push({ label: 'Model', value: model });
+            results.push({ label: 'Platform version', value: platformVersion });
+            results.push({ label: 'UA full version', value: uaFullVersion });
+          } catch (error) {
+            results.push({ label: 'High-entropy UA data', value: 'Unavailable' });
+          }
+        }
+
+        return results;
+      };
+
+      const collectBatteryInfo = async () => {
+        if (typeof navigator.getBattery !== 'function') {
+          return [];
+        }
+
+        try {
+          const battery = await navigator.getBattery();
+          return [
+            { label: 'Battery charging', value: battery.charging },
+            { label: 'Battery level', value: `${Math.round(battery.level * 100)}%` },
+            { label: 'Charging time (s)', value: battery.chargingTime },
+            { label: 'Discharging time (s)', value: battery.dischargingTime },
+          ];
+        } catch (error) {
+          return [{ label: 'Battery info', value: 'Unavailable' }];
+        }
+      };
+
+      const collectInfo = async () => {
+        const rows = [];
+        const add = (label, value) => rows.push({ label, value });
+
+        add('User agent', navigator.userAgent);
+        add('App name', navigator.appName);
+        add('App version', navigator.appVersion);
+        add('Platform', navigator.platform);
+        add('Vendor', navigator.vendor);
+        add('Product', navigator.product);
+        add('Product sub', navigator.productSub);
+        add('Vendor sub', navigator.vendorSub);
+        add('Language', navigator.language);
+        add('Languages', navigator.languages);
+        add('On line', navigator.onLine);
+        add('Do Not Track', navigator.doNotTrack);
+        add('Cookie enabled', navigator.cookieEnabled);
+        add('Java enabled', typeof navigator.javaEnabled === 'function' ? navigator.javaEnabled() : 'Unavailable');
+        add('PDF viewer enabled', navigator.pdfViewerEnabled);
+        add('Max touch points', navigator.maxTouchPoints);
+        add('Device memory (GB)', navigator.deviceMemory);
+        add('Logical CPU cores', navigator.hardwareConcurrency);
+        add('Clipboard API supported', !!navigator.clipboard);
+        add('Service worker supported', 'serviceWorker' in navigator);
+        add('Share API supported', !!navigator.share);
+        add('Media devices supported', !!navigator.mediaDevices);
+        add('Geolocation supported', 'geolocation' in navigator);
+        add('Permissions API supported', !!navigator.permissions);
+        add('Touch support', 'ontouchstart' in window || navigator.maxTouchPoints > 0);
+        add('Device pixel ratio', window.devicePixelRatio);
+        add('Viewport size', `${window.innerWidth} × ${window.innerHeight}`);
+        if (window.visualViewport) {
+          add('Visual viewport size', `${Math.round(window.visualViewport.width)} × ${Math.round(window.visualViewport.height)}`);
+        }
+        add('Screen size', window.screen ? `${window.screen.width} × ${window.screen.height}` : 'Unavailable');
+        add('Available screen size', window.screen ? `${window.screen.availWidth} × ${window.screen.availHeight}` : 'Unavailable');
+        add('Color depth', window.screen ? window.screen.colorDepth : 'Unavailable');
+        add('Pixel depth', window.screen ? window.screen.pixelDepth : 'Unavailable');
+        add('Screen orientation', window.screen?.orientation?.type || window.screen?.orientation || 'Unavailable');
+        add('Timezone', Intl?.DateTimeFormat ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'Unavailable');
+        add('Current local time', new Date().toString());
+        add('Preferred color scheme', getPreferredScheme());
+        add('Reduced motion preference', getReducedMotionPreference());
+        add('Pointer coarse', getPointerMatch('(pointer: coarse)'));
+        add('Pointer fine', getPointerMatch('(pointer: fine)'));
+        add('Hover capability', getPointerMatch('(hover: hover)'));
+        add('Storage quota API supported', !!navigator.storage);
+        add('Local storage available', checkStorageAvailability('localStorage'));
+        add('Session storage available', checkStorageAvailability('sessionStorage'));
+        add('IndexedDB supported', 'indexedDB' in window);
+        add('History length', history.length);
+        add('Referrer', document.referrer || 'None');
+
+        const connection = getConnection();
+        if (connection) {
+          add('Connection type', connection.type);
+          add('Effective connection type', connection.effectiveType);
+          add('Downlink (Mb/s)', connection.downlink);
+          add('RTT (ms)', connection.rtt);
+          add('Save data mode', connection.saveData);
+        }
+
+        rows.push(...(await collectUserAgentData()));
+        rows.push(...(await collectBatteryInfo()));
+
+        return rows;
+      };
+
+      const renderRows = (rows) => {
+        infoRows.textContent = '';
+        if (!rows.length) {
+          const emptyRow = document.createElement('tr');
+          emptyRow.innerHTML = '<td class="px-4 py-3 text-gray-500" colspan="2">No data available.</td>';
+          infoRows.append(emptyRow);
+          return;
+        }
+
+        for (const { label, value } of rows) {
+          const row = document.createElement('tr');
+          const labelCell = document.createElement('th');
+          labelCell.scope = 'row';
+          labelCell.className = 'px-4 py-3 align-top text-sm font-medium text-gray-900';
+          labelCell.textContent = label;
+
+          const valueCell = document.createElement('td');
+          valueCell.className = 'px-4 py-3 text-sm text-gray-700 break-words';
+          valueCell.textContent = formatValue(value);
+
+          row.append(labelCell, valueCell);
+          infoRows.append(row);
+        }
+      };
+
+      const updateLastUpdated = () => {
+        const now = new Date();
+        lastUpdated.textContent = `Last updated: ${now.toLocaleString()}`;
+      };
+
+      let isRefreshing = false;
+
+      const refreshInfo = async () => {
+        if (isRefreshing) {
+          return;
+        }
+
+        isRefreshing = true;
+        refreshButton.disabled = true;
+        refreshButton.textContent = 'Refreshing…';
+        try {
+          const rows = await collectInfo();
+          renderRows(rows);
+          updateLastUpdated();
+        } catch (error) {
+          console.error('Failed to collect device information', error);
+          renderRows([]);
+          lastUpdated.textContent = 'Unable to collect device info.';
+        } finally {
+          refreshButton.disabled = false;
+          refreshButton.textContent = 'Refresh info';
+          isRefreshing = false;
+        }
+      };
+
+      refreshButton.addEventListener('click', () => {
+        refreshInfo();
+      });
+
+      let resizeTimeoutId = null;
+      window.addEventListener('resize', () => {
+        if (resizeTimeoutId) {
+          window.clearTimeout(resizeTimeoutId);
+        }
+        resizeTimeoutId = window.setTimeout(() => {
+          refreshInfo();
+        }, 200);
+      });
+
+      refreshInfo();
+    </script>
+  </body>
+</html>
