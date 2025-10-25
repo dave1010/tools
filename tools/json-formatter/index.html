@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Formatter</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">JSON Formatter</h1>
+        <p class="text-gray-600">Beautify JSON with consistent indentation and a readable layout.</p>
+      </header>
+
+      <section class="card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <form id="formatter-form" class="space-y-4" novalidate>
+          <div class="space-y-2">
+            <label for="input-json" class="font-medium text-gray-700">Input JSON</label>
+            <textarea
+              id="input-json"
+              class="h-48 w-full rounded-xl border border-gray-300 bg-white p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+              placeholder='Paste JSON here, e.g. {"hello":"world"}'
+              spellcheck="false"
+              wrap="off"
+              autofocus
+            ></textarea>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+              <label for="indent" class="text-sm font-medium text-gray-700">Indentation</label>
+              <select
+                id="indent"
+                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="2" selected>2 spaces</option>
+                <option value="4">4 spaces</option>
+                <option value="tab">Tab</option>
+              </select>
+            </div>
+            <button type="submit" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700">Format JSON</button>
+            <button
+              type="button"
+              id="copy-output"
+              class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled
+            >
+              Copy formatted JSON
+            </button>
+          </div>
+        </form>
+
+        <p id="error-message" class="hidden rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert" aria-live="assertive"></p>
+
+        <div class="space-y-2">
+          <label for="output-json" class="font-medium text-gray-700">Formatted JSON</label>
+          <textarea
+            id="output-json"
+            class="h-48 w-full rounded-xl border border-gray-300 bg-gray-50 p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+            placeholder="Your formatted JSON will appear here."
+            readonly
+            spellcheck="false"
+            wrap="off"
+          ></textarea>
+        </div>
+
+        <p class="text-sm text-gray-500">
+          Tip: Press <kbd class="rounded border border-gray-300 bg-gray-50 px-1">Ctrl</kbd> + <kbd class="rounded border border-gray-300 bg-gray-50 px-1">Enter</kbd> (or
+          <kbd class="rounded border border-gray-300 bg-gray-50 px-1">⌘</kbd> + <kbd class="rounded border border-gray-300 bg-gray-50 px-1">Enter</kbd>) to format quickly.
+        </p>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("formatter-form");
+      const input = document.getElementById("input-json");
+      const output = document.getElementById("output-json");
+      const indentSelect = document.getElementById("indent");
+      const errorMessage = document.getElementById("error-message");
+      const copyButton = document.getElementById("copy-output");
+
+      const showError = (message) => {
+        errorMessage.textContent = message;
+        errorMessage.classList.remove("hidden");
+      };
+
+      const hideError = () => {
+        errorMessage.textContent = "";
+        errorMessage.classList.add("hidden");
+      };
+
+      const getIndentValue = () => {
+        const value = indentSelect.value;
+        if (value === "tab") {
+          return "\t";
+        }
+        return Number.parseInt(value, 10) || 2;
+      };
+
+      const setCopyState = (enabled) => {
+        copyButton.disabled = !enabled;
+      };
+
+      const formatJson = () => {
+        const rawValue = input.value.trim();
+
+        if (!rawValue) {
+          output.value = "";
+          hideError();
+          setCopyState(false);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(rawValue);
+          const formatted = JSON.stringify(parsed, null, getIndentValue());
+          output.value = formatted;
+          hideError();
+          setCopyState(true);
+        } catch (error) {
+          output.value = "";
+          setCopyState(false);
+          showError(error instanceof Error ? error.message : "Unable to format JSON.");
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        formatJson();
+      });
+
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          formatJson();
+        }
+      });
+
+      indentSelect.addEventListener("change", () => {
+        if (output.value) {
+          formatJson();
+        }
+      });
+
+      copyButton.addEventListener("click", async () => {
+        if (!output.value) {
+          setCopyState(false);
+          return;
+        }
+
+        try {
+          await navigator.clipboard.writeText(output.value);
+          copyButton.textContent = "Copied!";
+          setTimeout(() => {
+            copyButton.textContent = "Copy formatted JSON";
+          }, 1500);
+        } catch (error) {
+          showError("Could not copy to clipboard. You can copy manually.");
+        }
+      });
+    </script>
+  </body>
+</html>
