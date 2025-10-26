@@ -714,7 +714,10 @@
         selectBookById(bookId);
         highlightBrowseBook(bookId);
         const defaultChapter = chaptersForCurrentBook[0] ?? 1;
-        let chapterToSelect = targetChapter ?? Number(chapterSelect.value) || defaultChapter;
+        let chapterToSelect = targetChapter ?? Number(chapterSelect.value);
+        if (!chapterToSelect) {
+          chapterToSelect = defaultChapter;
+        }
         if (!chaptersForCurrentBook.includes(chapterToSelect)) {
           chapterToSelect = defaultChapter;
         }
