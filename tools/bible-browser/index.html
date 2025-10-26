@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bible Verse Explorer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      .verse-card {
+        border-radius: 0.75rem;
+        border: 1px solid rgb(229 231 235);
+        background: white;
+        padding: 1rem 1.5rem;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+
+      .verse-number {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: rgb(30 64 175);
+        margin-right: 0.5rem;
+      }
+
+      .status-banner {
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .status-banner[data-type="info"] {
+        background: rgb(239 246 255);
+        color: rgb(30 64 175);
+        border: 1px solid rgb(191 219 254);
+      }
+
+      .status-banner[data-type="success"] {
+        background: rgb(240 253 244);
+        color: rgb(22 101 52);
+        border: 1px solid rgb(187 247 208);
+      }
+
+      .status-banner[data-type="error"] {
+        background: rgb(254 242 242);
+        color: rgb(185 28 28);
+        border: 1px solid rgb(254 202 202);
+      }
+
+      .verification-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgb(229 231 235);
+        background: rgb(249 250 251);
+      }
+
+      .verification-item[data-valid="true"] {
+        border-color: rgb(187 247 208);
+        background: rgb(240 253 244);
+        color: rgb(22 101 52);
+      }
+
+      .verification-item[data-valid="false"] {
+        border-color: rgb(254 202 202);
+        background: rgb(254 242 242);
+        color: rgb(185 28 28);
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-6 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Bible Verse Explorer</h1>
+        <p class="text-gray-600">
+          Browse the NET Bible locally with instant book, chapter, and verse lookups powered by SQLite in your browser.
+        </p>
+      </header>
+
+      <div id="status" class="status-banner" data-type="info" hidden>
+        <span class="font-medium">Loading</span>
+        <span class="text-sm" id="status-message">Preparing resources…</span>
+      </div>
+
+      <section class="card space-y-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2">
+            <span class="font-medium text-gray-700">Book</span>
+            <select
+              id="book-select"
+              class="w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              disabled
+            ></select>
+          </label>
+          <label class="space-y-2">
+            <span class="font-medium text-gray-700">Chapter</span>
+            <select
+              id="chapter-select"
+              class="w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              disabled
+            ></select>
+          </label>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="text-sm text-gray-500" id="current-reference">Genesis 1</div>
+          <div class="flex gap-2">
+            <button
+              id="previous-chapter"
+              class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled
+              type="button"
+            >
+              ← Previous
+            </button>
+            <button
+              id="next-chapter"
+              class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled
+              type="button"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+        <div class="space-y-3" id="verse-list">
+          <div class="text-sm text-gray-500">Select a book and chapter to view verses.</div>
+        </div>
+      </section>
+
+      <section class="card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <header class="space-y-1">
+          <h2 class="text-xl font-semibold text-gray-900">Reference Checks</h2>
+          <p class="text-sm text-gray-600">
+            Automatic spot checks ensure the book order matches well-known verses so you can trust the mapping.
+          </p>
+        </header>
+        <div id="verification-results" class="space-y-3 text-sm"></div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+      </footer>
+    </main>
+
+    <script type="module">
+      const statusBanner = document.getElementById("status");
+      const statusMessage = document.getElementById("status-message");
+      const bookSelect = document.getElementById("book-select");
+      const chapterSelect = document.getElementById("chapter-select");
+      const verseList = document.getElementById("verse-list");
+      const currentReference = document.getElementById("current-reference");
+      const previousButton = document.getElementById("previous-chapter");
+      const nextButton = document.getElementById("next-chapter");
+      const verificationResults = document.getElementById("verification-results");
+
+      let sqlite3;
+      let db;
+      let chaptersForCurrentBook = [];
+
+      const books = [
+        { id: 1, name: "Genesis" },
+        { id: 2, name: "Exodus" },
+        { id: 3, name: "Leviticus" },
+        { id: 4, name: "Numbers" },
+        { id: 5, name: "Deuteronomy" },
+        { id: 6, name: "Joshua" },
+        { id: 7, name: "Judges" },
+        { id: 8, name: "Ruth" },
+        { id: 9, name: "1 Samuel" },
+        { id: 10, name: "2 Samuel" },
+        { id: 11, name: "1 Kings" },
+        { id: 12, name: "2 Kings" },
+        { id: 13, name: "1 Chronicles" },
+        { id: 14, name: "2 Chronicles" },
+        { id: 15, name: "Ezra" },
+        { id: 16, name: "Nehemiah" },
+        { id: 17, name: "Esther" },
+        { id: 18, name: "Job" },
+        { id: 19, name: "Psalms" },
+        { id: 20, name: "Proverbs" },
+        { id: 21, name: "Ecclesiastes" },
+        { id: 22, name: "Song of Songs" },
+        { id: 23, name: "Isaiah" },
+        { id: 24, name: "Jeremiah" },
+        { id: 25, name: "Lamentations" },
+        { id: 26, name: "Ezekiel" },
+        { id: 27, name: "Daniel" },
+        { id: 28, name: "Hosea" },
+        { id: 29, name: "Joel" },
+        { id: 30, name: "Amos" },
+        { id: 31, name: "Obadiah" },
+        { id: 32, name: "Jonah" },
+        { id: 33, name: "Micah" },
+        { id: 34, name: "Nahum" },
+        { id: 35, name: "Habakkuk" },
+        { id: 36, name: "Zephaniah" },
+        { id: 37, name: "Haggai" },
+        { id: 38, name: "Zechariah" },
+        { id: 39, name: "Malachi" },
+        { id: 40, name: "Matthew" },
+        { id: 41, name: "Mark" },
+        { id: 42, name: "Luke" },
+        { id: 43, name: "John" },
+        { id: 44, name: "Acts" },
+        { id: 45, name: "Romans" },
+        { id: 46, name: "1 Corinthians" },
+        { id: 47, name: "2 Corinthians" },
+        { id: 48, name: "Galatians" },
+        { id: 49, name: "Ephesians" },
+        { id: 50, name: "Philippians" },
+        { id: 51, name: "Colossians" },
+        { id: 52, name: "1 Thessalonians" },
+        { id: 53, name: "2 Thessalonians" },
+        { id: 54, name: "1 Timothy" },
+        { id: 55, name: "2 Timothy" },
+        { id: 56, name: "Titus" },
+        { id: 57, name: "Philemon" },
+        { id: 58, name: "Hebrews" },
+        { id: 59, name: "James" },
+        { id: 60, name: "1 Peter" },
+        { id: 61, name: "2 Peter" },
+        { id: 62, name: "1 John" },
+        { id: 63, name: "2 John" },
+        { id: 64, name: "3 John" },
+        { id: 65, name: "Jude" },
+        { id: 66, name: "Revelation" }
+      ];
+
+      const verificationRefs = [
+        {
+          ref: "Genesis 1:1",
+          bookId: 1,
+          chapter: 1,
+          verse: 1,
+          snippet: "In the beginning God created"
+        },
+        {
+          ref: "Psalm 23:1",
+          bookId: 19,
+          chapter: 23,
+          verse: 1,
+          snippet: "The LORD is my shepherd"
+        },
+        {
+          ref: "John 3:16",
+          bookId: 43,
+          chapter: 3,
+          verse: 16,
+          snippet: "God loved the world"
+        },
+        {
+          ref: "Revelation 22:21",
+          bookId: 66,
+          chapter: 22,
+          verse: 21,
+          snippet: "grace of the Lord Jesus"
+        }
+      ];
+
+      const setStatus = (message, type = "info") => {
+        statusMessage.textContent = message;
+        statusBanner.dataset.type = type;
+        statusBanner.hidden = false;
+      };
+
+      const setControlsDisabled = (disabled) => {
+        bookSelect.disabled = disabled;
+        chapterSelect.disabled = disabled;
+        previousButton.disabled = disabled;
+        nextButton.disabled = disabled;
+      };
+
+      const populateBooks = () => {
+        const fragment = document.createDocumentFragment();
+        for (const book of books) {
+          const option = document.createElement("option");
+          option.value = String(book.id);
+          option.textContent = book.name;
+          fragment.appendChild(option);
+        }
+        bookSelect.appendChild(fragment);
+      };
+
+      const selectBookById = (bookId) => {
+        bookSelect.value = String(bookId);
+      };
+
+      const getSelectedBook = () => {
+        const bookId = Number(bookSelect.value);
+        return books.find((book) => book.id === bookId) ?? books[0];
+      };
+
+      const queryDistinctChapters = (bookId) => {
+        const chapters = [];
+        const stmt = db.prepare(
+          "SELECT DISTINCT chapter FROM verses WHERE book = ? ORDER BY chapter"
+        );
+        try {
+          stmt.bind([bookId]);
+          while (stmt.step()) {
+            chapters.push(stmt.get(0));
+          }
+        } finally {
+          stmt.finalize();
+        }
+        return chapters;
+      };
+
+      const queryVerses = (bookId, chapter) => {
+        const verses = [];
+        const stmt = db.prepare(
+          "SELECT verse, text FROM verses WHERE book = ? AND chapter = ? ORDER BY verse"
+        );
+        try {
+          stmt.bind([bookId, chapter]);
+          while (stmt.step()) {
+            verses.push({ number: stmt.get(0), text: stmt.get(1) });
+          }
+        } finally {
+          stmt.finalize();
+        }
+        return verses;
+      };
+
+      const renderChapters = (chapters) => {
+        chapterSelect.innerHTML = "";
+        const fragment = document.createDocumentFragment();
+        for (const chapter of chapters) {
+          const option = document.createElement("option");
+          option.value = String(chapter);
+          option.textContent = `Chapter ${chapter}`;
+          fragment.appendChild(option);
+        }
+        chapterSelect.appendChild(fragment);
+      };
+
+      const renderVerses = (bookName, chapter, verses) => {
+        verseList.innerHTML = "";
+        if (!verses.length) {
+          const empty = document.createElement("div");
+          empty.className = "text-sm text-gray-500";
+          empty.textContent = "No verses were found for this selection.";
+          verseList.appendChild(empty);
+          return;
+        }
+        for (const verse of verses) {
+          const card = document.createElement("article");
+          card.className = "verse-card";
+          const row = document.createElement("div");
+          row.className = "flex items-start gap-3";
+          const number = document.createElement("span");
+          number.className = "verse-number";
+          number.textContent = verse.number;
+          const text = document.createElement("p");
+          text.className = "text-gray-700 leading-relaxed flex-1";
+          text.textContent = verse.text;
+          row.appendChild(number);
+          row.appendChild(text);
+          card.appendChild(row);
+          verseList.appendChild(card);
+        }
+        currentReference.textContent = `${bookName} ${chapter}`;
+      };
+
+      const updateChapterNavigation = () => {
+        const chapterNumber = Number(chapterSelect.value);
+        const chapterIndex = chaptersForCurrentBook.findIndex(
+          (ch) => ch === chapterNumber
+        );
+        previousButton.disabled = chapterIndex <= 0;
+        nextButton.disabled = chapterIndex === chaptersForCurrentBook.length - 1;
+      };
+
+      const loadChapter = (bookId, chapter) => {
+        const book = books.find((item) => item.id === bookId);
+        const verses = queryVerses(bookId, chapter);
+        renderVerses(book?.name ?? `Book ${bookId}`, chapter, verses);
+        updateChapterNavigation();
+      };
+
+      const handleBookChange = () => {
+        const selectedBook = getSelectedBook();
+        chaptersForCurrentBook = queryDistinctChapters(selectedBook.id);
+        renderChapters(chaptersForCurrentBook);
+        const firstChapter = chaptersForCurrentBook[0] ?? 1;
+        chapterSelect.value = String(firstChapter);
+        loadChapter(selectedBook.id, firstChapter);
+      };
+
+      const handleChapterChange = () => {
+        const selectedBook = getSelectedBook();
+        const chapterNumber = Number(chapterSelect.value);
+        loadChapter(selectedBook.id, chapterNumber);
+      };
+
+      const shiftChapter = (direction) => {
+        const chapterNumber = Number(chapterSelect.value);
+        const chapterIndex = chaptersForCurrentBook.findIndex(
+          (ch) => ch === chapterNumber
+        );
+        const nextIndex = chapterIndex + direction;
+        if (nextIndex < 0 || nextIndex >= chaptersForCurrentBook.length) {
+          return;
+        }
+        const nextChapter = chaptersForCurrentBook[nextIndex];
+        chapterSelect.value = String(nextChapter);
+        handleChapterChange();
+      };
+
+      const getVerseText = (bookId, chapter, verse) => {
+        let text = null;
+        const stmt = db.prepare(
+          "SELECT text FROM verses WHERE book = ? AND chapter = ? AND verse = ?"
+        );
+        try {
+          stmt.bind([bookId, chapter, verse]);
+          if (stmt.step()) {
+            text = stmt.get(0);
+          }
+        } finally {
+          stmt.finalize();
+        }
+        return text;
+      };
+
+      const runVerification = () => {
+        verificationResults.innerHTML = "";
+        for (const check of verificationRefs) {
+          const text = getVerseText(check.bookId, check.chapter, check.verse) ?? "";
+          const passed = text.includes(check.snippet);
+          const item = document.createElement("div");
+          item.className = "verification-item";
+          item.dataset.valid = String(passed);
+          const left = document.createElement("div");
+          left.className = "font-medium";
+          left.textContent = check.ref;
+          const right = document.createElement("div");
+          right.className = "text-sm";
+          right.textContent = passed
+            ? "✓ Mapping confirmed"
+            : "⚠️ Unexpected verse text";
+          item.appendChild(left);
+          item.appendChild(right);
+          if (!passed) {
+            const detail = document.createElement("p");
+            detail.className = "text-xs text-gray-600 mt-2";
+            detail.textContent = text ? text : "No verse text found.";
+            item.appendChild(detail);
+          }
+          verificationResults.appendChild(item);
+        }
+      };
+
+      const deserializeToMemoryDb = (sqlite3, bytes) => {
+        const memoryDb = new sqlite3.oo1.DB();
+        const pData = sqlite3.wasm.allocFromTypedArray(bytes);
+        const rc = sqlite3.capi.sqlite3_deserialize(
+          memoryDb.pointer,
+          "main",
+          pData,
+          bytes.byteLength,
+          bytes.byteLength,
+          sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE
+        );
+        if (rc !== sqlite3.capi.SQLITE_OK) {
+          const message = sqlite3.capi.sqlite3_js_rc_str(rc);
+          memoryDb.close();
+          throw new Error(`Failed to load SQLite database: ${message}`);
+        }
+        return memoryDb;
+      };
+
+      const loadDatabase = async () => {
+        const response = await fetch("/data/net.sqlite");
+        if (!response.ok) {
+          throw new Error(`Could not fetch Bible database (status ${response.status}).`);
+        }
+        const buffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        if (sqlite3.oo1?.OpfsDb) {
+          try {
+            await sqlite3.oo1.OpfsDb.importDb("net.sqlite", bytes);
+            return new sqlite3.oo1.OpfsDb("net.sqlite");
+          } catch (error) {
+            console.warn("Falling back to in-memory database:", error);
+          }
+        }
+        return deserializeToMemoryDb(sqlite3, bytes);
+      };
+
+      const initialize = async () => {
+        setStatus("Loading SQLite and Bible data…", "info");
+        setControlsDisabled(true);
+        populateBooks();
+
+        let sqliteModule;
+        try {
+          sqliteModule = await import(
+            "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.46.1-build4/sqlite-wasm/jswasm/sqlite3.mjs"
+          );
+        } catch (error) {
+          alert("Failed to load: https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.46.1-build4/sqlite-wasm/jswasm/sqlite3.mjs");
+          throw error;
+        }
+
+        const sqlite3InitModule = sqliteModule.default;
+        sqlite3 = await sqlite3InitModule({
+          print: console.log,
+          printErr: console.error
+        });
+
+        db = await loadDatabase();
+        window.sqliteBibleDb = db;
+
+        selectBookById(43);
+        handleBookChange();
+        chapterSelect.value = "3";
+        handleChapterChange();
+        runVerification();
+        setControlsDisabled(false);
+        setStatus("Bible ready! Choose any passage to explore.", "success");
+      };
+
+      bookSelect.addEventListener("change", () => {
+        handleBookChange();
+      });
+
+      chapterSelect.addEventListener("change", () => {
+        handleChapterChange();
+      });
+
+      previousButton.addEventListener("click", () => {
+        shiftChapter(-1);
+      });
+
+      nextButton.addEventListener("click", () => {
+        shiftChapter(1);
+      });
+
+      initialize().catch((error) => {
+        console.error(error);
+        setStatus(error.message ?? "Failed to initialize Bible explorer.", "error");
+        setControlsDisabled(true);
+      });
+    </script>
+  </body>
+</html>
