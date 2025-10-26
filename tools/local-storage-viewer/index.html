@@ -13,11 +13,8 @@
   </head>
   <body class="bg-gradient-to-b from-brand-50/60 to-white">
     <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
-      <header class="space-y-2 text-center">
+      <header class="text-center">
         <h1 class="text-3xl font-semibold text-gray-900">Local Storage Viewer</h1>
-        <p class="text-gray-600">
-          Inspect, search, edit, and export the data stored in your browser's <code>localStorage</code>.
-        </p>
       </header>
 
       <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
@@ -73,7 +70,6 @@
               placeholder="Filter by key or value"
               class="md:max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
-            <p class="text-xs text-gray-500 md:ml-auto">Search updates instantly as you type.</p>
           </div>
 
           <div id="status" class="hidden rounded-lg border px-3 py-2 text-sm"></div>
@@ -97,7 +93,10 @@
       </section>
 
       <footer class="py-6 text-center text-sm text-gray-500">
-        <a href="https://tools.dave.engineer" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+        <div class="flex flex-wrap justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/local-storage-viewer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
       </footer>
     </main>
 
