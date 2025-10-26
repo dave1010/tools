@@ -38,7 +38,10 @@ None.
 
 - Use the shared `/assets/tw.css`
 - Page wrapper: `<main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">`
-- Primary button: `class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700"`
+- Brand palette: 50 `#eff6ff`, 100 `#dbeafe`, 200 `#bfdbfe`, 500 `#3b82f6`, 600 `#2563eb`, 700 `#1d4ed8`
+- Base button styles are provided via the `.btn` class (also applied to raw `<button>` elements).
+- Primary button: `class="btn btn-primary"` (or rely on the default `<button>` styles).
+- Secondary button: `class="btn btn-secondary"`
 - The page should have the tool as its main focus. Eg use Flexbox (or CSS Grid) to have the tool fill the page.
 - Consider how it looks on mobile.
 - Keep on-page copy short. Move instructions, tips, and troubleshooting info into the tool's README unless it is essential for the current interaction.
