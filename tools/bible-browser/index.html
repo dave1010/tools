@@ -181,9 +181,9 @@
                     autocomplete="off"
                   />
                 </label>
-                <p id="search-results" class="text-sm text-gray-500">
-                  Start typing a book name, chapter, or verse to jump directly to a passage.
-                </p>
+                <div id="search-results" class="text-sm text-gray-500 space-y-2">
+                  <p>Start typing a book name, chapter, or verse to jump directly to a passage.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -841,6 +841,7 @@
         if (!matchedBook) {
           return {
             kind: "error",
+            code: "no-book-match",
             message: "No matching book yet. Keep typing a book name."
           };
         }
@@ -944,6 +945,70 @@
         return `${base}:${result.startVerse}-${result.endVerse}`;
       };
 
+      const getBookSuggestions = (value) => {
+        const trimmed = value.trimStart();
+        if (!trimmed) {
+          return [];
+        }
+        const normalized = trimmed.toLowerCase().replace(/\s+/g, " ");
+        if (!normalized) {
+          return [];
+        }
+        const normalizedTight = normalized.trimEnd();
+        const queries = new Set([normalizedTight]);
+        if (normalized !== normalizedTight) {
+          queries.add(normalized);
+        }
+        const seen = new Set();
+        const suggestions = [];
+        for (const book of books) {
+          const name = book.name.toLowerCase();
+          const aliasList = book.aliases.map((alias) => alias.toLowerCase());
+          const matches = Array.from(queries).some((query) => {
+            if (!query) return false;
+            return (
+              name.startsWith(query) ||
+              aliasList.some((alias) => alias.startsWith(query))
+            );
+          });
+          if (matches && !seen.has(book.id)) {
+            suggestions.push(book);
+            seen.add(book.id);
+          }
+        }
+        return suggestions;
+      };
+
+      const renderBookSuggestions = (value) => {
+        const suggestions = getBookSuggestions(value);
+        if (!suggestions.length) {
+          searchResults.textContent =
+            "No books match that yet. Keep typing a book name.";
+          return;
+        }
+        searchResults.innerHTML = "";
+        const intro = document.createElement("div");
+        intro.className = "text-sm text-gray-600";
+        intro.textContent = "Possible books:";
+        searchResults.appendChild(intro);
+        const list = document.createElement("div");
+        list.className = "flex flex-wrap gap-2";
+        for (const suggestion of suggestions) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className =
+            "rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500/40";
+          button.textContent = suggestion.name;
+          button.addEventListener("click", () => {
+            searchInput.value = `${suggestion.name} `;
+            searchInput.focus();
+            handleSearchInput(searchInput.value);
+          });
+          list.appendChild(button);
+        }
+        searchResults.appendChild(list);
+      };
+
       const handleSearchInput = (value) => {
         if (!db) return;
         const parsed = parseReference(value);
@@ -953,6 +1018,10 @@
           return;
         }
         if (parsed.kind === "error") {
+          if (parsed.code === "no-book-match") {
+            renderBookSuggestions(value);
+            return;
+          }
           searchResults.textContent = parsed.message;
           return;
         }
