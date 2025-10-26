@@ -14,6 +14,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [3D Game of Life](https://tools.dave.engineer/tools/3d-game-of-life) — Explore animated voxel life simulation
 - [Ambient Noise Profiler](https://tools.dave.engineer/tools/ambient-noise-profiler) — Real-time ambient frequency visualizer
 - [Basic QR Code Generator](https://tools.dave.engineer/tools/basic-qr-code) — Generate QR codes from text
+- [Bible Verse Explorer](https://tools.dave.engineer/tools/bible-browser) — Browse NET Bible passages by book and chapter.
 - [Bubble Level](https://tools.dave.engineer/tools/bubble-level) — Simple digital bubble level
 - [Compass](https://tools.dave.engineer/tools/compass) — Heading indicator with magnetometer data
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
