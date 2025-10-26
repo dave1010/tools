@@ -4,7 +4,7 @@
 
 - Add a new dir in ./tools
 - Add index.html and any other files
-- Add a README.md with YAML front matter defining `title` and a 4-8 word `description`. Other README.md content is rarely needed.
+- Add a README.md with YAML front matter defining `title` and a 4-8 word `description`. Use the README.md for any help text that would otherwise take up soace on the tool web page.
 - Include a `category` in the front matter, reusing an existing category when possible (add a new one if nothing fits).
 - Need the category list? From the repo root run `grep '^### ' README.md`.
 
@@ -67,3 +67,5 @@ The Cloudflare Pages function `functions/cerebras-chat.ts` provides OpenAI-compa
 ## GitHub Tokens
 
 For GitHub integrations, the user's browser may already have `github-device-login-token` in local storage. If they don't, or if more permissions are needed, then direct the user to /tools/github-device-login/
+
+See `tools/scratch-pad/index.html` for an example of saving Gists. The web page `https://gistpreview.github.io/?${encodeURIComponent(gistId)}` will render an index.html gist as HTML.
