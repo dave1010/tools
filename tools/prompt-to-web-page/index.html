@@ -11,7 +11,7 @@
       <header class="space-y-2 text-center">
         <h1 class="text-3xl font-semibold text-gray-900">Prompt to Web Page</h1>
         <p class="text-sm text-gray-600">
-          Describe the page you want and generate a live preview using Cerebras gpt-oss-120b.
+          Describe the page you want and generate a live preview.
         </p>
       </header>
 
@@ -30,72 +30,90 @@
           <p class="text-xs text-gray-500">
             After the first draft, send follow-up instructions to iteratively refine the page.
           </p>
-          <div class="flex flex-wrap items-center gap-3">
-            <button
-              id="submitButton"
-              type="submit"
-              class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            >
-              Generate web page
-            </button>
+          <div class="space-y-3">
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                id="submitButton"
+                type="submit"
+                class="rounded-lg bg-brand-600 px-3 py-1.5 text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              >
+                Generate web page
+              </button>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  id="openButton"
+                  type="button"
+                  class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:hover:bg-transparent"
+                >
+                  Open in new tab
+                </button>
+                <button
+                  id="downloadButton"
+                  type="button"
+                  class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:hover:bg-transparent"
+                >
+                  Download HTML
+                </button>
+                <button
+                  id="saveGistButton"
+                  type="button"
+                  class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:hover:bg-transparent"
+                >
+                  Save Gist
+                </button>
+                <button
+                  id="viewHtmlButton"
+                  type="button"
+                  class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 shadow-sm hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:hover:bg-transparent"
+                  aria-expanded="false"
+                >
+                  View HTML
+                </button>
+                <button
+                  id="clearButton"
+                  type="button"
+                  class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
             <p id="statusMessage" class="text-sm text-gray-500"></p>
           </div>
         </form>
       </section>
 
-      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
           <h2 class="text-base font-semibold text-gray-900">Preview</h2>
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              id="openButton"
-              type="button"
-              class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
-            >
-              Open in new tab
-            </button>
-            <button
-              id="downloadButton"
-              type="button"
-              class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
-            >
-              Download HTML
-            </button>
-            <button
-              id="saveGistButton"
-              type="button"
-              class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
-            >
-              Save Gist
-            </button>
-            <button
-              id="clearButton"
-              type="button"
-              class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            >
-              Clear
-            </button>
-          </div>
         </div>
         <p id="emptyState" class="text-sm text-gray-500">
           Submit a prompt to see the generated HTML page here.
         </p>
-        <iframe
-          id="previewFrame"
-          title="Generated web page preview"
-          class="hidden h-[480px] w-full rounded-xl border border-gray-200 bg-white"
-        ></iframe>
-        <details id="htmlDetails" class="hidden">
-          <summary class="cursor-pointer text-sm font-medium text-brand-700 hover:text-brand-600">
-            Show extracted HTML
-          </summary>
-          <textarea
-            id="htmlOutput"
-            readonly
-            rows="12"
-            class="mt-3 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-xs text-gray-800"
-          ></textarea>
-        </details>
+        <div
+          id="previewContainer"
+          class="hidden overflow-hidden rounded-2xl bg-white shadow"
+        >
+          <iframe
+            id="previewFrame"
+            title="Generated web page preview"
+            class="h-[520px] w-full border-0"
+          ></iframe>
+        </div>
+      </div>
+
+      <section
+        id="htmlContainer"
+        class="hidden space-y-3 rounded-2xl bg-white p-6 shadow"
+        aria-label="Extracted HTML"
+      >
+        <h2 class="text-base font-semibold text-gray-900">Extracted HTML</h2>
+        <textarea
+          id="htmlOutput"
+          readonly
+          rows="12"
+          class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-xs text-gray-800"
+        ></textarea>
       </section>
 
       <footer class="py-6 text-center text-sm text-gray-500">
@@ -115,22 +133,32 @@
       const submitButton = document.getElementById("submitButton");
       const statusMessage = document.getElementById("statusMessage");
       const previewFrame = document.getElementById("previewFrame");
+      const previewContainer = document.getElementById("previewContainer");
       const emptyState = document.getElementById("emptyState");
       const htmlOutput = document.getElementById("htmlOutput");
-      const htmlDetails = document.getElementById("htmlDetails");
+      const htmlContainer = document.getElementById("htmlContainer");
       const clearButton = document.getElementById("clearButton");
       const openButton = document.getElementById("openButton");
       const downloadButton = document.getElementById("downloadButton");
       const saveGistButton = document.getElementById("saveGistButton");
+      const viewHtmlButton = document.getElementById("viewHtmlButton");
 
       const conversationHistory = [];
       let currentHtml = "";
       const defaultPlaceholder = promptInput.placeholder;
+      let isHtmlVisible = false;
 
       function updateActionButtonsState(hasHtml) {
         openButton.disabled = !hasHtml;
         downloadButton.disabled = !hasHtml;
         saveGistButton.disabled = !hasHtml;
+        viewHtmlButton.disabled = !hasHtml;
+        if (!hasHtml) {
+          isHtmlVisible = false;
+          htmlContainer.classList.add("hidden");
+          viewHtmlButton.textContent = "View HTML";
+          viewHtmlButton.setAttribute("aria-expanded", "false");
+        }
       }
 
       function setStatus(message, isError = false, asHtml = false) {
@@ -171,17 +199,20 @@
         currentHtml = html || "";
 
         if (!html) {
+          previewContainer.classList.add("hidden");
           previewFrame.classList.add("hidden");
-          htmlDetails.classList.add("hidden");
+          htmlContainer.classList.add("hidden");
+          viewHtmlButton.setAttribute("aria-expanded", "false");
+          viewHtmlButton.textContent = "View HTML";
           htmlOutput.value = "";
           emptyState.classList.remove("hidden");
           updateActionButtonsState(false);
           return;
         }
         previewFrame.srcdoc = html;
+        previewContainer.classList.remove("hidden");
         previewFrame.classList.remove("hidden");
         htmlOutput.value = html;
-        htmlDetails.classList.remove("hidden");
         emptyState.classList.add("hidden");
         updateActionButtonsState(true);
       }
@@ -258,6 +289,16 @@
         conversationHistory.length = 0;
         updateActionButtonsState(false);
         promptInput.placeholder = defaultPlaceholder;
+      });
+
+      viewHtmlButton.addEventListener("click", () => {
+        if (!currentHtml || viewHtmlButton.disabled) {
+          return;
+        }
+        isHtmlVisible = !isHtmlVisible;
+        htmlContainer.classList.toggle("hidden", !isHtmlVisible);
+        viewHtmlButton.textContent = isHtmlVisible ? "Hide HTML" : "View HTML";
+        viewHtmlButton.setAttribute("aria-expanded", String(isHtmlVisible));
       });
 
       openButton.addEventListener("click", () => {
