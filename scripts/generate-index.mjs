@@ -43,15 +43,14 @@ for (const entry of entries) {
 
   const title = data.title;
   const description = data.description;
+  const category = data.category?.trim() || 'Miscellaneous';
 
   if (!title || !description) {
     throw new Error(`README.md for tool "${slug}" must define both title and description.`);
   }
 
-  tools.push({ slug, title, description });
+  tools.push({ slug, title, description, category });
 }
-
-tools.sort((a, b) => a.title.localeCompare(b.title));
 
 const escapeHtml = (value) =>
   value
@@ -61,9 +60,40 @@ const escapeHtml = (value) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const listItems = tools
-  .map(
-    (tool) => `        <li>
+const toolsAlpha = [...tools].sort((a, b) => a.title.localeCompare(b.title));
+
+const categoryOrder = [
+  'Browser',
+  'Developer',
+  'Text',
+  'Encoding',
+  'Measurement',
+  'Conversion',
+  'Visualization',
+];
+
+const toolsByCategory = new Map();
+
+for (const tool of toolsAlpha) {
+  const list = toolsByCategory.get(tool.category) ?? [];
+  list.push(tool);
+  toolsByCategory.set(tool.category, list);
+}
+
+const availableCategories = Array.from(toolsByCategory.keys());
+const preferredCategories = categoryOrder.filter((category) =>
+  availableCategories.includes(category)
+);
+const remainingCategories = availableCategories
+  .filter((category) => !categoryOrder.includes(category))
+  .sort((a, b) => a.localeCompare(b));
+
+const orderedCategories = [...preferredCategories, ...remainingCategories];
+
+const categoryId = (category) =>
+  `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'misc'}`;
+
+const toolCard = (tool) => `        <li>
           <a href="/tools/${tool.slug}" class="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-white/5 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-cyan-400/60 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
             <div class="flex items-center justify-between gap-3">
               <span class="text-lg font-semibold text-white transition-colors duration-200 group-hover:text-cyan-200">${escapeHtml(tool.title)}</span>
@@ -75,20 +105,54 @@ const listItems = tools
             </div>
             <p class="mt-3 text-sm text-white/70">${escapeHtml(tool.description)}</p>
           </a>
-        </li>`
-  )
-  .join('\n');
+        </li>`;
+
+const listItems = toolsAlpha.map((tool) => toolCard(tool)).join('\n');
+
+const categorySections = orderedCategories
+  .map((category) => {
+    const items = toolsByCategory.get(category)?.map((tool) => toolCard(tool)).join('\n') ?? '';
+    const id = categoryId(category);
+    return `      <section id="${id}" class="space-y-4">
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-2xl font-semibold text-white">${escapeHtml(category)}</h3>
+          <span class="text-sm font-medium text-white/60">${toolsByCategory.get(category)?.length ?? 0} tool${(toolsByCategory.get(category)?.length ?? 0) === 1 ? '' : 's'}</span>
+        </div>
+        <ul class="grid gap-4 sm:grid-cols-2">
+${items}
+        </ul>
+      </section>`;
+  })
+  .join('\n\n');
+
+const tocLinks = orderedCategories
+  .map((category) => {
+    const id = categoryId(category);
+    return `<a href="#${id}" class="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-sm font-medium text-white/80 transition hover:border-cyan-400/60 hover:text-white">${escapeHtml(category)}</a>`;
+  })
+  .join('\n            ');
+
+const tocMarkup = `          <nav class="flex flex-wrap gap-2" aria-label="Tool categories">
+            ${tocLinks}
+          </nav>`;
 
 const template = await fs.readFile(templatePath, 'utf8');
 
-if (!template.includes('{{TOOLS_LIST}}')) {
-  throw new Error(`Template ${templatePath} must include a {{TOOLS_LIST}} placeholder.`);
+const requiredPlaceholders = ['{{TOOLS_TOC}}', '{{TOOLS_BY_CATEGORY}}', '{{TOOLS_AZ}}'];
+
+for (const placeholder of requiredPlaceholders) {
+  if (!template.includes(placeholder)) {
+    throw new Error(`Template ${templatePath} must include a ${placeholder} placeholder.`);
+  }
 }
 
-let html = template.replace('{{TOOLS_LIST}}', listItems);
+let html = template
+  .replace('{{TOOLS_TOC}}', tocMarkup)
+  .replace('{{TOOLS_BY_CATEGORY}}', categorySections)
+  .replace('{{TOOLS_AZ}}', listItems);
 
 if (template.includes('{{TOOLS_COUNT}}')) {
-  html = html.replace(/{{TOOLS_COUNT}}/g, String(tools.length));
+  html = html.replace(/{{TOOLS_COUNT}}/g, String(toolsAlpha.length));
 }
 
 await fs.writeFile(path.join(rootDir, 'index.html'), html);
@@ -104,15 +168,21 @@ if (!readme.includes(startMarker) || !readme.includes(endMarker)) {
   );
 }
 
-const readmeListItems = tools
-  .map(
-    (tool) =>
-      `- [${tool.title}](https://tools.dave.engineer/tools/${tool.slug}) — ${tool.description}`
-  )
-  .join('\n');
+const readmeSections = orderedCategories
+  .map((category) => {
+    const toolsInCategory = toolsByCategory.get(category) ?? [];
+    const items = toolsInCategory
+      .map(
+        (tool) =>
+          `- [${tool.title}](https://tools.dave.engineer/tools/${tool.slug}) — ${tool.description}`
+      )
+      .join('\n');
+    return `### ${category}\n\n${items}`;
+  })
+  .join('\n\n');
 
 const generatedNotice = '<!-- This section is automatically generated by `npm run build`. -->';
-const readmeSection = `${startMarker}\n\n${generatedNotice}\n\n${readmeListItems}\n\n${endMarker}`;
+const readmeSection = `${startMarker}\n\n${generatedNotice}\n\n${readmeSections}\n\n${endMarker}`;
 const readmeSectionRegex = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`);
 const updatedReadme = readme.replace(readmeSectionRegex, readmeSection).replace(/\s*$/, '\n');
 
