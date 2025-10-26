@@ -38,10 +38,10 @@ None.
 
 - Use the shared `/assets/tw.css`
 - Page wrapper: `<main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">`
-- Brand palette: 50 `#eff6ff`, 100 `#dbeafe`, 200 `#bfdbfe`, 500 `#3b82f6`, 600 `#2563eb`, 700 `#1d4ed8`
+- The primary accent colour is fuchsia (matching the homepage gradient) and the secondary accent colour is cyan.
 - Base button styles are provided via the `.btn` class (also applied to raw `<button>` elements).
-- Primary button: `class="btn btn-primary"` (or rely on the default `<button>` styles).
-- Secondary button: `class="btn btn-secondary"`
+- Primary button: `class="btn btn-primary"` for a fuchsia background with white text.
+- Secondary button: `class="btn btn-secondary"` for a cyan-accented outline button.
 - The page should have the tool as its main focus. Eg use Flexbox (or CSS Grid) to have the tool fill the page.
 - Consider how it looks on mobile.
 - Keep on-page copy short. Move instructions, tips, and troubleshooting info into the tool's README unless it is essential for the current interaction.
@@ -49,8 +49,8 @@ None.
   ```html
   <footer class="py-6 text-center text-sm text-gray-500">
     <div class="flex justify-center gap-4">
-      <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
-      <a href="https://github.com/dave1010/tools/tree/main/tools/example" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+      <a href="/" class="font-medium text-fuchsia-600 hover:text-fuchsia-500">← Back to tools.dave.engineer</a>
+      <a href="https://github.com/dave1010/tools/tree/main/tools/example" class="font-medium text-fuchsia-600 hover:text-fuchsia-500">About</a>
     </div>
   </footer>
   ```
