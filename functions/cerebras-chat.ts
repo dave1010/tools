@@ -36,51 +36,14 @@ const readJSON = async <T>(req: Request): Promise<T | null> => {
   }
 };
 
-const corsBase = (origin: string | null) => ({
-  "Access-Control-Allow-Origin": origin ?? "*",
-  Vary: "Origin",
-});
-
-const exposeRateLimitHeaders = () =>
-  // let the browser read Cerebras rate-limit headers
-  ({
-    "Access-Control-Expose-Headers":
-      [
-        "x-ratelimit-limit-requests-day",
-        "x-ratelimit-remaining-requests-day",
-        "x-ratelimit-limit-tokens-minute",
-        "x-ratelimit-remaining-tokens-minute",
-      ].join(", "),
-  }); // 2
-
-/* ---------- OPTIONS (CORS preflight) ---------- */
-export const onRequestOptions: PagesFunction<Env> = async ({ request }) => {
-  const acrh =
-    request.headers.get("Access-Control-Request-Headers") ?? "content-type";
-  const origin = request.headers.get("Origin");
-  return new Response(null, {
-    status: 204,
-    headers: {
-      ...corsBase(origin),
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": acrh,
-      "Access-Control-Max-Age": "86400",
-      Allow: "POST, OPTIONS",
-    },
-  });
-};
-
 /* ---------- POST (proxy to Cerebras) ---------- */
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const origin = request.headers.get("Origin");
-
   const apiKey = env.CEREBRAS_API_KEY?.trim();
   if (!apiKey) {
     return json(
       { error: "Missing binding 'CEREBRAS_API_KEY' on this deployment." },
       500,
       {
-        ...corsBase(origin),
         "X-Missing-Binding": "CEREBRAS_API_KEY",
       }
     );
@@ -88,18 +51,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const payload = await readJSON<ChatPayload>(request);
   if (!payload) {
-    return json({ error: "Invalid JSON payload" }, 400, corsBase(origin));
+    return json({ error: "Invalid JSON payload" }, 400);
   }
 
   const { model, messages } = payload;
   if (!model || typeof model !== "string") {
-    return json({ error: "`model` is required" }, 400, corsBase(origin));
+    return json({ error: "`model` is required" }, 400);
   }
   if (!Array.isArray(messages) || messages.length === 0) {
     return json(
       { error: "`messages` must be a non-empty array" },
-      400,
-      corsBase(origin)
+      400
     );
   }
 
@@ -135,19 +97,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     upstream = await fetch(apiURL, upstreamInit);
   } catch (err) {
     console.error("Cerebras proxy request failed", err);
-    return json(
-      { error: "Failed to reach Cerebras API" },
-      502,
-      corsBase(origin)
-    );
+    return json({ error: "Failed to reach Cerebras API" }, 502);
   }
 
-  // Prepare response headers: pass-through + CORS + no-store
+  // Prepare response headers: pass-through + no-store
   const headers = new Headers(upstream.headers);
   headers.set("Cache-Control", "no-store");
   headers.delete("www-authenticate");
-  Object.entries(corsBase(origin)).forEach(([k, v]) => headers.set(k, v));
-  Object.entries(exposeRateLimitHeaders()).forEach(([k, v]) => headers.set(k, v));
 
   // Optional small debug signal (does not leak secrets)
   if (env.DEBUG === "1") headers.set("X-Has-Cerebras-Key", "1");

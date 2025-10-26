@@ -8,87 +8,95 @@
   </head>
   <body class="bg-gradient-to-b from-brand-50/60 to-white">
     <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
-      <header class="space-y-3 text-center">
+      <header class="text-center">
         <h1 class="text-3xl font-semibold text-gray-900">Cerebras LLM Inference</h1>
-        <p class="text-gray-600">
-          Chat with Cerebras hosted models without exposing the API key. Configure the
-          system prompt and sampling options, then stream responses through the
-          built-in Cloudflare Worker proxy.
-        </p>
       </header>
 
-      <section class="space-y-6 rounded-2xl bg-white p-6 shadow">
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2">
-            <span class="block text-sm font-medium text-gray-700">Model</span>
-            <select
-              id="model"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            >
-              <option value="llama-4-scout-17b-16e-instruct" selected>llama-4-scout-17b-16e-instruct</option>
-              <option value="llama-4-17b-omni-16e">llama-4-17b-omni-16e</option>
-            </select>
-          </label>
-          <label class="space-y-2">
-            <span class="block text-sm font-medium text-gray-700">Max tokens (optional)</span>
-            <input
-              id="maxTokens"
-              type="number"
-              inputmode="numeric"
-              min="-1"
-              step="1"
-              placeholder="-1 for model default"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            />
-            <span class="block text-xs text-gray-500">Leave blank to let the API decide. Use -1 for unlimited tokens.</span>
-          </label>
-        </div>
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="space-y-2">
-            <span class="flex items-center justify-between text-sm font-medium text-gray-700">
-              <span>Temperature</span>
-              <span id="temperatureValue" class="font-mono text-gray-500">0.7</span>
-            </span>
-            <input
-              id="temperature"
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value="0.7"
-              class="w-full"
-            />
-          </label>
-          <label class="space-y-2">
-            <span class="flex items-center justify-between text-sm font-medium text-gray-700">
-              <span>Top P</span>
-              <span id="topPValue" class="font-mono text-gray-500">0.9</span>
-            </span>
-            <input
-              id="topP"
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value="0.9"
-              class="w-full"
-            />
-          </label>
-        </div>
-        <label class="space-y-2">
-          <span class="block text-sm font-medium text-gray-700">System prompt (optional)</span>
-          <textarea
-            id="systemPrompt"
-            rows="3"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            placeholder="Set behavior, tone, or context for the assistant"
-          ></textarea>
-        </label>
+      <section class="rounded-2xl bg-white p-6 shadow">
+        <details id="settingsPanel" class="group" open>
+          <summary class="flex cursor-pointer items-center justify-between text-base font-semibold text-gray-900">
+            <span>Conversation settings</span>
+            <span class="text-sm text-gray-500 group-open:hidden">Show</span>
+            <span class="hidden text-sm text-gray-500 group-open:inline">Hide</span>
+          </summary>
+          <div class="mt-4 space-y-6">
+            <div class="grid gap-4 md:grid-cols-2">
+              <label class="space-y-2">
+                <span class="block text-sm font-medium text-gray-700">Model</span>
+                <select
+                  id="model"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                >
+                  <option value="llama-4-scout-17b-16e-instruct" selected>llama-4-scout-17b-16e-instruct</option>
+                  <option value="llama-4-17b-omni-16e">llama-4-17b-omni-16e</option>
+                  <option value="llama3.1-8b">llama3.1-8b</option>
+                  <option value="llama-3.3-70b">llama-3.3-70b</option>
+                  <option value="gpt-oss-120b">gpt-oss-120b</option>
+                  <option value="qwen-3-32b">qwen-3-32b</option>
+                </select>
+              </label>
+              <label class="space-y-2">
+                <span class="block text-sm font-medium text-gray-700">Max tokens (optional)</span>
+                <input
+                  id="maxTokens"
+                  type="number"
+                  inputmode="numeric"
+                  min="-1"
+                  step="1"
+                  placeholder="-1 for model default"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                />
+                <span class="block text-xs text-gray-500">Leave blank to let the API decide. Use -1 for unlimited tokens.</span>
+              </label>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              <label class="space-y-2">
+                <span class="flex items-center justify-between text-sm font-medium text-gray-700">
+                  <span>Temperature</span>
+                  <span id="temperatureValue" class="font-mono text-gray-500">0.7</span>
+                </span>
+                <input
+                  id="temperature"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value="0.7"
+                  class="w-full"
+                />
+              </label>
+              <label class="space-y-2">
+                <span class="flex items-center justify-between text-sm font-medium text-gray-700">
+                  <span>Top P</span>
+                  <span id="topPValue" class="font-mono text-gray-500">0.9</span>
+                </span>
+                <input
+                  id="topP"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value="0.9"
+                  class="w-full"
+                />
+              </label>
+            </div>
+            <label class="space-y-2">
+              <span class="block text-sm font-medium text-gray-700">System prompt (optional)</span>
+              <textarea
+                id="systemPrompt"
+                rows="3"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                placeholder="Set behavior, tone, or context for the assistant"
+              ></textarea>
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-sm text-gray-500">
-            Requests are proxied through <code class="rounded bg-gray-100 px-1 py-0.5">/cerebras-chat</code> so tools on this
-            origin never touch the API key.
-          </p>
+          <h2 class="text-base font-semibold text-gray-900">Conversation</h2>
           <button
             id="resetConversation"
             type="button"
@@ -97,9 +105,6 @@
             Reset conversation
           </button>
         </div>
-      </section>
-
-      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
         <div id="transcript" class="h-80 overflow-y-auto rounded-xl bg-gray-50 p-4">
           <div id="conversation" class="flex flex-col gap-3 text-sm text-gray-900"></div>
           <p id="emptyState" class="mt-12 text-center text-sm text-gray-500">Start a conversation to see responses here.</p>
@@ -134,7 +139,7 @@
             </button>
           </div>
         </form>
-        <p id="status" class="text-sm text-gray-500"></p>
+        <p id="status" class="hidden text-sm text-red-600"></p>
       </section>
 
       <footer class="py-6 text-center text-sm text-gray-500">
@@ -169,6 +174,7 @@
       const maxTokensInput = document.getElementById("maxTokens");
 
       const PROXY_URL = "/cerebras-chat";
+      const SETTINGS_STORAGE_KEY = "cerebrasSettings";
 
       let activeController = null;
 
@@ -177,17 +183,63 @@
         topPValue.textContent = Number(topPInput.value).toFixed(2);
       }
 
-      function setStatus(message, tone = "muted") {
-        statusEl.textContent = message || "";
-        statusEl.className = `text-sm ${
-          tone === "error"
-            ? "text-red-600"
-            : tone === "success"
-            ? "text-brand-700"
-            : tone === "warning"
-            ? "text-amber-600"
-            : "text-gray-500"
-        }`;
+      function showError(message) {
+        if (message) {
+          statusEl.textContent = message;
+          statusEl.classList.remove("hidden");
+        } else {
+          statusEl.textContent = "";
+          statusEl.classList.add("hidden");
+        }
+      }
+
+      function saveSettings() {
+        try {
+          const payload = {
+            model: modelSelect.value,
+            temperature: Number(temperatureInput.value),
+            topP: Number(topPInput.value),
+            maxTokens: maxTokensInput.value,
+            systemPrompt: systemPromptInput.value,
+          };
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload));
+        } catch (error) {
+          console.error("Failed to save settings", error);
+        }
+      }
+
+      function loadSettings() {
+        try {
+          const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+          if (!raw) {
+            return;
+          }
+          const data = JSON.parse(raw);
+          if (data && typeof data === "object") {
+            if (typeof data.model === "string") {
+              const hasModel = Array.from(modelSelect.options).some(
+                (option) => option.value === data.model
+              );
+              if (hasModel) {
+                modelSelect.value = data.model;
+              }
+            }
+            if (typeof data.temperature === "number" && !Number.isNaN(data.temperature)) {
+              temperatureInput.value = data.temperature.toString();
+            }
+            if (typeof data.topP === "number" && !Number.isNaN(data.topP)) {
+              topPInput.value = data.topP.toString();
+            }
+            if (typeof data.maxTokens === "string") {
+              maxTokensInput.value = data.maxTokens;
+            }
+            if (typeof data.systemPrompt === "string") {
+              systemPromptInput.value = data.systemPrompt;
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load saved settings", error);
+        }
       }
 
       function setControlsDisabled(disabled) {
@@ -236,7 +288,7 @@
         conversation.length = 0;
         conversationEl.innerHTML = "";
         ensureEmptyState();
-        setStatus("");
+        showError("");
       }
 
       async function streamAssistantResponse(response, targetBubble) {
@@ -310,7 +362,7 @@
         conversation.push({ role: "user", content: message });
         ensureEmptyState();
 
-        setStatus("Sending request…");
+        showError("");
         setControlsDisabled(true);
         stopButton.disabled = false;
 
@@ -402,20 +454,18 @@
 
           if (assistantText) {
             conversation.push({ role: "assistant", content: assistantText });
-            setStatus("Response received.", "success");
           } else {
-            setStatus("The response did not include any content.", "warning");
+            showError("The response did not include any content.");
           }
         } catch (error) {
           if (error.name === "AbortError") {
-            setStatus("Request cancelled.", "warning");
             if (assistantEntry) {
               assistantEntry.bubble.classList.add("text-gray-500");
               assistantEntry.bubble.textContent = `${assistantEntry.bubble.textContent}\n\n[Cancelled]`;
             }
           } else {
             console.error("Request failed", error);
-            setStatus(error?.message || "Unexpected error", "error");
+            showError(error?.message || "Unexpected error");
             if (assistantEntry) {
               assistantEntry.wrapper.remove();
             }
@@ -435,7 +485,7 @@
         }
         const message = userMessageInput.value.trim();
         if (!message) {
-          setStatus("Enter a message first.", "error");
+          showError("Enter a message first.");
           return;
         }
         userMessageInput.value = "";
@@ -463,10 +513,22 @@
         clearConversation();
       });
 
-      temperatureInput.addEventListener("input", updateSliderDisplay);
-      topPInput.addEventListener("input", updateSliderDisplay);
+      modelSelect.addEventListener("change", saveSettings);
+      maxTokensInput.addEventListener("input", saveSettings);
+      systemPromptInput.addEventListener("input", saveSettings);
+      temperatureInput.addEventListener("input", () => {
+        updateSliderDisplay();
+        saveSettings();
+      });
+      topPInput.addEventListener("input", () => {
+        updateSliderDisplay();
+        saveSettings();
+      });
 
+      loadSettings();
       updateSliderDisplay();
+      saveSettings();
+
       ensureEmptyState();
       userMessageInput.focus();
     </script>
