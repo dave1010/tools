@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cerebras LLM Inference</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-3 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Cerebras LLM Inference</h1>
+        <p class="text-gray-600">
+          Chat with Cerebras hosted models without exposing the API key. Configure the
+          system prompt and sampling options, then stream responses through the
+          built-in Cloudflare Worker proxy.
+        </p>
+      </header>
+
+      <section class="space-y-6 rounded-2xl bg-white p-6 shadow">
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2">
+            <span class="block text-sm font-medium text-gray-700">Model</span>
+            <select
+              id="model"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            >
+              <option value="llama-4-scout-17b-16e-instruct" selected>llama-4-scout-17b-16e-instruct</option>
+              <option value="llama-4-17b-omni-16e">llama-4-17b-omni-16e</option>
+            </select>
+          </label>
+          <label class="space-y-2">
+            <span class="block text-sm font-medium text-gray-700">Max tokens (optional)</span>
+            <input
+              id="maxTokens"
+              type="number"
+              inputmode="numeric"
+              min="-1"
+              step="1"
+              placeholder="-1 for model default"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            />
+            <span class="block text-xs text-gray-500">Leave blank to let the API decide. Use -1 for unlimited tokens.</span>
+          </label>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2">
+            <span class="flex items-center justify-between text-sm font-medium text-gray-700">
+              <span>Temperature</span>
+              <span id="temperatureValue" class="font-mono text-gray-500">0.7</span>
+            </span>
+            <input
+              id="temperature"
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value="0.7"
+              class="w-full"
+            />
+          </label>
+          <label class="space-y-2">
+            <span class="flex items-center justify-between text-sm font-medium text-gray-700">
+              <span>Top P</span>
+              <span id="topPValue" class="font-mono text-gray-500">0.9</span>
+            </span>
+            <input
+              id="topP"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value="0.9"
+              class="w-full"
+            />
+          </label>
+        </div>
+        <label class="space-y-2">
+          <span class="block text-sm font-medium text-gray-700">System prompt (optional)</span>
+          <textarea
+            id="systemPrompt"
+            rows="3"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            placeholder="Set behavior, tone, or context for the assistant"
+          ></textarea>
+        </label>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-gray-500">
+            Requests are proxied through <code class="rounded bg-gray-100 px-1 py-0.5">/cerebras-chat</code> so tools on this
+            origin never touch the API key.
+          </p>
+          <button
+            id="resetConversation"
+            type="button"
+            class="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          >
+            Reset conversation
+          </button>
+        </div>
+      </section>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
+        <div id="transcript" class="h-80 overflow-y-auto rounded-xl bg-gray-50 p-4">
+          <div id="conversation" class="flex flex-col gap-3 text-sm text-gray-900"></div>
+          <p id="emptyState" class="mt-12 text-center text-sm text-gray-500">Start a conversation to see responses here.</p>
+        </div>
+        <form id="chatForm" class="space-y-3">
+          <label class="space-y-2">
+            <span class="block text-sm font-medium text-gray-700">Message</span>
+            <textarea
+              id="userMessage"
+              rows="3"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              placeholder="Ask a question or provide instructions"
+              required
+            ></textarea>
+            <span class="block text-xs text-gray-500">Press ⌘+Enter or Ctrl+Enter to send quickly.</span>
+          </label>
+          <div class="flex flex-wrap items-center justify-end gap-3">
+            <button
+              id="stopButton"
+              type="button"
+              class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled
+            >
+              Stop
+            </button>
+            <button
+              id="sendButton"
+              type="submit"
+              class="bg-brand-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/60"
+            >
+              Send
+            </button>
+          </div>
+        </form>
+        <p id="status" class="text-sm text-gray-500"></p>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/cerebras-llm-inference"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const conversation = [];
+      const transcriptEl = document.getElementById("transcript");
+      const conversationEl = document.getElementById("conversation");
+      const emptyStateEl = document.getElementById("emptyState");
+      const chatForm = document.getElementById("chatForm");
+      const userMessageInput = document.getElementById("userMessage");
+      const sendButton = document.getElementById("sendButton");
+      const stopButton = document.getElementById("stopButton");
+      const statusEl = document.getElementById("status");
+      const resetButton = document.getElementById("resetConversation");
+      const systemPromptInput = document.getElementById("systemPrompt");
+      const modelSelect = document.getElementById("model");
+      const temperatureInput = document.getElementById("temperature");
+      const temperatureValue = document.getElementById("temperatureValue");
+      const topPInput = document.getElementById("topP");
+      const topPValue = document.getElementById("topPValue");
+      const maxTokensInput = document.getElementById("maxTokens");
+
+      const PROXY_URL = "/cerebras-chat";
+
+      let activeController = null;
+
+      function updateSliderDisplay() {
+        temperatureValue.textContent = Number(temperatureInput.value).toFixed(1);
+        topPValue.textContent = Number(topPInput.value).toFixed(2);
+      }
+
+      function setStatus(message, tone = "muted") {
+        statusEl.textContent = message || "";
+        statusEl.className = `text-sm ${
+          tone === "error"
+            ? "text-red-600"
+            : tone === "success"
+            ? "text-brand-700"
+            : tone === "warning"
+            ? "text-amber-600"
+            : "text-gray-500"
+        }`;
+      }
+
+      function setControlsDisabled(disabled) {
+        const elements = [
+          userMessageInput,
+          sendButton,
+          systemPromptInput,
+          modelSelect,
+          temperatureInput,
+          topPInput,
+          maxTokensInput,
+          resetButton,
+        ];
+        for (const element of elements) {
+          element.disabled = disabled;
+        }
+      }
+
+      function ensureEmptyState() {
+        if (conversation.length === 0) {
+          emptyStateEl.classList.remove("hidden");
+        } else {
+          emptyStateEl.classList.add("hidden");
+        }
+      }
+
+      function appendMessage(role, content) {
+        ensureEmptyState();
+        const wrapper = document.createElement("div");
+        wrapper.className = role === "user" ? "flex justify-end" : "flex justify-start";
+
+        const bubble = document.createElement("div");
+        bubble.className = role === "user"
+          ? "max-w-[80%] whitespace-pre-wrap rounded-2xl bg-brand-600 px-4 py-3 text-sm text-white shadow"
+          : "max-w-[80%] whitespace-pre-wrap rounded-2xl bg-white px-4 py-3 text-sm text-gray-900 shadow";
+        bubble.textContent = content;
+
+        wrapper.appendChild(bubble);
+        conversationEl.appendChild(wrapper);
+        transcriptEl.scrollTop = transcriptEl.scrollHeight;
+
+        return { wrapper, bubble };
+      }
+
+      function clearConversation() {
+        conversation.length = 0;
+        conversationEl.innerHTML = "";
+        ensureEmptyState();
+        setStatus("");
+      }
+
+      async function streamAssistantResponse(response, targetBubble) {
+        if (!response.body) {
+          throw new Error("Streaming is not supported in this browser");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullText = "";
+
+        const processBuffer = () => {
+          let shouldStop = false;
+          let separatorIndex;
+          while ((separatorIndex = buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = buffer.slice(0, separatorIndex);
+            buffer = buffer.slice(separatorIndex + 2);
+            const lines = rawEvent.split("\n");
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data:")) continue;
+              const data = trimmed.slice(5).trim();
+              if (!data) continue;
+              if (data === "[DONE]") {
+                shouldStop = true;
+                break;
+              }
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed?.choices?.[0]?.delta?.content || "";
+                if (delta) {
+                  fullText += delta;
+                  targetBubble.textContent = fullText;
+                  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+                }
+              } catch (error) {
+                console.error("Failed to parse stream chunk", error, data);
+              }
+            }
+            if (shouldStop) {
+              break;
+            }
+          }
+          return shouldStop;
+        };
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) {
+            buffer += decoder.decode();
+            processBuffer();
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          if (processBuffer()) {
+            break;
+          }
+        }
+
+        targetBubble.textContent = fullText;
+        return fullText;
+      }
+
+      async function sendMessage(message) {
+        if (!message) {
+          return;
+        }
+
+        appendMessage("user", message);
+        conversation.push({ role: "user", content: message });
+        ensureEmptyState();
+
+        setStatus("Sending request…");
+        setControlsDisabled(true);
+        stopButton.disabled = false;
+
+        const payloadMessages = [];
+        const systemPrompt = systemPromptInput.value.trim();
+        if (systemPrompt) {
+          payloadMessages.push({ role: "system", content: systemPrompt });
+        }
+        for (const entry of conversation) {
+          payloadMessages.push(entry);
+        }
+
+        const payload = {
+          model: modelSelect.value,
+          messages: payloadMessages,
+          stream: true,
+        };
+
+        const temperature = parseFloat(temperatureInput.value);
+        if (!Number.isNaN(temperature)) {
+          payload.temperature = Number(temperature.toFixed(2));
+        }
+
+        const topP = parseFloat(topPInput.value);
+        if (!Number.isNaN(topP)) {
+          payload.top_p = Number(topP.toFixed(2));
+        }
+
+        const maxTokensRaw = maxTokensInput.value.trim();
+        if (maxTokensRaw !== "") {
+          const parsed = Number(maxTokensRaw);
+          if (!Number.isNaN(parsed)) {
+            payload.max_tokens = parsed;
+          }
+        }
+
+        let assistantEntry = null;
+
+        try {
+          activeController = new AbortController();
+          const response = await fetch(PROXY_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+            signal: activeController.signal,
+          });
+
+          const contentType = response.headers.get("content-type") || "";
+
+          if (!response.ok) {
+            let errorMessage = `Request failed (${response.status})`;
+            try {
+              if (contentType.includes("application/json")) {
+                const errorBody = await response.json();
+                errorMessage =
+                  errorBody?.error?.message || errorBody?.message || JSON.stringify(errorBody);
+              } else {
+                errorMessage = await response.text();
+              }
+            } catch (error) {
+              console.error("Failed to parse error response", error);
+            }
+            throw new Error(errorMessage || `Request failed (${response.status})`);
+          }
+
+          assistantEntry = appendMessage("assistant", "");
+          let assistantText = "";
+
+          if (contentType.includes("text/event-stream")) {
+            assistantText = await streamAssistantResponse(response, assistantEntry.bubble);
+          } else if (contentType.includes("application/json")) {
+            try {
+              const data = await response.json();
+              assistantText = data?.choices?.[0]?.message?.content || "";
+            } catch (error) {
+              console.error("Failed to parse JSON response", error);
+              assistantText = await response.text();
+            }
+            assistantEntry.bubble.textContent = assistantText;
+          } else {
+            assistantText = await response.text();
+            assistantEntry.bubble.textContent = assistantText;
+          }
+
+          assistantEntry.bubble.textContent = assistantText;
+          transcriptEl.scrollTop = transcriptEl.scrollHeight;
+
+          if (assistantText) {
+            conversation.push({ role: "assistant", content: assistantText });
+            setStatus("Response received.", "success");
+          } else {
+            setStatus("The response did not include any content.", "warning");
+          }
+        } catch (error) {
+          if (error.name === "AbortError") {
+            setStatus("Request cancelled.", "warning");
+            if (assistantEntry) {
+              assistantEntry.bubble.classList.add("text-gray-500");
+              assistantEntry.bubble.textContent = `${assistantEntry.bubble.textContent}\n\n[Cancelled]`;
+            }
+          } else {
+            console.error("Request failed", error);
+            setStatus(error?.message || "Unexpected error", "error");
+            if (assistantEntry) {
+              assistantEntry.wrapper.remove();
+            }
+          }
+        } finally {
+          setControlsDisabled(false);
+          stopButton.disabled = true;
+          activeController = null;
+          userMessageInput.focus();
+        }
+      }
+
+      chatForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (activeController) {
+          return;
+        }
+        const message = userMessageInput.value.trim();
+        if (!message) {
+          setStatus("Enter a message first.", "error");
+          return;
+        }
+        userMessageInput.value = "";
+        sendMessage(message);
+      });
+
+      userMessageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          chatForm.requestSubmit();
+        }
+      });
+
+      stopButton.addEventListener("click", () => {
+        if (activeController) {
+          activeController.abort();
+          stopButton.disabled = true;
+        }
+      });
+
+      resetButton.addEventListener("click", () => {
+        if (activeController) {
+          return;
+        }
+        clearConversation();
+      });
+
+      temperatureInput.addEventListener("input", updateSliderDisplay);
+      topPInput.addEventListener("input", updateSliderDisplay);
+
+      updateSliderDisplay();
+      ensureEmptyState();
+      userMessageInput.focus();
+    </script>
+  </body>
+</html>
