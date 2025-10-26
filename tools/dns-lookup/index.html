@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DNS Lookup</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto flex min-h-screen max-w-3xl flex-col space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">DNS Lookup</h1>
+        <p class="text-gray-600">
+          Query common DNS record types using Cloudflare's resolver.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
+        <form id="lookup-form" class="space-y-4" novalidate>
+          <div class="space-y-2">
+            <label for="domain" class="block text-sm font-medium text-gray-700">Domain</label>
+            <input
+              id="domain"
+              type="text"
+              inputmode="url"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="example.com"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              required
+            />
+            <p class="text-sm text-gray-500">Enter a hostname. Subdomains are supported.</p>
+          </div>
+
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div class="sm:w-48">
+              <label for="record-type" class="block text-sm font-medium text-gray-700">Record type</label>
+              <select
+                id="record-type"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              >
+                <option value="A" selected>A — IPv4 address</option>
+                <option value="AAAA">AAAA — IPv6 address</option>
+                <option value="CNAME">CNAME — Canonical name</option>
+                <option value="MX">MX — Mail exchange</option>
+                <option value="NS">NS — Name server</option>
+                <option value="TXT">TXT — Text</option>
+                <option value="SOA">SOA — Start of authority</option>
+              </select>
+            </div>
+            <button
+              id="submit-button"
+              type="submit"
+              class="bg-brand-600 text-white rounded-lg px-4 py-2 font-medium hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:bg-brand-300"
+            >
+              Look up DNS records
+            </button>
+          </div>
+        </form>
+
+        <p id="error-message" class="hidden rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert" aria-live="assertive"></p>
+      </section>
+
+      <section id="results" class="hidden space-y-4 rounded-2xl bg-white p-6 shadow" aria-live="polite">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">Results</h2>
+          <p id="result-summary" class="text-sm text-gray-600"></p>
+        </div>
+
+        <div id="result-flags" class="flex flex-wrap gap-2 text-xs font-medium text-gray-600"></div>
+
+        <div id="answer-section" class="space-y-2"></div>
+        <div id="authority-section" class="space-y-2"></div>
+        <div id="additional-section" class="space-y-2"></div>
+
+        <details class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+          <summary class="cursor-pointer text-sm font-medium text-gray-700">Raw response</summary>
+          <pre id="raw-response" class="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-gray-700"></pre>
+        </details>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/dns-lookup" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const form = document.getElementById("lookup-form");
+      const domainInput = document.getElementById("domain");
+      const recordTypeSelect = document.getElementById("record-type");
+      const submitButton = document.getElementById("submit-button");
+      const errorMessage = document.getElementById("error-message");
+      const resultsSection = document.getElementById("results");
+      const resultSummary = document.getElementById("result-summary");
+      const resultFlags = document.getElementById("result-flags");
+      const answerSection = document.getElementById("answer-section");
+      const authoritySection = document.getElementById("authority-section");
+      const additionalSection = document.getElementById("additional-section");
+      const rawResponse = document.getElementById("raw-response");
+
+      const STATUS_TEXT = {
+        0: "No error",
+        1: "Format error",
+        2: "Server failure",
+        3: "Name error (NXDOMAIN)",
+        4: "Not implemented",
+        5: "Refused",
+        6: "YXDOMAIN",
+        7: "YXRRSet",
+        8: "NXRRSet",
+        9: "Not authorized",
+        10: "Not in zone",
+      };
+
+      const TYPE_NAMES = {
+        1: "A",
+        2: "NS",
+        5: "CNAME",
+        6: "SOA",
+        12: "PTR",
+        15: "MX",
+        16: "TXT",
+        28: "AAAA",
+        33: "SRV",
+        44: "SSHFP",
+        46: "RRSIG",
+        48: "DNSKEY",
+        257: "CAA",
+      };
+
+      const showError = (message) => {
+        if (!message) {
+          errorMessage.classList.add("hidden");
+          errorMessage.textContent = "";
+          return;
+        }
+        errorMessage.textContent = message;
+        errorMessage.classList.remove("hidden");
+      };
+
+      const setLoadingState = (isLoading) => {
+        submitButton.disabled = isLoading;
+        submitButton.textContent = isLoading ? "Looking up…" : "Look up DNS records";
+      };
+
+      const resetResults = () => {
+        resultsSection.classList.add("hidden");
+        resultSummary.textContent = "";
+        resultFlags.innerHTML = "";
+        answerSection.innerHTML = "";
+        authoritySection.innerHTML = "";
+        additionalSection.innerHTML = "";
+        rawResponse.textContent = "";
+      };
+
+      const typeCodeToName = (code) => TYPE_NAMES[code] || code;
+
+      const createBadge = (label, isActive) => {
+        const span = document.createElement("span");
+        span.className = `rounded-full px-3 py-1 ${
+          isActive
+            ? "bg-brand-100 text-brand-700 border border-brand-200"
+            : "bg-gray-100 text-gray-500 border border-gray-200"
+        }`;
+        span.textContent = label;
+        return span;
+      };
+
+      const createRecordsTable = (records, title) => {
+        if (!Array.isArray(records) || records.length === 0) {
+          return null;
+        }
+
+        const container = document.createElement("div");
+        container.className = "space-y-2";
+
+        const heading = document.createElement("h3");
+        heading.className = "text-sm font-semibold text-gray-800";
+        heading.textContent = title;
+        container.appendChild(heading);
+
+        const table = document.createElement("table");
+        table.className = "w-full overflow-hidden rounded-xl border border-gray-200 text-sm";
+
+        const thead = document.createElement("thead");
+        thead.className = "bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500";
+        const headerRow = document.createElement("tr");
+        ["Name", "Type", "TTL", "Data"].forEach((label) => {
+          const th = document.createElement("th");
+          th.className = "px-3 py-2";
+          th.textContent = label;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        records.forEach((record, index) => {
+          const row = document.createElement("tr");
+          row.className = index % 2 === 0 ? "bg-white" : "bg-gray-50/60";
+
+          const nameCell = document.createElement("td");
+          nameCell.className = "px-3 py-2 font-mono text-xs text-gray-700";
+          nameCell.textContent = record.name || "";
+          row.appendChild(nameCell);
+
+          const typeCell = document.createElement("td");
+          typeCell.className = "px-3 py-2 text-gray-700";
+          typeCell.textContent = typeCodeToName(record.type);
+          row.appendChild(typeCell);
+
+          const ttlCell = document.createElement("td");
+          ttlCell.className = "px-3 py-2 text-gray-600";
+          ttlCell.textContent = typeof record.TTL === "number" ? `${record.TTL}s` : "";
+          row.appendChild(ttlCell);
+
+          const dataCell = document.createElement("td");
+          dataCell.className = "px-3 py-2 font-mono text-xs text-gray-700";
+          dataCell.textContent = record.data || "";
+          row.appendChild(dataCell);
+
+          tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+
+        container.appendChild(table);
+        return container;
+      };
+
+      const renderResults = (payload) => {
+        const { data, query } = payload;
+        const queryType = query?.type || recordTypeSelect.value;
+        resultSummary.textContent = `${query?.name || ""} — ${queryType} records`;
+
+        const flagDefinitions = [
+          { label: "Recursion desired", active: Boolean(data?.RD) },
+          { label: "Recursion available", active: Boolean(data?.RA) },
+          { label: "Authenticated data", active: Boolean(data?.AD) },
+          { label: "Checking disabled", active: Boolean(data?.CD) },
+        ];
+        flagDefinitions.forEach((flag) => {
+          resultFlags.appendChild(createBadge(flag.label, flag.active));
+        });
+
+        const statusLabel = STATUS_TEXT[data?.Status] || "Unknown status";
+        const statusBadge = createBadge(`Status: ${statusLabel} (${data?.Status ?? "?"})`, data?.Status === 0);
+        statusBadge.classList.add("text-xs");
+        resultFlags.prepend(statusBadge);
+
+        const answerTable = createRecordsTable(data?.Answer, "Answer");
+        const authorityTable = createRecordsTable(data?.Authority, "Authority");
+        const additionalTable = createRecordsTable(data?.Additional, "Additional");
+
+        if (answerTable) {
+          answerSection.appendChild(answerTable);
+        } else {
+          const empty = document.createElement("p");
+          empty.className = "text-sm text-gray-500";
+          empty.textContent = "No answer records returned.";
+          answerSection.appendChild(empty);
+        }
+
+        if (authorityTable) {
+          authoritySection.appendChild(authorityTable);
+        }
+
+        if (additionalTable) {
+          additionalSection.appendChild(additionalTable);
+        }
+
+        rawResponse.textContent = JSON.stringify(data, null, 2);
+        resultsSection.classList.remove("hidden");
+      };
+
+      const describeNetworkError = (error) => {
+        if (error?.name === "AbortError") {
+          return "Lookup canceled.";
+        }
+        if (error instanceof TypeError) {
+          return "Network request failed. Please try again.";
+        }
+        return error?.message || "Lookup failed.";
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const domain = domainInput.value.trim();
+        const type = recordTypeSelect.value;
+
+        resetResults();
+        showError("");
+
+        if (!domain) {
+          showError("Enter a domain name to look up.");
+          domainInput.focus();
+          return;
+        }
+
+        setLoadingState(true);
+
+        try {
+          const params = new URLSearchParams({ name: domain, type });
+          const response = await fetch(`/dns-lookup?${params.toString()}`, {
+            headers: {
+              Accept: "application/json",
+            },
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || `Lookup failed with status ${response.status}.`);
+          }
+
+          const payload = await response.json();
+          if (!payload.success) {
+            throw new Error(payload.error || "Lookup failed.");
+          }
+
+          renderResults(payload);
+        } catch (error) {
+          console.error("DNS lookup failed", error);
+          showError(describeNetworkError(error));
+        } finally {
+          setLoadingState(false);
+        }
+      });
+
+      form.addEventListener("reset", () => {
+        setLoadingState(false);
+        showError("");
+        resetResults();
+      });
+    </script>
+  </body>
+</html>
