@@ -44,6 +44,19 @@
             <p id="tilt" class="text-xl font-semibold">0.0°</p>
           </div>
         </div>
+        <div class="w-full max-w-sm space-y-3 rounded-lg bg-gray-800 p-4 text-center shadow-inner">
+          <p class="text-xs uppercase tracking-wide text-gray-400">Compass</p>
+          <div class="flex flex-col items-center space-y-3">
+            <div class="flex h-32 w-32 items-center justify-center rounded-full border border-gray-700 bg-gray-900 shadow-inner">
+              <span id="compass-emoji" class="text-5xl transition-transform duration-200">🧭</span>
+            </div>
+            <p id="compass-heading" class="text-2xl font-semibold">0.0°</p>
+            <p id="compass-heading-detail" class="text-xs text-gray-400">Rotate your device to find north.</p>
+          </div>
+          <p id="magnetometer-data" class="text-[0.7rem] leading-relaxed text-gray-400">
+            Magnetometer data not available.
+          </p>
+        </div>
       </div>
     </section>
 
@@ -65,10 +78,16 @@
       const rollEl = document.getElementById('roll');
       const tiltEl = document.getElementById('tilt');
       const indicatorEl = document.getElementById('precision-indicator');
+      const compassHeadingEl = document.getElementById('compass-heading');
+      const compassEmojiEl = document.getElementById('compass-emoji');
+      const compassHeadingDetailEl = document.getElementById('compass-heading-detail');
+      const magnetometerDataEl = document.getElementById('magnetometer-data');
 
       const baseBubbleClasses = 'absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-400 shadow-[0_0_20px_rgba(163,230,53,0.6)] transition-all duration-150 ease-out';
+      compassEmojiEl.style.transform = 'rotate(-45deg)';
 
       let isListening = false;
+      let isMagnetometerStarted = false;
 
       function updateStatus(message, type = 'info') {
         statusEl.textContent = message;
@@ -77,6 +96,67 @@
 
       function formatAngle(value) {
         return `${value.toFixed(1)}°`;
+      }
+
+      function normalizeHeading(value) {
+        if (!Number.isFinite(value)) {
+          return null;
+        }
+        const normalized = value % 360;
+        return normalized < 0 ? normalized + 360 : normalized;
+      }
+
+      function updateCompassHeading(value) {
+        const heading = normalizeHeading(value);
+        if (heading == null) {
+          compassHeadingEl.textContent = '—';
+          compassHeadingDetailEl.textContent = 'Heading unavailable on this device.';
+          compassEmojiEl.style.transform = 'rotate(-45deg)';
+          return;
+        }
+
+        compassHeadingEl.textContent = `${heading.toFixed(1)}°`;
+        compassHeadingDetailEl.textContent = `Facing ${heading.toFixed(0)}° relative to north.`;
+        compassEmojiEl.style.transform = `rotate(${heading - 45}deg)`;
+      }
+
+      function formatAxis(value) {
+        if (!Number.isFinite(value)) return '—';
+        const sign = value >= 0 ? '+' : '−';
+        return `${sign}${Math.abs(value).toFixed(1)} µT`;
+      }
+
+      function startMagnetometer() {
+        if (isMagnetometerStarted) return;
+        isMagnetometerStarted = true;
+
+        if (!('Magnetometer' in window)) {
+          magnetometerDataEl.textContent = 'Magnetometer data not supported in this browser.';
+          return;
+        }
+
+        try {
+          const magnetometer = new Magnetometer({ frequency: 10 });
+          magnetometer.addEventListener('reading', () => {
+            const x = formatAxis(magnetometer.x);
+            const y = formatAxis(magnetometer.y);
+            const z = formatAxis(magnetometer.z);
+            magnetometerDataEl.textContent = `Magnetometer (µT): X ${x} · Y ${y} · Z ${z}`;
+          });
+
+          magnetometer.addEventListener('error', (event) => {
+            if (event.error && event.error.name === 'NotAllowedError') {
+              magnetometerDataEl.textContent = 'Magnetometer access denied. Check site permissions.';
+            } else {
+              magnetometerDataEl.textContent = 'Unable to read magnetometer data.';
+            }
+          });
+
+          magnetometer.start();
+          magnetometerDataEl.textContent = 'Initializing magnetometer…';
+        } catch (error) {
+          magnetometerDataEl.textContent = 'Unable to start the magnetometer on this device.';
+        }
       }
 
       function updatePrecisionIndicator(tilt) {
@@ -111,6 +191,13 @@
         rollEl.textContent = formatAngle(gamma);
         tiltEl.textContent = formatAngle(tilt);
 
+        const rawHeading = typeof event.webkitCompassHeading === 'number'
+          ? event.webkitCompassHeading
+          : typeof event.alpha === 'number'
+            ? 360 - event.alpha
+            : null;
+        updateCompassHeading(rawHeading);
+
         const maxTilt = 45;
         const clampedX = Math.max(-maxTilt, Math.min(maxTilt, gamma));
         const clampedY = Math.max(-maxTilt, Math.min(maxTilt, beta));
@@ -128,8 +215,10 @@
       function startListening() {
         if (isListening) return;
         window.addEventListener('deviceorientation', handleOrientation, true);
+        window.addEventListener('deviceorientationabsolute', handleOrientation, true);
         isListening = true;
         updateStatus('Move your device to see the bubble shift.');
+        startMagnetometer();
       }
 
       function requestPermissionIfNeeded() {
