@@ -403,8 +403,8 @@
           device.queue.writeBuffer(
             uniformBuffer,
             0,
-            uniformArray,
-            0,
+            uniformArray.buffer,
+            uniformArray.byteOffset,
             uniformArray.byteLength
           );
         }
