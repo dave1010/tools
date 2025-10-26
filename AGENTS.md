@@ -39,7 +39,16 @@ None.
 - Use the shared `/assets/tw.css`
 - Page wrapper: `<main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">`
 - Primary button: `class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700"`
-- The page should have the tool as its main focus. Eg use Flexbox (or CSS Grid) to have the tool fill the page
+- The page should have the tool as its main focus. Eg use Flexbox (or CSS Grid) to have the tool fill the page.
 - Consider how it looks on mobile.
-- Add a footer link to the home page. Eg: `<footer class="py-6 text-center text-sm text-gray-500"><a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a></footer>`
+- Keep on-page copy short. Move instructions, tips, and troubleshooting info into the tool's README unless it is essential for the current interaction.
+- Add a footer that links back home **and** to the tool's GitHub directory as “About”. Example:
+  ```html
+  <footer class="py-6 text-center text-sm text-gray-500">
+    <div class="flex justify-center gap-4">
+      <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+      <a href="https://github.com/dave1010/tools/tree/main/tools/example" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+    </div>
+  </footer>
+  ```
 - These are guidelines! Different tools may need to look very different. Consider the request and what's best for the specific tool.

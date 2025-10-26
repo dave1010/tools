@@ -13,12 +13,8 @@
   </head>
   <body class="bg-gradient-to-b from-brand-50/60 to-white">
     <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
-      <header class="space-y-2 text-center">
+      <header class="text-center">
         <h1 class="text-3xl font-semibold text-gray-900">Origin Private File System Viewer</h1>
-        <p class="text-gray-600">
-          Inspect the files your browser stores in the Origin Private File System (OPFS),
-          view metadata and text previews, download copies, and delete entries you no longer need.
-        </p>
       </header>
 
       <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
@@ -78,18 +74,6 @@
         </div>
       </section>
 
-      <section class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 md:p-6">
-        <h2 class="text-base font-semibold text-amber-900">Tips</h2>
-        <ul class="list-disc space-y-1 pl-5">
-          <li>OPFS is origin-scoped. You'll only see files created by this browser and origin.</li>
-          <li>Deleting a file here removes it immediately; there is no undo.</li>
-          <li>
-            Some browsers need experimental flags enabled. Search for “File System Access API” in your browser's settings if you
-            do not see any files.
-          </li>
-        </ul>
-      </section>
-
       <dialog id="new-text-file-dialog" class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-0 shadow-xl">
         <form id="new-text-file-form" class="space-y-4 p-6">
           <div class="space-y-1">
@@ -114,7 +98,10 @@
       </dialog>
 
       <footer class="py-6 text-center text-sm text-gray-500">
-        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+        <div class="flex flex-wrap justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/origin-private-file-system-viewer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
       </footer>
     </main>
 
