@@ -15,6 +15,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Ambient Noise Profiler](https://tools.dave.engineer/tools/ambient-noise-profiler) — Real-time ambient frequency visualizer
 - [Basic QR Code Generator](https://tools.dave.engineer/tools/basic-qr-code) — Generate QR codes from text
 - [Bubble Level](https://tools.dave.engineer/tools/bubble-level) — Simple digital bubble level
+- [Compass](https://tools.dave.engineer/tools/compass) — Heading indicator with magnetometer data
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
 - [Device & Browser Info](https://tools.dave.engineer/tools/device-browser-info) — Display current device and browser details
 - [GitHub Device Login](https://tools.dave.engineer/tools/github-device-login) — Start the GitHub device flow and store the resulting access token locally.
