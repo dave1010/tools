@@ -85,9 +85,22 @@
             Suggest a tool
           </a>
         </div>
-        <ul class="grid gap-4 sm:grid-cols-2">
-{{TOOLS_LIST}}
-        </ul>
+        <div class="space-y-6">
+          <div class="inline-flex rounded-full border border-white/10 bg-white/5 p-1 text-sm font-medium text-white/70">
+            <button type="button" data-tab="category" class="tab-button rounded-full px-4 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">By category</button>
+            <button type="button" data-tab="az" class="tab-button rounded-full px-4 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">A–Z</button>
+          </div>
+          <div data-panel="category" class="space-y-8">
+{{TOOLS_TOC}}
+
+{{TOOLS_BY_CATEGORY}}
+          </div>
+          <div data-panel="az" class="hidden">
+            <ul class="grid gap-4 sm:grid-cols-2">
+{{TOOLS_AZ}}
+            </ul>
+          </div>
+        </div>
       </section>
 
       <footer class="border-t border-white/10 pt-8 text-sm text-white/60">
@@ -103,5 +116,28 @@
       </footer>
     </main>
   </div>
+  <script>
+    const tabButtons = Array.from(document.querySelectorAll('[data-tab]'));
+    const panels = Array.from(document.querySelectorAll('[data-panel]'));
+
+    const activateTab = (name) => {
+      tabButtons.forEach((button) => {
+        const isActive = button.dataset.tab === name;
+        button.classList.toggle('bg-cyan-500/20', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('text-white/70', !isActive);
+      });
+      panels.forEach((panel) => {
+        panel.classList.toggle('hidden', panel.dataset.panel !== name);
+      });
+    };
+
+    if (tabButtons.length && panels.length) {
+      activateTab('category');
+      tabButtons.forEach((button) => {
+        button.addEventListener('click', () => activateTab(button.dataset.tab));
+      });
+    }
+  </script>
 </body>
 </html>
