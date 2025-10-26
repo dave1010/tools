@@ -2,7 +2,7 @@ const API_URL = "https://api.cerebras.ai/v1/chat/completions";
 
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 
-export const onRequest = async ({ request, env }) => {
+const handleRequest = async (request, env) => {
   if (request.method === "OPTIONS") {
     const requestHeaders = request.headers.get("Access-Control-Request-Headers");
     return new Response(null, {
@@ -116,4 +116,12 @@ export const onRequest = async ({ request, env }) => {
     statusText: response.statusText,
     headers,
   });
+};
+
+export const onRequest = async (context) => handleRequest(context.request, context.env);
+
+export default {
+  async fetch(request, env) {
+    return handleRequest(request, env);
+  },
 };
