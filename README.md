@@ -22,6 +22,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [DNS Lookup](https://tools.dave.engineer/tools/dns-lookup) — Query DNS records using Cloudflare's resolver
 - [GitHub Device Login](https://tools.dave.engineer/tools/github-device-login) — Start the GitHub device flow and store the resulting access token locally.
 - [JSON Formatter](https://tools.dave.engineer/tools/json-formatter) — Format and validate JSON data
+- [Prompt to Web Page](https://tools.dave.engineer/tools/prompt-to-web-page) — Turn a short idea into a rendered web page
 
 ### Text
 
