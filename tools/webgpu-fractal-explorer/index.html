@@ -111,6 +111,37 @@
       const colorValue = document.getElementById("colorValue");
       const resetButton = document.getElementById("resetView");
 
+      function showSupportMessage({ title, body, details, isError = false }) {
+        supportMessage.replaceChildren();
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "space-y-2";
+
+        const titleEl = document.createElement("p");
+        titleEl.className = `text-lg font-semibold ${
+          isError ? "text-red-700" : "text-brand-800"
+        }`;
+        titleEl.textContent = title;
+        wrapper.appendChild(titleEl);
+
+        const bodyEl = document.createElement("p");
+        bodyEl.className = "text-sm text-brand-700";
+        bodyEl.textContent = body;
+        wrapper.appendChild(bodyEl);
+
+        if (details) {
+          const detailsEl = document.createElement("pre");
+          detailsEl.className =
+            "overflow-x-auto rounded-md bg-brand-100/70 p-3 text-left text-xs text-brand-800";
+          detailsEl.textContent = details;
+          wrapper.appendChild(detailsEl);
+        }
+
+        supportMessage.appendChild(wrapper);
+        supportMessage.classList.remove("hidden");
+        supportMessage.classList.add("flex");
+      }
+
       const params = {
         centerX: -0.75,
         centerY: 0.0,
@@ -142,25 +173,78 @@
       });
 
       async function initWebGPU() {
+        supportMessage.classList.add("hidden");
+        supportMessage.classList.remove("flex");
+        supportMessage.textContent = "";
+
         if (!navigator.gpu) {
-          supportMessage.textContent = "Your browser does not support WebGPU yet. Try updating to the latest version of Chrome, Edge, or Firefox (with the WebGPU flag enabled).";
-          supportMessage.classList.remove("hidden");
-          supportMessage.classList.add("flex");
+          showSupportMessage({
+            title: "WebGPU is unavailable",
+            body:
+              "Your browser does not support WebGPU yet. Try updating to the latest version of Chrome, Edge, or Firefox (with the WebGPU flag enabled).",
+          });
           return;
         }
 
-        const adapter = await navigator.gpu.requestAdapter();
+        let adapter;
+        try {
+          adapter = await navigator.gpu.requestAdapter();
+        } catch (error) {
+          console.error("Failed to request WebGPU adapter", error);
+          showSupportMessage({
+            title: "Unable to access a GPU adapter",
+            body: "Ensure hardware acceleration is enabled and that no other app is blocking GPU access.",
+            details: error instanceof Error ? error.message : String(error),
+            isError: true,
+          });
+          return;
+        }
+
         if (!adapter) {
-          supportMessage.textContent = "Unable to access a GPU adapter. Ensure hardware acceleration is enabled.";
-          supportMessage.classList.remove("hidden");
-          supportMessage.classList.add("flex");
+          showSupportMessage({
+            title: "No compatible GPU adapter found",
+            body: "Your device reported that no WebGPU-compatible adapter is available. Try enabling hardware acceleration or switching to a newer browser.",
+            isError: true,
+          });
           return;
         }
 
-        const device = await adapter.requestDevice();
+        let device;
+        try {
+          device = await adapter.requestDevice();
+        } catch (error) {
+          console.error("Failed to request WebGPU device", error);
+          showSupportMessage({
+            title: "Unable to start WebGPU",
+            body: "The GPU rejected the WebGPU device request. This can happen if required features are disabled or the driver is outdated.",
+            details: error instanceof Error ? error.message : String(error),
+            isError: true,
+          });
+          return;
+        }
+
         const context = canvas.getContext("webgpu");
+        if (!context) {
+          showSupportMessage({
+            title: "Unable to initialise canvas",
+            body: "The browser could not create a WebGPU context for the canvas element.",
+            isError: true,
+          });
+          return;
+        }
         const format = navigator.gpu.getPreferredCanvasFormat();
-        context.configure({ device, format, alphaMode: "premultiplied" });
+        try {
+          context.configure({ device, format, alphaMode: "premultiplied" });
+        } catch (error) {
+          console.error("Failed to configure WebGPU context", error);
+          showSupportMessage({
+            title: "WebGPU configuration failed",
+            body: "Configuring the canvas for WebGPU rendering failed. This may happen on low-memory devices or when WebGPU is partially supported.",
+            details: error instanceof Error ? error.message : String(error),
+            isError: true,
+          });
+          return;
+        }
 
         const shaderModule = device.createShaderModule({
           label: "fractal-shader",
@@ -242,7 +326,9 @@
           `,
         });
 
-        const pipeline = device.createRenderPipeline({
+        let pipeline;
+        try {
+          pipeline = device.createRenderPipeline({
           label: "fractal-pipeline",
           layout: "auto",
           vertex: {
@@ -258,7 +344,17 @@
             topology: "triangle-strip",
             stripIndexFormat: "uint32",
           },
-        });
+          });
+        } catch (error) {
+          console.error("Failed to create WebGPU pipeline", error);
+          showSupportMessage({
+            title: "Rendering pipeline creation failed",
+            body: "The GPU could not compile the fractal shader. Try updating to the latest browser or GPU drivers.",
+            details: error instanceof Error ? error.message : String(error),
+            isError: true,
+          });
+          return;
+        }
 
         const uniformBuffer = device.createBuffer({
           label: "uniform-buffer",
@@ -301,29 +397,39 @@
         }
 
         function render() {
-          resizeCanvas();
-          updateUniforms();
+          try {
+            resizeCanvas();
+            updateUniforms();
 
-          const encoder = device.createCommandEncoder();
-          const textureView = context.getCurrentTexture().createView();
-          const pass = encoder.beginRenderPass({
-            colorAttachments: [
-              {
-                view: textureView,
-                clearValue: { r: 0, g: 0, b: 0, a: 1 },
-                loadOp: "clear",
-                storeOp: "store",
-              },
-            ],
-          });
+            const encoder = device.createCommandEncoder();
+            const textureView = context.getCurrentTexture().createView();
+            const pass = encoder.beginRenderPass({
+              colorAttachments: [
+                {
+                  view: textureView,
+                  clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                  loadOp: "clear",
+                  storeOp: "store",
+                },
+              ],
+            });
 
-          pass.setPipeline(pipeline);
-          pass.setBindGroup(0, bindGroup);
-          pass.draw(4);
-          pass.end();
+            pass.setPipeline(pipeline);
+            pass.setBindGroup(0, bindGroup);
+            pass.draw(4);
+            pass.end();
 
-          device.queue.submit([encoder.finish()]);
-          requestAnimationFrame(render);
+            device.queue.submit([encoder.finish()]);
+            requestAnimationFrame(render);
+          } catch (error) {
+            console.error("WebGPU render loop failed", error);
+            showSupportMessage({
+              title: "WebGPU render loop stopped",
+              body: "Rendering stopped due to an unexpected error.",
+              details: error instanceof Error ? error.message : String(error),
+              isError: true,
+            });
+          }
         }
 
         let isDragging = false;
@@ -380,10 +486,29 @@
           }
         });
 
+        device.lost.then((info) => {
+          console.warn("WebGPU device lost", info);
+          showSupportMessage({
+            title: "WebGPU device lost",
+            body: `The GPU device was lost (${info.reason}). Trying to recover…`,
+            details: info.message,
+            isError: true,
+          });
+          initWebGPU();
+        });
+
         render();
       }
 
-      initWebGPU();
+      initWebGPU().catch((error) => {
+        console.error("Failed to initialise WebGPU fractal explorer", error);
+        showSupportMessage({
+          title: "Initialisation error",
+          body: "Something went wrong while starting the fractal explorer.",
+          details: error instanceof Error ? error.message : String(error),
+          isError: true,
+        });
+      });
     </script>
   </body>
 </html>
