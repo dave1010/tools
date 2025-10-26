@@ -11,7 +11,7 @@
 ## Build & Deploy
 
 - Github Actions and Cloudflare automatically run `npm run build`, which will regenerate the top level index.html and README.md from tool README.md metadata.
-- `npm run build` rarey needs to be ran manually.
+- `npm run build` doesn't need to be ran manually when adding or editing tools, only if youre changing the build process itself.
 
 ## Tests
 
@@ -55,3 +55,15 @@ None.
   </footer>
   ```
 - These are guidelines! Different tools may need to look very different. Consider the request and what's best for the specific tool.
+
+## Debugging JS
+
+If the developer reports that JS is completely broken then surface all errors. Eg `window.addEventListener('error', ...`
+
+## LLM Inference
+
+The Cloudflare Pages function `functions/cerebras-chat.ts` provides OpenAI-compatible LLM inference. See `tools/cerebras-llm-inference/index.html` for a working example. The model `gpt-oss-120b` is the best all rounder.
+
+## GitHub Tokens
+
+For GitHub integrations, the user's browser may already have `github-device-login-token` in local storage. If they don't, or if more permissions are needed, then direct the user to /tools/github-device-login/
