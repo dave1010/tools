@@ -10,7 +10,6 @@
   <main class="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center space-y-6 p-4 font-sans md:p-6">
     <header class="space-y-1 text-center">
       <h1 class="text-3xl font-semibold">Compass</h1>
-      <p class="text-sm text-gray-300">Find your bearing with a responsive compass and live magnetometer readings.</p>
     </header>
 
     <section class="flex w-full flex-1 flex-col items-center justify-center space-y-4">
@@ -26,7 +25,7 @@
         </div>
         <div class="text-center">
           <p id="heading-value" class="text-3xl font-semibold">0.0°</p>
-          <p id="heading-detail" class="text-sm text-gray-400">Rotate your device to find north.</p>
+          <p id="heading-detail" class="text-sm text-gray-400">—</p>
         </div>
         <p id="magnetometer-data" class="text-[0.65rem] leading-relaxed text-gray-400 text-center">
           Magnetometer data not available.
@@ -103,6 +102,11 @@
         ctx.arc(0, 0, radius + 12, 0, Math.PI * 2);
         ctx.fill();
 
+        const normalizedAngle = ((angleDegrees % 360) + 360) % 360;
+
+        ctx.save();
+        ctx.rotate(toRadians(-normalizedAngle));
+
         ctx.strokeStyle = '#1f2937';
         ctx.lineWidth = 6;
         ctx.beginPath();
@@ -173,9 +177,10 @@
           ctx.restore();
         });
 
+        ctx.restore();
+
         ctx.save();
-        const normalizedAngle = ((angleDegrees % 360) + 360) % 360;
-        ctx.rotate(toRadians(normalizedAngle));
+        ctx.rotate(toRadians(-normalizedAngle));
 
         ctx.beginPath();
         ctx.fillStyle = '#ef4444';
@@ -291,7 +296,7 @@
           scheduleAnimation();
         }
 
-        updateStatus('Rotate your device to align north.');
+        updateStatus('Heading data active.');
       }
 
       function handleOrientation(event) {
@@ -302,7 +307,7 @@
         const rawHeading = typeof event.webkitCompassHeading === 'number'
           ? event.webkitCompassHeading
           : typeof event.alpha === 'number'
-            ? 360 - event.alpha
+            ? event.alpha
             : null;
 
         updateHeading(rawHeading);
@@ -346,7 +351,7 @@
 
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && isListening) {
-          updateStatus(hasHeading ? 'Rotate your device to align north.' : 'Waiting for heading data…');
+          updateStatus(hasHeading ? 'Heading data active.' : 'Waiting for heading data…');
         }
       });
 
