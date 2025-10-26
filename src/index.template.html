@@ -30,8 +30,10 @@
 <body class="bg-black text-slate-100 antialiased">
   <div class="relative isolate min-h-screen">
     <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden opacity-90">
-      <div class="absolute inset-x-[-30%] top-[-25%] h-[60vh] rounded-full bg-gradient-to-r from-fuchsia-600/50 via-purple-500/40 to-cyan-500/40 blur-3xl"></div>
-      <div class="absolute inset-x-[-30%] bottom-[-30%] h-[55vh] rounded-full bg-gradient-to-r from-cyan-500/40 via-blue-500/30 to-fuchsia-600/50 blur-3xl"></div>
+      <div class="absolute inset-x-[-30%] top-[-25%] hidden h-[60vh] rounded-full bg-gradient-to-r from-fuchsia-600/50 via-purple-500/40 to-cyan-500/40 blur-3xl sm:block"></div>
+      <div class="absolute inset-x-[-30%] bottom-[-30%] hidden h-[55vh] rounded-full bg-gradient-to-r from-cyan-500/40 via-blue-500/30 to-fuchsia-600/50 blur-3xl sm:block"></div>
+      <div class="absolute left-1/2 top-[-35%] h-[80vh] w-[160%] -translate-x-1/2 rounded-full bg-gradient-to-br from-fuchsia-600/50 via-purple-500/40 to-cyan-500/40 blur-3xl sm:hidden"></div>
+      <div class="absolute left-1/2 bottom-[-40%] h-[80vh] w-[180%] -translate-x-1/2 rounded-full bg-gradient-to-br from-cyan-500/40 via-blue-500/30 to-fuchsia-600/50 blur-3xl sm:hidden"></div>
     </div>
 
     <main class="relative mx-auto max-w-5xl space-y-16 px-4 py-12 font-sans sm:px-6 md:py-20 lg:px-8">
@@ -43,9 +45,9 @@
           </span>
           <h1 class="text-4xl font-semibold tracking-tight text-white sm:text-5xl">tools.dave.engineer</h1>
           <p class="mx-auto max-w-2xl text-lg text-slate-100/80">
-            Discover a growing library of handy utilities made by
+            A library of handy utilities made by
             <a href="https://dave.engineer/" class="font-semibold text-cyan-200 transition hover:text-white">Dave Hulbert</a>.
-            Lightweight, fast, and privacy-friendly by default. No accounts, tracking, or ads—just useful utilities.
+            Lightweight, fast, and privacy-friendly by default. No accounts, tracking, or ads. Just useful utilities.
           </p>
           <div class="flex flex-col items-center justify-center gap-3 text-sm sm:flex-row sm:gap-4">
             <p class="text-fuchsia-100 sm:text-left">
@@ -60,16 +62,6 @@
           </div>
         </div>
 
-        <dl class="grid gap-4 text-left sm:grid-cols-2">
-          <div class="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/10 p-5 backdrop-blur">
-            <dt class="text-sm font-medium uppercase tracking-wide text-fuchsia-200">Privacy first</dt>
-            <dd class="mt-2 text-base text-fuchsia-100">Your data stays on your device.</dd>
-          </div>
-          <div class="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 backdrop-blur">
-            <dt class="text-sm font-medium uppercase tracking-wide text-cyan-200">Open source</dt>
-            <dd class="mt-2 text-base text-cyan-100">Ideas welcome, issues encouraged, pull requests celebrated.</dd>
-          </div>
-        </dl>
       </header>
 
       <section id="all-tools" class="space-y-8 text-left">
