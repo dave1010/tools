@@ -47,36 +47,12 @@
         border: 1px solid rgb(254 202 202);
       }
 
-      .verification-item {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 0.75rem 1rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgb(229 231 235);
-        background: rgb(249 250 251);
-      }
-
-      .verification-item[data-valid="true"] {
-        border-color: rgb(187 247 208);
-        background: rgb(240 253 244);
-        color: rgb(22 101 52);
-      }
-
-      .verification-item[data-valid="false"] {
-        border-color: rgb(254 202 202);
-        background: rgb(254 242 242);
-        color: rgb(185 28 28);
-      }
     </style>
   </head>
   <body class="bg-gradient-to-b from-brand-50/60 to-white">
     <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-6 font-sans">
       <header class="space-y-2 text-center">
         <h1 class="text-3xl font-semibold text-gray-900">Bible Verse Explorer</h1>
-        <p class="text-gray-600">
-          Browse the NET Bible locally with instant book, chapter, and verse lookups powered by SQLite in your browser.
-        </p>
       </header>
 
       <div id="status" class="status-banner" data-type="info" hidden>
@@ -115,19 +91,21 @@
             <div data-tab-panel="select">
               <div class="grid gap-4 md:grid-cols-2">
                 <label class="space-y-2">
-                  <span class="font-medium text-gray-700">Book</span>
+                  <span class="sr-only">Book</span>
                   <select
                     id="book-select"
                     class="w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
                     disabled
+                    aria-label="Book"
                   ></select>
                 </label>
                 <label class="space-y-2">
-                  <span class="font-medium text-gray-700">Chapter</span>
+                  <span class="sr-only">Chapter</span>
                   <select
                     id="chapter-select"
                     class="w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
                     disabled
+                    aria-label="Chapter"
                   ></select>
                 </label>
               </div>
@@ -136,10 +114,6 @@
             <div data-tab-panel="browse" hidden>
               <div class="space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 class="text-base font-semibold text-gray-800">Explore by Book</h3>
-                    <p class="text-sm text-gray-500">Choose a book, then select any chapter to view it instantly.</p>
-                  </div>
                   <div class="flex gap-2">
                     <button
                       class="browse-order rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 data-[active='true']:border-brand-200 data-[active='true']:bg-brand-50 data-[active='true']:text-brand-700"
@@ -159,11 +133,8 @@
                   </div>
                 </div>
                 <div id="browse-book-list" class="space-y-4"></div>
-                <div>
-                  <h4 class="mb-2 text-sm font-semibold text-gray-700">Chapters</h4>
-                  <div id="browse-chapter-list" class="flex flex-wrap gap-2 text-sm text-gray-500">
-                    Select a book to view its chapters.
-                  </div>
+                <div id="browse-chapter-list" class="flex flex-wrap gap-2 text-sm text-gray-500">
+                  Select a book to view its chapters.
                 </div>
               </div>
             </div>
@@ -216,16 +187,6 @@
         </div>
       </section>
 
-      <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
-        <header class="space-y-1">
-          <h2 class="text-xl font-semibold text-gray-900">Reference Checks</h2>
-          <p class="text-sm text-gray-600">
-            Automatic spot checks ensure the book order matches well-known verses so you can trust the mapping.
-          </p>
-        </header>
-        <div id="verification-results" class="space-y-3 text-sm"></div>
-      </section>
-
       <footer class="py-6 text-center text-sm text-gray-500">
         <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
       </footer>
@@ -242,7 +203,6 @@
       const currentReference = document.getElementById("current-reference");
       const previousButton = document.getElementById("previous-chapter");
       const nextButton = document.getElementById("next-chapter");
-      const verificationResults = document.getElementById("verification-results");
       const browseBookList = document.getElementById("browse-book-list");
       const browseChapterList = document.getElementById("browse-chapter-list");
       const browseOrderButtons = document.querySelectorAll(".browse-order");
@@ -323,37 +283,6 @@
         { id: 64, name: "3 John", testament: "NT", aliases: ["3 john", "3 jn", "3jo", "3jn", "iii john"] },
         { id: 65, name: "Jude", testament: "NT", aliases: ["jude", "jud"] },
         { id: 66, name: "Revelation", testament: "NT", aliases: ["revelation", "rev", "re"] }
-      ];
-
-      const verificationRefs = [
-        {
-          ref: "Genesis 1:1",
-          bookId: 1,
-          chapter: 1,
-          verse: 1,
-          snippet: "In the beginning God created"
-        },
-        {
-          ref: "Psalm 23:1",
-          bookId: 19,
-          chapter: 23,
-          verse: 1,
-          snippet: "The LORD is my shepherd"
-        },
-        {
-          ref: "John 3:16",
-          bookId: 43,
-          chapter: 3,
-          verse: 16,
-          snippet: "God loved the world"
-        },
-        {
-          ref: "Revelation 22:21",
-          bookId: 66,
-          chapter: 22,
-          verse: 21,
-          snippet: "grace of the Lord Jesus"
-        }
       ];
 
       const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -738,51 +667,6 @@
         chapterSelect.appendChild(fragment);
       };
 
-      const runVerification = () => {
-        verificationResults.innerHTML = "";
-        for (const check of verificationRefs) {
-          const text =
-            getVerseText(check.bookId, check.chapter, check.verse) ?? "";
-          const passed = text.includes(check.snippet);
-          const item = document.createElement("div");
-          item.className = "verification-item";
-          item.dataset.valid = String(passed);
-          const left = document.createElement("div");
-          left.className = "font-medium";
-          left.textContent = check.ref;
-          const right = document.createElement("div");
-          right.className = "text-sm";
-          right.textContent = passed
-            ? "✓ Mapping confirmed"
-            : "⚠️ Unexpected verse text";
-          item.appendChild(left);
-          item.appendChild(right);
-          if (!passed) {
-            const detail = document.createElement("p");
-            detail.className = "mt-2 text-xs text-gray-600";
-            detail.textContent = text ? text : "No verse text found.";
-            item.appendChild(detail);
-          }
-          verificationResults.appendChild(item);
-        }
-      };
-
-      const getVerseText = (bookId, chapter, verse) => {
-        let text = null;
-        const stmt = db.prepare(
-          "SELECT text FROM verses WHERE book = ? AND chapter = ? AND verse = ?"
-        );
-        try {
-          stmt.bind([bookId, chapter, verse]);
-          if (stmt.step()) {
-            text = stmt.get(0);
-          }
-        } finally {
-          stmt.finalize();
-        }
-        return text;
-      };
-
       const deserializeToMemoryDb = (sqlite3, bytes) => {
         const memoryDb = new sqlite3.oo1.DB();
         const pData = sqlite3.wasm.allocFromTypedArray(bytes);
@@ -1142,9 +1026,7 @@
         const initialChapter = 3;
         setBook(initialBookId, { targetChapter: initialChapter });
         displayPassage(initialBookId, initialChapter);
-        runVerification();
         hideStatus();
-        setStatus("Bible ready! Choose any passage to explore.", "success");
       };
 
       tabButtons.forEach((button) => {
