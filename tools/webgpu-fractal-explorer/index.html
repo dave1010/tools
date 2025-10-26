@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebGPU Fractal Explorer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-4xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-bold text-brand-800 md:text-4xl">WebGPU Fractal Explorer</h1>
+        <p class="text-base text-brand-700 md:text-lg">
+          Render and explore the Mandelbrot set directly in your browser using WebGPU –
+          no native app required. Drag to pan, scroll to zoom, and tweak the parameters
+          to discover new patterns.
+        </p>
+      </header>
+
+      <section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div class="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-sm">
+          <div class="relative">
+            <canvas
+              id="fractalCanvas"
+              class="h-[420px] w-full bg-black md:h-[520px]"
+            ></canvas>
+            <div
+              id="supportMessage"
+              class="absolute inset-0 hidden items-center justify-center bg-white/95 p-6 text-center text-brand-800"
+            ></div>
+          </div>
+          <div class="border-t border-brand-100 bg-brand-50/50 p-3 text-center text-sm text-brand-700">
+            Tip: For the best detail, enable "Use hardware acceleration" in your browser settings.
+          </div>
+        </div>
+
+        <aside class="space-y-4 rounded-2xl border border-brand-100 bg-white p-4 shadow-sm">
+          <h2 class="text-xl font-semibold text-brand-800">Controls</h2>
+          <div class="space-y-3">
+            <label class="flex flex-col gap-1 text-sm font-medium text-brand-700">
+              Max iterations
+              <div class="flex items-center gap-2">
+                <input
+                  id="iterationSlider"
+                  type="range"
+                  min="100"
+                  max="1500"
+                  step="50"
+                  value="500"
+                  class="flex-1 accent-brand-600"
+                />
+                <span id="iterationValue" class="w-12 text-right text-brand-800">500</span>
+              </div>
+            </label>
+
+            <label class="flex flex-col gap-1 text-sm font-medium text-brand-700">
+              Color shift
+              <div class="flex items-center gap-2">
+                <input
+                  id="colorSlider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="12"
+                  class="flex-1 accent-brand-600"
+                />
+                <span id="colorValue" class="w-12 text-right text-brand-800">0.12</span>
+              </div>
+            </label>
+
+            <button
+              id="resetView"
+              class="w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              type="button"
+            >
+              Reset view
+            </button>
+          </div>
+
+          <div class="rounded-lg bg-brand-50/80 p-3 text-sm text-brand-700">
+            <p class="font-semibold">Navigation</p>
+            <ul class="list-disc space-y-1 pl-5">
+              <li>Click and drag to pan the fractal.</li>
+              <li>Scroll to zoom toward the cursor.</li>
+              <li>Hold Shift while scrolling to adjust zoom more gradually.</li>
+            </ul>
+          </div>
+
+          <div class="rounded-lg bg-brand-50/80 p-3 text-sm text-brand-700">
+            <p class="font-semibold">Why WebGPU?</p>
+            <p>
+              WebGPU unlocks modern GPU features like compute shaders and fast parallel math directly
+              inside the browser. This fractal renderer relies on those capabilities to iterate complex
+              equations in real time – something that previously needed native applications or WebGL hacks.
+            </p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="py-6 text-center text-sm text-gray-500">
+      <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+    </footer>
+
+    <script type="module">
+      const canvas = document.getElementById("fractalCanvas");
+      const supportMessage = document.getElementById("supportMessage");
+      const iterationSlider = document.getElementById("iterationSlider");
+      const iterationValue = document.getElementById("iterationValue");
+      const colorSlider = document.getElementById("colorSlider");
+      const colorValue = document.getElementById("colorValue");
+      const resetButton = document.getElementById("resetView");
+
+      const params = {
+        centerX: -0.75,
+        centerY: 0.0,
+        scale: 1.8,
+        iterations: 500,
+        colorShift: 0.12,
+      };
+
+      iterationSlider.addEventListener("input", () => {
+        params.iterations = Number(iterationSlider.value);
+        iterationValue.textContent = params.iterations;
+      });
+
+      colorSlider.addEventListener("input", () => {
+        params.colorShift = Number(colorSlider.value) / 100;
+        colorValue.textContent = params.colorShift.toFixed(2);
+      });
+
+      resetButton.addEventListener("click", () => {
+        params.centerX = -0.75;
+        params.centerY = 0.0;
+        params.scale = 1.8;
+        params.iterations = 500;
+        params.colorShift = 0.12;
+        iterationSlider.value = "500";
+        iterationValue.textContent = "500";
+        colorSlider.value = "12";
+        colorValue.textContent = "0.12";
+      });
+
+      async function initWebGPU() {
+        if (!navigator.gpu) {
+          supportMessage.textContent = "Your browser does not support WebGPU yet. Try updating to the latest version of Chrome, Edge, or Firefox (with the WebGPU flag enabled).";
+          supportMessage.classList.remove("hidden");
+          supportMessage.classList.add("flex");
+          return;
+        }
+
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+          supportMessage.textContent = "Unable to access a GPU adapter. Ensure hardware acceleration is enabled.";
+          supportMessage.classList.remove("hidden");
+          supportMessage.classList.add("flex");
+          return;
+        }
+
+        const device = await adapter.requestDevice();
+        const context = canvas.getContext("webgpu");
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        context.configure({ device, format, alphaMode: "premultiplied" });
+
+        const shaderModule = device.createShaderModule({
+          label: "fractal-shader",
+          code: /* wgsl */ `
+            struct Uniforms {
+              center : vec2f,
+              scale : f32,
+              aspect : f32,
+              iterations : f32,
+              colorShift : f32,
+            };
+
+            @group(0) @binding(0) var<uniform> uniforms : Uniforms;
+
+            struct VertexOutput {
+              @builtin(position) position : vec4f,
+              @location(0) uv : vec2f,
+            };
+
+            @vertex
+            fn vs_main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
+              var positions = array<vec2f, 4>(
+                vec2f(-1.0, -1.0),
+                vec2f(1.0, -1.0),
+                vec2f(-1.0, 1.0),
+                vec2f(1.0, 1.0)
+              );
+
+              var uvs = array<vec2f, 4>(
+                vec2f(0.0, 0.0),
+                vec2f(1.0, 0.0),
+                vec2f(0.0, 1.0),
+                vec2f(1.0, 1.0)
+              );
+
+              var output : VertexOutput;
+              output.position = vec4f(positions[vertexIndex], 0.0, 1.0);
+              output.uv = uvs[vertexIndex];
+              return output;
+            }
+
+            @fragment
+            fn fs_main(input : VertexOutput) -> @location(0) vec4f {
+              let aspect = uniforms.aspect;
+              let scale = uniforms.scale;
+              let center = uniforms.center;
+              let maxIterations = max(1u, u32(uniforms.iterations));
+              var c = vec2f(
+                (input.uv.x * 2.0 - 1.0) * aspect * scale + center.x,
+                (input.uv.y * 2.0 - 1.0) * scale + center.y
+              );
+
+              var z = vec2f(0.0, 0.0);
+              var i : u32 = 0u;
+              loop {
+                if (i >= maxIterations) {
+                  break;
+                }
+                let x = (z.x * z.x) - (z.y * z.y) + c.x;
+                let y = 2.0 * z.x * z.y + c.y;
+                z = vec2f(x, y);
+                if (dot(z, z) > 4.0) {
+                  break;
+                }
+                i = i + 1u;
+              }
+
+              let t = f32(i) / f32(maxIterations);
+              let smooth = pow(t, 0.55);
+              let offset = uniforms.colorShift;
+              let color = vec3f(
+                0.5 + 0.5 * cos(6.28318 * (smooth + offset)),
+                0.5 + 0.5 * cos(6.28318 * (smooth + offset + 0.33)),
+                0.5 + 0.5 * cos(6.28318 * (smooth + offset + 0.67))
+              );
+
+              return vec4f(color, 1.0);
+            }
+          `,
+        });
+
+        const pipeline = device.createRenderPipeline({
+          label: "fractal-pipeline",
+          layout: "auto",
+          vertex: {
+            module: shaderModule,
+            entryPoint: "vs_main",
+          },
+          fragment: {
+            module: shaderModule,
+            entryPoint: "fs_main",
+            targets: [{ format }],
+          },
+          primitive: {
+            topology: "triangle-strip",
+            stripIndexFormat: "uint32",
+          },
+        });
+
+        const uniformBuffer = device.createBuffer({
+          label: "uniform-buffer",
+          size: 4 * 8,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        const bindGroup = device.createBindGroup({
+          layout: pipeline.getBindGroupLayout(0),
+          entries: [
+            {
+              binding: 0,
+              resource: { buffer: uniformBuffer },
+            },
+          ],
+        });
+
+        const uniformArray = new Float32Array(8);
+
+        function resizeCanvas() {
+          const dpr = window.devicePixelRatio || 1;
+          const displayWidth = Math.floor(canvas.clientWidth * dpr);
+          const displayHeight = Math.floor(canvas.clientHeight * dpr);
+
+          if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+            canvas.width = displayWidth;
+            canvas.height = displayHeight;
+          }
+
+          uniformArray[3] = canvas.width / canvas.height; // aspect ratio
+        }
+
+        function updateUniforms() {
+          uniformArray[0] = params.centerX;
+          uniformArray[1] = params.centerY;
+          uniformArray[2] = params.scale;
+          uniformArray[4] = params.iterations;
+          uniformArray[5] = params.colorShift;
+          device.queue.writeBuffer(uniformBuffer, 0, uniformArray.buffer);
+        }
+
+        function render() {
+          resizeCanvas();
+          updateUniforms();
+
+          const encoder = device.createCommandEncoder();
+          const textureView = context.getCurrentTexture().createView();
+          const pass = encoder.beginRenderPass({
+            colorAttachments: [
+              {
+                view: textureView,
+                clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                loadOp: "clear",
+                storeOp: "store",
+              },
+            ],
+          });
+
+          pass.setPipeline(pipeline);
+          pass.setBindGroup(0, bindGroup);
+          pass.draw(4);
+          pass.end();
+
+          device.queue.submit([encoder.finish()]);
+          requestAnimationFrame(render);
+        }
+
+        let isDragging = false;
+        let lastPointer = { x: 0, y: 0 };
+
+        canvas.addEventListener("pointerdown", (event) => {
+          isDragging = true;
+          lastPointer = { x: event.clientX, y: event.clientY };
+          canvas.setPointerCapture(event.pointerId);
+        });
+
+        canvas.addEventListener("pointermove", (event) => {
+          if (!isDragging) return;
+          const dx = event.clientX - lastPointer.x;
+          const dy = event.clientY - lastPointer.y;
+          lastPointer = { x: event.clientX, y: event.clientY };
+
+          const scale = params.scale;
+          const aspect = canvas.width / canvas.height;
+          params.centerX -= (dx / canvas.clientWidth) * 2 * aspect * scale;
+          params.centerY += (dy / canvas.clientHeight) * 2 * scale;
+        });
+
+        canvas.addEventListener("pointerup", (event) => {
+          isDragging = false;
+          canvas.releasePointerCapture(event.pointerId);
+        });
+
+        canvas.addEventListener("pointerleave", () => {
+          isDragging = false;
+        });
+
+        canvas.addEventListener("wheel", (event) => {
+          event.preventDefault();
+          const base = event.shiftKey ? 0.001 : 0.0025;
+          const zoomFactor = Math.exp(event.deltaY * base);
+
+          const rect = canvas.getBoundingClientRect();
+          const xNorm = ((event.clientX - rect.left) / canvas.clientWidth) * 2 - 1;
+          const yNorm = ((event.clientY - rect.top) / canvas.clientHeight) * 2 - 1;
+          const aspect = canvas.width / canvas.height;
+
+          const previousScale = params.scale;
+          params.scale *= zoomFactor;
+
+          params.centerX += xNorm * aspect * (previousScale - params.scale);
+          params.centerY += yNorm * (previousScale - params.scale);
+        }, { passive: false });
+
+        window.addEventListener("keydown", (event) => {
+          if (event.key === " ") {
+            event.preventDefault();
+            resetButton.click();
+          }
+        });
+
+        render();
+      }
+
+      initWebGPU();
+    </script>
+  </body>
+</html>
