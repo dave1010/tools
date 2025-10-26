@@ -5,6 +5,8 @@
 - Add a new dir in ./tools
 - Add index.html and any other files
 - Add a README.md with YAML front matter defining `title` and a 4-8 word `description`. Other README.md content is rarely needed.
+- Include a `category` in the front matter, reusing an existing category when possible (add a new one if nothing fits).
+- Need the category list? From the repo root run `grep '^### ' README.md`.
 
 ## Build & Deploy
 
