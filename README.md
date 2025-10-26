@@ -18,6 +18,7 @@ Tools live in the [`./tools`](./tools) directory.
 
 ### Developer
 
+- [Cerebras LLM Inference](https://tools.dave.engineer/tools/cerebras-llm-inference) — Chat with Cerebras models via the built-in proxy worker
 - [GitHub Device Login](https://tools.dave.engineer/tools/github-device-login) — Start the GitHub device flow and store the resulting access token locally.
 - [JSON Formatter](https://tools.dave.engineer/tools/json-formatter) — Format and validate JSON data
 
