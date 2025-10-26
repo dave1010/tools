@@ -304,11 +304,14 @@
           return;
         }
 
-        const rawHeading = typeof event.webkitCompassHeading === 'number'
-          ? event.webkitCompassHeading
-          : typeof event.alpha === 'number'
-            ? event.alpha
-            : null;
+        let rawHeading = null;
+        if (typeof event.webkitCompassHeading === 'number') {
+          rawHeading = event.webkitCompassHeading;
+        } else if (typeof event.alpha === 'number') {
+          // DeviceOrientationEvent.alpha increases counterclockwise; convert
+          // to a compass heading that advances clockwise from north.
+          rawHeading = 360 - event.alpha;
+        }
 
         updateHeading(rawHeading);
       }
