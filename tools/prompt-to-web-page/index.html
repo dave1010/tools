@@ -27,6 +27,9 @@
               placeholder="Example: Create a launch page for a productivity app with feature cards and a pricing table."
             ></textarea>
           </label>
+          <p class="text-xs text-gray-500">
+            After the first draft, send follow-up instructions to iteratively refine the page.
+          </p>
           <div class="flex flex-wrap items-center gap-3">
             <button
               id="submitButton"
@@ -41,15 +44,31 @@
       </section>
 
       <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <h2 class="text-base font-semibold text-gray-900">Preview</h2>
-          <button
-            id="clearButton"
-            type="button"
-            class="text-sm font-medium text-brand-700 hover:text-brand-600"
-          >
-            Clear
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              id="openButton"
+              type="button"
+              class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
+            >
+              Open in new tab
+            </button>
+            <button
+              id="downloadButton"
+              type="button"
+              class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
+            >
+              Download HTML
+            </button>
+            <button
+              id="clearButton"
+              type="button"
+              class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            >
+              Clear
+            </button>
+          </div>
         </div>
         <p id="emptyState" class="text-sm text-gray-500">
           Submit a prompt to see the generated HTML page here.
@@ -93,6 +112,17 @@
       const htmlOutput = document.getElementById("htmlOutput");
       const htmlDetails = document.getElementById("htmlDetails");
       const clearButton = document.getElementById("clearButton");
+      const openButton = document.getElementById("openButton");
+      const downloadButton = document.getElementById("downloadButton");
+
+      const conversationHistory = [];
+      let currentHtml = "";
+      const defaultPlaceholder = promptInput.placeholder;
+
+      function updateActionButtonsState(hasHtml) {
+        openButton.disabled = !hasHtml;
+        downloadButton.disabled = !hasHtml;
+      }
 
       function setStatus(message, isError = false) {
         statusMessage.textContent = message || "";
@@ -122,11 +152,14 @@
       }
 
       function showPreview(html) {
+        currentHtml = html || "";
+
         if (!html) {
           previewFrame.classList.add("hidden");
           htmlDetails.classList.add("hidden");
           htmlOutput.value = "";
           emptyState.classList.remove("hidden");
+          updateActionButtonsState(false);
           return;
         }
         previewFrame.srcdoc = html;
@@ -134,21 +167,24 @@
         htmlOutput.value = html;
         htmlDetails.classList.remove("hidden");
         emptyState.classList.add("hidden");
+        updateActionButtonsState(true);
       }
 
       async function generatePage(prompt) {
         setLoading(true);
         setStatus("Calling Cerebras…");
         try {
+          const messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...conversationHistory,
+            { role: "user", content: prompt },
+          ];
           const response = await fetch("/cerebras-chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               model: "gpt-oss-120b",
-              messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: prompt },
-              ],
+              messages,
             }),
           });
 
@@ -173,6 +209,9 @@
 
           showPreview(html);
           setStatus("Page generated successfully.");
+          conversationHistory.push({ role: "user", content: prompt });
+          conversationHistory.push({ role: "assistant", content });
+          promptInput.placeholder = "Add follow-up instructions or start a new page.";
         } catch (error) {
           console.error("Failed to generate page", error);
           setStatus(error?.message || "Unexpected error", true);
@@ -200,9 +239,41 @@
         showPreview("");
         setStatus("");
         promptInput.focus();
+        conversationHistory.length = 0;
+        updateActionButtonsState(false);
+        promptInput.placeholder = defaultPlaceholder;
+      });
+
+      openButton.addEventListener("click", () => {
+        if (!currentHtml) {
+          return;
+        }
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(currentHtml);
+          newWindow.document.close();
+        } else {
+          alert("Pop-up blocked. Allow pop-ups for this site to open the preview in a new tab.");
+        }
+      });
+
+      downloadButton.addEventListener("click", () => {
+        if (!currentHtml) {
+          return;
+        }
+        const blob = new Blob([currentHtml], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "generated-page.html";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       });
 
       showPreview("");
+      updateActionButtonsState(false);
     </script>
   </body>
 </html>
