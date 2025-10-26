@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Origin Private File System Viewer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      dialog::backdrop {
+        background-color: rgba(15, 23, 42, 0.45);
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Origin Private File System Viewer</h1>
+        <p class="text-gray-600">
+          Inspect the files your browser stores in the Origin Private File System (OPFS),
+          view metadata and text previews, download copies, and delete entries you no longer need.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div id="support-warning" class="hidden rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <p class="font-medium">Origin Private File System is unavailable.</p>
+          <p>
+            Your browser does not expose the File System Access API required for OPFS.
+            Try a Chromium-based browser (Chrome, Edge, Arc, etc.) with “File system access” enabled.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="space-y-1 text-sm text-gray-600">
+            <p>
+              <span class="font-semibold text-gray-900">Scope:</span>
+              <span id="scope-path" class="font-mono">/</span>
+            </p>
+            <p id="storage-usage"></p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="refresh-button" type="button" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-brand-700">
+              Refresh view
+            </button>
+          </div>
+        </div>
+
+        <div id="loading-state" class="flex items-center gap-2 rounded-xl border border-dashed border-brand-200 bg-brand-50/50 p-4 text-sm text-brand-800">
+          <svg class="h-5 w-5 animate-spin text-brand-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span>Loading OPFS contents…</span>
+        </div>
+
+        <div id="filesystem-content" class="hidden space-y-4">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-2">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Entries</h2>
+              <div class="max-h-[28rem] overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm" id="entry-tree">
+                <p class="text-gray-500">No entries found in OPFS.</p>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">File details</h2>
+              <div id="file-details" class="space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
+                <p class="text-gray-500">Select a file to view its metadata and preview.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 md:p-6">
+        <h2 class="text-base font-semibold text-amber-900">Tips</h2>
+        <ul class="list-disc space-y-1 pl-5">
+          <li>OPFS is origin-scoped. You'll only see files created by this browser and origin.</li>
+          <li>Deleting a file here removes it immediately; there is no undo.</li>
+          <li>
+            Some browsers need experimental flags enabled. Search for “File System Access API” in your browser's settings if you
+            do not see any files.
+          </li>
+        </ul>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+      </footer>
+    </main>
+
+    <script>
+      const supportWarning = document.getElementById('support-warning');
+      const loadingState = document.getElementById('loading-state');
+      const contentWrapper = document.getElementById('filesystem-content');
+      const entryTree = document.getElementById('entry-tree');
+      const fileDetails = document.getElementById('file-details');
+      const refreshButton = document.getElementById('refresh-button');
+      const storageUsageLabel = document.getElementById('storage-usage');
+      const scopePathLabel = document.getElementById('scope-path');
+      const handleMap = new Map();
+      const MAX_PREVIEW_SIZE = 128 * 1024; // 128 KB
+      const MAX_PREVIEW_CHARS = 5000;
+      let currentObjectUrl = null;
+
+      function formatBytes(bytes) {
+        if (typeof bytes !== 'number' || !Number.isFinite(bytes)) {
+          return '—';
+        }
+        if (bytes === 0) {
+          return '0 B';
+        }
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        const value = bytes / Math.pow(1024, exponent);
+        return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+      }
+
+      function formatDate(timestamp) {
+        if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
+          return '—';
+        }
+        const formatter = new Intl.DateTimeFormat(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        });
+        return formatter.format(new Date(timestamp));
+      }
+
+      function isSupported() {
+        return 'storage' in navigator && typeof navigator.storage.getDirectory === 'function';
+      }
+
+      function clearEntryTree(message = 'No entries found in OPFS.') {
+        entryTree.innerHTML = '';
+        const paragraph = document.createElement('p');
+        paragraph.className = 'text-gray-500';
+        paragraph.textContent = message;
+        entryTree.append(paragraph);
+      }
+
+      function renderTree(rootNode) {
+        entryTree.innerHTML = '';
+
+        const rootDetails = document.createElement('details');
+        rootDetails.open = true;
+        rootDetails.className = 'space-y-2';
+
+        const summary = document.createElement('summary');
+        summary.className = 'flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50';
+        summary.innerHTML = `
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 font-mono text-xs text-brand-700">/</span>
+          <span>Origin private file system</span>
+        `;
+        rootDetails.append(summary);
+
+        const list = document.createElement('ul');
+        list.className = 'space-y-1 pl-6';
+
+        if (!rootNode.children || rootNode.children.length === 0) {
+          const emptyItem = document.createElement('li');
+          emptyItem.className = 'text-gray-500';
+          emptyItem.textContent = 'No entries stored in OPFS yet.';
+          list.append(emptyItem);
+        } else {
+          for (const child of rootNode.children) {
+            list.append(createEntryElement(child));
+          }
+        }
+
+        rootDetails.append(list);
+        entryTree.append(rootDetails);
+      }
+
+      function createEntryElement(entry) {
+        const listItem = document.createElement('li');
+
+        if (entry.kind === 'directory') {
+          const details = document.createElement('details');
+          details.open = false;
+          details.className = 'group space-y-1';
+
+          const summary = document.createElement('summary');
+          summary.className = 'flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-50';
+          summary.innerHTML = `
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded bg-brand-100 font-mono text-xs text-brand-700">DIR</span>
+            <span class="truncate">${entry.name}</span>
+          `;
+          details.append(summary);
+
+          if (entry.children && entry.children.length > 0) {
+            const childList = document.createElement('ul');
+            childList.className = 'space-y-1 pl-5';
+            for (const child of entry.children) {
+              childList.append(createEntryElement(child));
+            }
+            details.append(childList);
+          } else {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = 'rounded-lg bg-white/60 p-3 text-xs text-gray-500';
+            emptyMessage.textContent = 'Empty directory';
+            details.append(emptyMessage);
+          }
+
+          listItem.append(details);
+        } else {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.dataset.path = entry.path;
+          button.className = 'flex w-full items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-left text-sm text-gray-700 shadow-sm ring-1 ring-transparent transition hover:bg-brand-50 hover:text-brand-800 hover:ring-brand-100';
+          button.innerHTML = `
+            <span class="flex min-w-0 items-center gap-2">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded bg-brand-100 font-mono text-xs text-brand-700">FIL</span>
+              <span class="truncate">${entry.name}</span>
+            </span>
+            <span class="shrink-0 text-xs text-gray-500">${formatBytes(entry.size)}</span>
+          `;
+          button.addEventListener('click', () => showFileDetails(entry.path));
+          listItem.append(button);
+        }
+
+        return listItem;
+      }
+
+      async function gatherDirectory(handle, path = '/') {
+        const node = {
+          kind: 'directory',
+          name: path === '/' ? '/' : path.split('/').filter(Boolean).at(-1) ?? '/',
+          path,
+          children: [],
+        };
+
+        handleMap.set(path, { handle, kind: 'directory', parentPath: path === '/' ? null : path.replace(/[^/]+\/$/, '') || '/' });
+
+        const entries = [];
+        for await (const [name, childHandle] of handle.entries()) {
+          const isDirectory = childHandle.kind === 'directory';
+          const childPath = path === '/' ? `/${name}${isDirectory ? '/' : ''}` : `${path}${name}${isDirectory ? '/' : ''}`;
+
+          if (isDirectory) {
+            const childNode = await gatherDirectory(childHandle, childPath);
+            entries.push(childNode);
+          } else {
+            let fileMeta = { size: null, lastModified: null };
+            try {
+              const file = await childHandle.getFile();
+              fileMeta = { size: file.size, lastModified: file.lastModified };
+            } catch (error) {
+              console.error('Failed to read file metadata for', childPath, error);
+            }
+            const fileNode = {
+              kind: 'file',
+              name,
+              path: childPath,
+              size: fileMeta.size,
+              lastModified: fileMeta.lastModified,
+            };
+            entries.push(fileNode);
+            handleMap.set(childPath, { handle: childHandle, kind: 'file', parentPath: path });
+          }
+        }
+
+        entries.sort((a, b) => {
+          if (a.kind === b.kind) {
+            return a.name.localeCompare(b.name);
+          }
+          return a.kind === 'directory' ? -1 : 1;
+        });
+
+        node.children = entries;
+        return node;
+      }
+
+      async function refreshFileSystem() {
+        if (!isSupported()) {
+          supportWarning.classList.remove('hidden');
+          loadingState.classList.add('hidden');
+          contentWrapper.classList.add('hidden');
+          return;
+        }
+
+        supportWarning.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+        contentWrapper.classList.add('hidden');
+        clearEntryTree();
+        fileDetails.innerHTML = '<p class="text-gray-500">Select a file to view its metadata and preview.</p>';
+        revokeCurrentObjectUrl();
+        handleMap.clear();
+        scopePathLabel.textContent = '/';
+
+        try {
+          const rootHandle = await navigator.storage.getDirectory();
+          handleMap.set('/', { handle: rootHandle, kind: 'directory', parentPath: null });
+          const rootNode = await gatherDirectory(rootHandle, '/');
+          renderTree(rootNode);
+          await updateUsage();
+          loadingState.classList.add('hidden');
+          contentWrapper.classList.remove('hidden');
+        } catch (error) {
+          console.error('Failed to load OPFS contents', error);
+          loadingState.classList.add('hidden');
+          clearEntryTree('Unable to read OPFS contents. Check your browser console for details.');
+          const errorMessage = document.createElement('p');
+          errorMessage.className = 'rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800';
+          errorMessage.textContent = 'Unable to read OPFS contents. Check your browser console for details.';
+          fileDetails.innerHTML = '';
+          fileDetails.append(errorMessage);
+        }
+      }
+
+      async function updateUsage() {
+        if (!('storage' in navigator) || typeof navigator.storage.estimate !== 'function') {
+          storageUsageLabel.textContent = 'Storage usage unavailable in this browser.';
+          return;
+        }
+        try {
+          const { quota, usage } = await navigator.storage.estimate();
+          if (typeof usage === 'number' && typeof quota === 'number') {
+            const percent = quota ? Math.round((usage / quota) * 100) : null;
+            const usageText = `${formatBytes(usage)} used of ${formatBytes(quota)}${typeof percent === 'number' ? ` (${percent}%)` : ''}`;
+            storageUsageLabel.textContent = usageText;
+          } else {
+            storageUsageLabel.textContent = 'Storage usage unavailable in this browser.';
+          }
+        } catch (error) {
+          console.warn('Failed to estimate storage usage', error);
+          storageUsageLabel.textContent = 'Storage usage unavailable in this browser.';
+        }
+      }
+
+      function revokeCurrentObjectUrl() {
+        if (currentObjectUrl) {
+          URL.revokeObjectURL(currentObjectUrl);
+          currentObjectUrl = null;
+        }
+      }
+
+      async function showFileDetails(path) {
+        revokeCurrentObjectUrl();
+        scopePathLabel.textContent = path;
+        const info = handleMap.get(path);
+        if (!info) {
+          fileDetails.innerHTML = '<p class="text-rose-600">File handle could not be found. Try refreshing.</p>';
+          return;
+        }
+
+        fileDetails.innerHTML = '<p class="text-gray-500">Loading file…</p>';
+
+        try {
+          const fileHandle = info.handle;
+          const file = await fileHandle.getFile();
+          const metadataList = document.createElement('dl');
+          metadataList.className = 'grid grid-cols-[max-content_1fr] items-center gap-x-3 gap-y-2 text-sm';
+
+          addMetadataRow(metadataList, 'Name', file.name);
+          addMetadataRow(metadataList, 'Path', path);
+          addMetadataRow(metadataList, 'Size', formatBytes(file.size));
+          addMetadataRow(metadataList, 'Type', file.type || 'Unknown');
+          addMetadataRow(metadataList, 'Last modified', formatDate(file.lastModified));
+
+          const actionRow = document.createElement('div');
+          actionRow.className = 'flex flex-wrap gap-2 pt-3';
+
+          const downloadButton = document.createElement('a');
+          downloadButton.className = 'bg-brand-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-brand-700';
+          downloadButton.textContent = 'Download';
+          currentObjectUrl = URL.createObjectURL(file);
+          downloadButton.href = currentObjectUrl;
+          downloadButton.download = file.name;
+          actionRow.append(downloadButton);
+
+          const deleteButton = document.createElement('button');
+          deleteButton.type = 'button';
+          deleteButton.className = 'rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50';
+          deleteButton.textContent = 'Delete file';
+          deleteButton.addEventListener('click', () => confirmDeletion(path, file.name));
+          actionRow.append(deleteButton);
+
+          const previewContainer = document.createElement('div');
+          previewContainer.className = 'space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3';
+          const previewTitle = document.createElement('p');
+          previewTitle.className = 'text-xs font-semibold uppercase tracking-wide text-gray-500';
+          previewTitle.textContent = 'Preview';
+          previewContainer.append(previewTitle);
+
+          const previewContent = await buildPreview(file);
+          previewContainer.append(previewContent);
+
+          fileDetails.innerHTML = '';
+          fileDetails.append(metadataList, actionRow, previewContainer);
+        } catch (error) {
+          console.error('Failed to read file', error);
+          fileDetails.innerHTML = '<p class="text-rose-600">Unable to read this file. It may have been removed.</p>';
+        }
+      }
+
+      function addMetadataRow(container, label, value) {
+        const dt = document.createElement('dt');
+        dt.className = 'font-medium text-gray-500';
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.className = 'font-medium text-gray-900 break-words';
+        dd.textContent = value;
+        container.append(dt, dd);
+      }
+
+      async function buildPreview(file) {
+        if (file.size === 0) {
+          const emptyMessage = document.createElement('p');
+          emptyMessage.className = 'text-sm text-gray-500';
+          emptyMessage.textContent = 'File is empty.';
+          return emptyMessage;
+        }
+
+        if (file.size > MAX_PREVIEW_SIZE) {
+          const warning = document.createElement('p');
+          warning.className = 'text-sm text-gray-500';
+          warning.textContent = 'File is larger than 128 KB. Download it to inspect the contents.';
+          return warning;
+        }
+
+        try {
+          const text = await file.text();
+          if (isLikelyBinary(text)) {
+            const binaryMessage = document.createElement('p');
+            binaryMessage.className = 'text-sm text-gray-500';
+            binaryMessage.textContent = 'Binary file preview unavailable. Download the file to inspect it.';
+            return binaryMessage;
+          }
+
+          const truncated = text.length > MAX_PREVIEW_CHARS ? `${text.slice(0, MAX_PREVIEW_CHARS)}\n…` : text;
+          const pre = document.createElement('pre');
+          pre.className = 'max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-white p-3 text-xs text-gray-800 shadow-inner';
+          pre.textContent = truncated;
+          return pre;
+        } catch (error) {
+          console.warn('Failed to read file preview', error);
+          const errorMessage = document.createElement('p');
+          errorMessage.className = 'text-sm text-gray-500';
+          errorMessage.textContent = 'Could not generate a preview for this file.';
+          return errorMessage;
+        }
+      }
+
+      function isLikelyBinary(text) {
+        if (!text) {
+          return false;
+        }
+        let nonPrintable = 0;
+        const length = Math.min(text.length, 1024);
+        for (let i = 0; i < length; i += 1) {
+          const code = text.charCodeAt(i);
+          if (code === 0) {
+            return true;
+          }
+          if (code < 32 && code !== 9 && code !== 10 && code !== 13) {
+            nonPrintable += 1;
+            if (nonPrintable / length > 0.08) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      async function confirmDeletion(path, name) {
+        const message = `Delete \"${name}\"? This cannot be undone.`;
+        if (!window.confirm(message)) {
+          return;
+        }
+        await deleteFile(path);
+      }
+
+      async function deleteFile(path) {
+        const info = handleMap.get(path);
+        if (!info) {
+          alert('File handle missing. Refresh and try again.');
+          return;
+        }
+        const parentInfo = handleMap.get(info.parentPath);
+        if (!parentInfo) {
+          alert('Unable to locate the parent directory. Refresh and try again.');
+          return;
+        }
+        try {
+          await parentInfo.handle.removeEntry(path.split('/').filter(Boolean).at(-1), { recursive: false });
+          revokeCurrentObjectUrl();
+          fileDetails.innerHTML = '<p class="text-gray-500">File deleted. Refreshing…</p>';
+          await refreshFileSystem();
+        } catch (error) {
+          console.error('Failed to delete file', error);
+          alert('Unable to delete this file. Check the console for details.');
+        }
+      }
+
+      refreshButton.addEventListener('click', () => {
+        refreshFileSystem();
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          revokeCurrentObjectUrl();
+        }
+      });
+
+      if (!isSupported()) {
+        supportWarning.classList.remove('hidden');
+        loadingState.classList.add('hidden');
+      } else {
+        refreshFileSystem();
+      }
+    </script>
+  </body>
+</html>
