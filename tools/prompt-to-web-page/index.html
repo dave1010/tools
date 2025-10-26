@@ -62,6 +62,13 @@
               Download HTML
             </button>
             <button
+              id="saveGistButton"
+              type="button"
+              class="rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
+            >
+              Save Gist
+            </button>
+            <button
               id="clearButton"
               type="button"
               class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
@@ -114,6 +121,7 @@
       const clearButton = document.getElementById("clearButton");
       const openButton = document.getElementById("openButton");
       const downloadButton = document.getElementById("downloadButton");
+      const saveGistButton = document.getElementById("saveGistButton");
 
       const conversationHistory = [];
       let currentHtml = "";
@@ -122,10 +130,18 @@
       function updateActionButtonsState(hasHtml) {
         openButton.disabled = !hasHtml;
         downloadButton.disabled = !hasHtml;
+        saveGistButton.disabled = !hasHtml;
       }
 
-      function setStatus(message, isError = false) {
-        statusMessage.textContent = message || "";
+      function setStatus(message, isError = false, asHtml = false) {
+        statusMessage.textContent = "";
+        if (message) {
+          if (asHtml) {
+            statusMessage.innerHTML = message;
+          } else {
+            statusMessage.textContent = message;
+          }
+        }
         statusMessage.classList.toggle("text-red-600", Boolean(message) && isError);
         statusMessage.classList.toggle("text-gray-500", !isError);
       }
@@ -271,6 +287,91 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       });
+
+      function buildLoginLink() {
+        return '<a href="/tools/github-device-login/" target="_blank" rel="noopener noreferrer" class="underline">Log in with GitHub</a>';
+      }
+
+      async function saveGist() {
+        if (!currentHtml || saveGistButton.disabled) {
+          return;
+        }
+
+        const tokenKey = "github-device-login-token";
+        const token = localStorage.getItem(tokenKey);
+
+        if (!token) {
+          setStatus(`GitHub token not found. ${buildLoginLink()} to save a gist.`, true, true);
+          return;
+        }
+
+        saveGistButton.disabled = true;
+        const originalText = saveGistButton.textContent;
+        saveGistButton.textContent = "Saving…";
+        setStatus("Saving gist…");
+
+        try {
+          const response = await fetch("https://api.github.com/gists", {
+            method: "POST",
+            headers: {
+              Accept: "application/vnd.github+json",
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              description: "Generated with Prompt to Web Page",
+              public: false,
+              files: {
+                "index.html": {
+                  content: currentHtml,
+                },
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              localStorage.removeItem(tokenKey);
+              throw new Error(`GitHub token was rejected. ${buildLoginLink()} to refresh it.`);
+            }
+
+            let errorDetail = `${response.status} ${response.statusText}`;
+            try {
+              const data = await response.json();
+              if (data?.message) {
+                errorDetail = data.message;
+              }
+            } catch (error) {
+              // Ignore JSON parsing errors and fall back to status text
+            }
+            throw new Error(`Failed to save gist: ${errorDetail}`);
+          }
+
+          const gist = await response.json();
+          const gistId = gist?.id;
+          const gistUrl = gist?.html_url;
+
+          if (!gistId || !gistUrl) {
+            throw new Error("Saved gist but response was missing details.");
+          }
+
+          const gistPreviewUrl = `https://gistpreview.github.io/?${encodeURIComponent(gistId)}`;
+          setStatus(
+            `Saved gist: <a href="${gistUrl}" target="_blank" rel="noopener noreferrer" class="underline">View on GitHub</a> · <a href="${gistPreviewUrl}" target="_blank" rel="noopener noreferrer" class="underline">Preview gist</a>`,
+            false,
+            true
+          );
+        } catch (error) {
+          const message = error?.message || "Failed to save gist.";
+          const needsLoginLink = message.toLowerCase().includes("token");
+          setStatus(needsLoginLink ? message : `${message} ${buildLoginLink()}`, true, true);
+        } finally {
+          saveGistButton.textContent = originalText;
+          updateActionButtonsState(Boolean(currentHtml));
+        }
+      }
+
+      saveGistButton.addEventListener("click", saveGist);
 
       showPreview("");
       updateActionButtonsState(false);
