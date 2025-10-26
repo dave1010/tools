@@ -356,9 +356,15 @@
           return;
         }
 
+        const uniformArray = new Float32Array(8);
+        const uniformBufferSize = Math.max(
+          uniformArray.byteLength,
+          device.limits?.minUniformBufferOffsetAlignment || 256
+        );
+
         const uniformBuffer = device.createBuffer({
           label: "uniform-buffer",
-          size: 4 * 8,
+          size: uniformBufferSize,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -367,12 +373,13 @@
           entries: [
             {
               binding: 0,
-              resource: { buffer: uniformBuffer },
+              resource: {
+                buffer: uniformBuffer,
+                size: uniformArray.byteLength,
+              },
             },
           ],
         });
-
-        const uniformArray = new Float32Array(8);
 
         function resizeCanvas() {
           const dpr = window.devicePixelRatio || 1;
@@ -393,7 +400,13 @@
           uniformArray[2] = params.scale;
           uniformArray[4] = params.iterations;
           uniformArray[5] = params.colorShift;
-          device.queue.writeBuffer(uniformBuffer, 0, uniformArray.buffer);
+          device.queue.writeBuffer(
+            uniformBuffer,
+            0,
+            uniformArray,
+            0,
+            uniformArray.byteLength
+          );
         }
 
         function render() {
@@ -506,6 +519,29 @@
           title: "Initialisation error",
           body: "Something went wrong while starting the fractal explorer.",
           details: error instanceof Error ? error.message : String(error),
+          isError: true,
+        });
+      });
+
+      window.addEventListener("error", (event) => {
+        console.error("Uncaught error in fractal explorer", event.error || event.message);
+        showSupportMessage({
+          title: "A script error occurred",
+          body: "The fractal explorer hit a JavaScript error and had to stop.",
+          details: event?.error?.stack || event?.message || String(event),
+          isError: true,
+        });
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        console.error("Unhandled promise rejection in fractal explorer", event.reason);
+        showSupportMessage({
+          title: "An unexpected promise rejection occurred",
+          body: "A background task failed unexpectedly.",
+          details:
+            event?.reason instanceof Error
+              ? event.reason.stack || event.reason.message
+              : String(event?.reason ?? "Unknown reason"),
           isError: true,
         });
       });
