@@ -24,6 +24,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw) — Estimate projector throw from lux readings
 - [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html) — Convert Markdown content into HTML
 - [Morse Code to Text](https://tools.dave.engineer/tools/morse-code-to-text) — Tap or hold to transcribe Morse code into plain text
+- [Origin Private File System Viewer](https://tools.dave.engineer/tools/origin-private-file-system-viewer) — Browse and manage Origin Private File System
 - [QR Code Reader](https://tools.dave.engineer/tools/qr-code-reader) — Upload QR code image and extract text/URL
 - [Running Pace Planner](https://tools.dave.engineer/tools/running-pace-planner) — Plan running pace, splits, and finish time
 - [Scratch Pad](https://tools.dave.engineer/tools/scratch-pad) — Quick notes with local storage
