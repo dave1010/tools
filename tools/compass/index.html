@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compass</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+</head>
+<body class="bg-gray-900 text-white">
+  <main class="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center space-y-6 p-4 font-sans md:p-6">
+    <header class="space-y-1 text-center">
+      <h1 class="text-3xl font-semibold">Compass</h1>
+      <p class="text-sm text-gray-300">Find your bearing with a responsive compass and live magnetometer readings.</p>
+    </header>
+
+    <section class="flex w-full flex-1 flex-col items-center justify-center space-y-4">
+      <div id="status" class="text-xs text-gray-300"></div>
+
+      <button id="request-permission" class="hidden rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+        Enable motion access
+      </button>
+
+      <div class="flex w-full max-w-sm flex-col items-center space-y-4">
+        <div class="flex h-72 w-72 items-center justify-center rounded-full border border-gray-800 bg-gray-900 shadow-inner">
+          <canvas id="compass-canvas" width="272" height="272" class="h-64 w-64"></canvas>
+        </div>
+        <div class="text-center">
+          <p id="heading-value" class="text-3xl font-semibold">0.0°</p>
+          <p id="heading-detail" class="text-sm text-gray-400">Rotate your device to find north.</p>
+        </div>
+        <p id="magnetometer-data" class="text-[0.65rem] leading-relaxed text-gray-400 text-center">
+          Magnetometer data not available.
+        </p>
+      </div>
+    </section>
+
+    <footer class="py-6 text-center text-sm text-gray-500">
+      <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById('compass-canvas');
+      const ctx = canvas.getContext('2d');
+      const headingValueEl = document.getElementById('heading-value');
+      const headingDetailEl = document.getElementById('heading-detail');
+      const statusEl = document.getElementById('status');
+      const permissionButton = document.getElementById('request-permission');
+      const magnetometerDataEl = document.getElementById('magnetometer-data');
+
+      const size = canvas.width;
+      const center = size / 2;
+      const radius = size / 2 - 12;
+
+      let isListening = false;
+      let isMagnetometerStarted = false;
+      let hasHeading = false;
+      let displayHeading = 0;
+      let targetHeading = 0;
+      let animationFrameId = null;
+
+      function toRadians(degrees) {
+        return degrees * (Math.PI / 180);
+      }
+
+      function updateStatus(message, type = 'info') {
+        statusEl.textContent = message;
+        statusEl.className = type === 'error'
+          ? 'text-xs text-red-400 text-center'
+          : 'text-xs text-gray-300 text-center';
+      }
+
+      function normalizeHeading(value) {
+        if (!Number.isFinite(value)) {
+          return null;
+        }
+        const normalized = value % 360;
+        return normalized < 0 ? normalized + 360 : normalized;
+      }
+
+      function formatAxis(value) {
+        if (!Number.isFinite(value)) {
+          return '—';
+        }
+        const sign = value >= 0 ? '+' : '−';
+        return `${sign}${Math.abs(value).toFixed(1)} µT`;
+      }
+
+      function headingToCardinal(deg) {
+        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const index = Math.round((deg % 360) / 22.5) % directions.length;
+        return directions[index];
+      }
+
+      function drawCompass(angleDegrees) {
+        ctx.clearRect(0, 0, size, size);
+        ctx.save();
+        ctx.translate(center, center);
+
+        ctx.fillStyle = '#111827';
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.65, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.lineCap = 'round';
+        const cardinalConfig = [
+          { angle: 0, color: '#ef4444', label: 'N' },
+          { angle: 90, color: '#9ca3af', label: 'E' },
+          { angle: 180, color: '#3b82f6', label: 'S' },
+          { angle: 270, color: '#9ca3af', label: 'W' }
+        ];
+
+        cardinalConfig.forEach(({ angle, color }) => {
+          ctx.save();
+          ctx.rotate(toRadians(angle));
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(0, -radius + 16);
+          ctx.lineTo(0, -radius + 64);
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        [45, 135, 225, 315].forEach((angle) => {
+          ctx.save();
+          ctx.rotate(toRadians(angle));
+          ctx.strokeStyle = '#6b7280';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(0, -radius + 24);
+          ctx.lineTo(0, -radius + 44);
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 2;
+        [30, 60, 120, 150, 210, 240, 300, 330].forEach((angle) => {
+          ctx.save();
+          ctx.rotate(toRadians(angle));
+          ctx.beginPath();
+          ctx.moveTo(0, -radius + 26);
+          ctx.lineTo(0, -radius + 38);
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        ctx.font = '700 20px "Inter", "system-ui", -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        cardinalConfig.forEach(({ angle, color, label }) => {
+          ctx.save();
+          ctx.rotate(toRadians(angle));
+          ctx.fillStyle = color;
+          ctx.translate(0, -radius + 90);
+          ctx.fillText(label, 0, 0);
+          ctx.restore();
+        });
+
+        ctx.save();
+        const normalizedAngle = ((angleDegrees % 360) + 360) % 360;
+        ctx.rotate(toRadians(normalizedAngle));
+
+        ctx.beginPath();
+        ctx.fillStyle = '#ef4444';
+        ctx.moveTo(0, -radius + 28);
+        ctx.lineTo(14, 24);
+        ctx.lineTo(-14, 24);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.fillStyle = '#3b82f6';
+        ctx.moveTo(0, radius - 28);
+        ctx.lineTo(14, -24);
+        ctx.lineTo(-14, -24);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+
+        ctx.fillStyle = '#111827';
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function startMagnetometer() {
+        if (isMagnetometerStarted) return;
+        isMagnetometerStarted = true;
+
+        if (!('Magnetometer' in window)) {
+          magnetometerDataEl.textContent = 'Magnetometer data not supported in this browser.';
+          return;
+        }
+
+        try {
+          const magnetometer = new Magnetometer({ frequency: 10 });
+          magnetometer.addEventListener('reading', () => {
+            const x = formatAxis(magnetometer.x);
+            const y = formatAxis(magnetometer.y);
+            const z = formatAxis(magnetometer.z);
+            magnetometerDataEl.textContent = `Magnetometer (µT): X ${x} · Y ${y} · Z ${z}`;
+          });
+
+          magnetometer.addEventListener('error', (event) => {
+            if (event.error && event.error.name === 'NotAllowedError') {
+              magnetometerDataEl.textContent = 'Magnetometer access denied. Check site permissions.';
+            } else {
+              magnetometerDataEl.textContent = 'Unable to read magnetometer data.';
+            }
+          });
+
+          magnetometer.start();
+          magnetometerDataEl.textContent = 'Initializing magnetometer…';
+        } catch (error) {
+          magnetometerDataEl.textContent = 'Unable to start the magnetometer on this device.';
+        }
+      }
+
+      function shortestAngleDifference(from, to) {
+        let diff = (to - from + 540) % 360 - 180;
+        if (diff < -180) diff += 360;
+        return diff;
+      }
+
+      function scheduleAnimation() {
+        if (animationFrameId != null) {
+          return;
+        }
+        function step() {
+          const diff = targetHeading - displayHeading;
+          if (Math.abs(diff) < 0.05) {
+            displayHeading = targetHeading;
+            drawCompass(displayHeading);
+            animationFrameId = null;
+            return;
+          }
+          displayHeading += diff * 0.18;
+          drawCompass(displayHeading);
+          animationFrameId = requestAnimationFrame(step);
+        }
+        animationFrameId = requestAnimationFrame(step);
+      }
+
+      function updateHeading(value) {
+        const heading = normalizeHeading(value);
+        if (heading == null) {
+          headingValueEl.textContent = '—';
+          headingDetailEl.textContent = 'Heading unavailable on this device.';
+          updateStatus('Compass data is not available here.', 'error');
+          return;
+        }
+
+        headingValueEl.textContent = `${heading.toFixed(1)}°`;
+        headingDetailEl.textContent = `${heading.toFixed(0)}° • ${headingToCardinal(heading)}`;
+
+        if (!hasHeading) {
+          displayHeading = heading;
+          targetHeading = heading;
+          drawCompass(displayHeading);
+          hasHeading = true;
+        } else {
+          const currentDisplay = normalizeHeading(displayHeading);
+          const diff = shortestAngleDifference(currentDisplay == null ? heading : currentDisplay, heading);
+          targetHeading = displayHeading + diff;
+          scheduleAnimation();
+        }
+
+        updateStatus('Rotate your device to align north.');
+      }
+
+      function handleOrientation(event) {
+        if (event.alpha == null && event.webkitCompassHeading == null) {
+          return;
+        }
+
+        const rawHeading = typeof event.webkitCompassHeading === 'number'
+          ? event.webkitCompassHeading
+          : typeof event.alpha === 'number'
+            ? 360 - event.alpha
+            : null;
+
+        updateHeading(rawHeading);
+      }
+
+      function startListening() {
+        if (isListening) return;
+        window.addEventListener('deviceorientation', handleOrientation, true);
+        window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+        isListening = true;
+        updateStatus('Waiting for heading data…');
+        startMagnetometer();
+      }
+
+      function requestPermissionIfNeeded() {
+        if (typeof DeviceOrientationEvent === 'undefined') {
+          updateStatus('Device orientation is not supported on this device.', 'error');
+          return;
+        }
+
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          permissionButton.classList.remove('hidden');
+          permissionButton.addEventListener('click', async () => {
+            try {
+              const response = await DeviceOrientationEvent.requestPermission();
+              if (response === 'granted') {
+                permissionButton.classList.add('hidden');
+                startListening();
+              } else {
+                updateStatus('Motion access denied. Enable it in Settings to use the compass.', 'error');
+              }
+            } catch (error) {
+              updateStatus('Unable to request motion access. Try reloading the page.', 'error');
+            }
+          }, { once: true });
+          updateStatus('Tap the button above to enable motion access.');
+        } else {
+          startListening();
+        }
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && isListening) {
+          updateStatus(hasHeading ? 'Rotate your device to align north.' : 'Waiting for heading data…');
+        }
+      });
+
+      drawCompass(displayHeading);
+      requestPermissionIfNeeded();
+    })();
+  </script>
+</body>
+</html>
