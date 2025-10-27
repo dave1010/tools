@@ -81,6 +81,13 @@
             <button
               class="tab-trigger flex-1 rounded-lg px-3 py-2 text-center transition data-[active='true']:bg-white data-[active='true']:text-brand-700"
               type="button"
+              data-tab-target="reference"
+            >
+              Reference
+            </button>
+            <button
+              class="tab-trigger flex-1 rounded-lg px-3 py-2 text-center transition data-[active='true']:bg-white data-[active='true']:text-brand-700"
+              type="button"
               data-tab-target="search"
             >
               Search
@@ -139,12 +146,12 @@
               </div>
             </div>
 
-            <div data-tab-panel="search" hidden>
+            <div data-tab-panel="reference" hidden>
               <div class="space-y-3">
                 <label class="flex flex-col gap-2">
                   <span class="font-medium text-gray-700">Reference</span>
                   <input
-                    id="search-input"
+                    id="reference-input"
                     type="text"
                     class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
                     placeholder="Try “John 3:16” or “2 Ki 1”"
@@ -152,8 +159,26 @@
                     autocomplete="off"
                   />
                 </label>
-                <div id="search-results" class="text-sm text-gray-500 space-y-2">
+                <div id="reference-results" class="text-sm text-gray-500 space-y-2">
                   <p>Start typing a book name, chapter, or verse to jump directly to a passage.</p>
+                </div>
+              </div>
+            </div>
+            <div data-tab-panel="search" hidden>
+              <div class="space-y-3">
+                <label class="flex flex-col gap-2">
+                  <span class="font-medium text-gray-700">Search</span>
+                  <input
+                    id="text-search-input"
+                    type="text"
+                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                    placeholder="Try “love your neighbor”"
+                    disabled
+                    autocomplete="off"
+                  />
+                </label>
+                <div id="text-search-results" class="text-sm text-gray-500 space-y-2">
+                  <p>Type to search every verse. Showing up to 50 results.</p>
                 </div>
               </div>
             </div>
@@ -206,8 +231,10 @@
       const browseBookList = document.getElementById("browse-book-list");
       const browseChapterList = document.getElementById("browse-chapter-list");
       const browseOrderButtons = document.querySelectorAll(".browse-order");
-      const searchInput = document.getElementById("search-input");
-      const searchResults = document.getElementById("search-results");
+      const referenceInput = document.getElementById("reference-input");
+      const referenceResults = document.getElementById("reference-results");
+      const textSearchInput = document.getElementById("text-search-input");
+      const textSearchResults = document.getElementById("text-search-results");
 
       let sqlite3;
       let db;
@@ -296,6 +323,14 @@
           }))
         )
         .sort((a, b) => b.alias.length - a.alias.length);
+
+      const debounce = (fn, delay) => {
+        let timeoutId;
+        return (...args) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => fn(...args), delay);
+        };
+      };
 
       const setStatus = (message, type = "info") => {
         statusMessage.textContent = message;
@@ -464,7 +499,8 @@
         chapterSelect.disabled = disabled;
         previousButton.disabled = disabled;
         nextButton.disabled = disabled;
-        searchInput.disabled = disabled;
+        referenceInput.disabled = disabled;
+        textSearchInput.disabled = disabled;
         setBrowseButtonsDisabled(disabled);
       };
 
@@ -829,6 +865,87 @@
         return `${base}:${result.startVerse}-${result.endVerse}`;
       };
 
+      const searchVersesByText = (value, limit = 50) => {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return [];
+        }
+        const terms = trimmed.split(/\s+/).filter(Boolean);
+        if (!terms.length) {
+          return [];
+        }
+        const conditions = terms
+          .map(() => "text LIKE ? COLLATE NOCASE")
+          .join(" AND ");
+        const sql =
+          `SELECT book, chapter, verse, text FROM verses WHERE ${conditions} ORDER BY book, chapter, verse LIMIT ?`;
+        const params = [...terms.map((term) => `%${term}%`), limit];
+        const results = [];
+        const stmt = db.prepare(sql);
+        try {
+          stmt.bind(params);
+          while (stmt.step()) {
+            results.push({
+              book: stmt.get(0),
+              chapter: stmt.get(1),
+              verse: stmt.get(2),
+              text: stmt.get(3)
+            });
+          }
+        } finally {
+          stmt.finalize();
+        }
+        return results;
+      };
+
+      const handleTextSearch = (value) => {
+        if (!db) return;
+        const trimmed = value.trim();
+        if (!trimmed) {
+          textSearchResults.innerHTML = "";
+          const message = document.createElement("p");
+          message.textContent = "Type to search every verse. Showing up to 50 results.";
+          textSearchResults.appendChild(message);
+          return;
+        }
+        const results = searchVersesByText(trimmed, 50);
+        if (!results.length) {
+          textSearchResults.textContent = `No verses matched “${trimmed}”.`;
+          return;
+        }
+        textSearchResults.innerHTML = "";
+        const summary = document.createElement("div");
+        summary.className = "text-sm text-gray-600";
+        summary.textContent =
+          results.length >= 50
+            ? "Showing the first 50 results. Refine your search to narrow it down."
+            : `Found ${results.length} result${results.length === 1 ? "" : "s"}.`;
+        textSearchResults.appendChild(summary);
+        const list = document.createElement("div");
+        list.className = "space-y-2";
+        for (const result of results) {
+          const bookName = getBookById(result.book)?.name ?? `Book ${result.book}`;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className =
+            "w-full text-left rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40";
+          const title = document.createElement("div");
+          title.className = "text-sm font-semibold text-gray-800";
+          title.textContent = `${bookName} ${result.chapter}:${result.verse}`;
+          const verseText = document.createElement("div");
+          verseText.className = "mt-1 text-sm text-gray-600";
+          verseText.textContent = result.text;
+          button.appendChild(title);
+          button.appendChild(verseText);
+          button.addEventListener("click", () => {
+            const chapter = setBook(result.book, { targetChapter: result.chapter });
+            displayPassage(result.book, chapter);
+          });
+          list.appendChild(button);
+        }
+        textSearchResults.appendChild(list);
+      };
+
       const getBookSuggestions = (value) => {
         const trimmed = value.trimStart();
         if (!trimmed) {
@@ -866,15 +983,15 @@
       const renderBookSuggestions = (value) => {
         const suggestions = getBookSuggestions(value);
         if (!suggestions.length) {
-          searchResults.textContent =
+          referenceResults.textContent =
             "No books match that yet. Keep typing a book name.";
           return;
         }
-        searchResults.innerHTML = "";
+        referenceResults.innerHTML = "";
         const intro = document.createElement("div");
         intro.className = "text-sm text-gray-600";
         intro.textContent = "Possible books:";
-        searchResults.appendChild(intro);
+        referenceResults.appendChild(intro);
         const list = document.createElement("div");
         list.className = "flex flex-wrap gap-2";
         for (const suggestion of suggestions) {
@@ -884,20 +1001,20 @@
             "rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500/40";
           button.textContent = suggestion.name;
           button.addEventListener("click", () => {
-            searchInput.value = `${suggestion.name} `;
-            searchInput.focus();
-            handleSearchInput(searchInput.value);
+            referenceInput.value = `${suggestion.name} `;
+            referenceInput.focus();
+            handleReferenceInput(referenceInput.value);
           });
           list.appendChild(button);
         }
-        searchResults.appendChild(list);
+        referenceResults.appendChild(list);
       };
 
-      const handleSearchInput = (value) => {
+      const handleReferenceInput = (value) => {
         if (!db) return;
         const parsed = parseReference(value);
         if (parsed.kind === "empty") {
-          searchResults.textContent =
+          referenceResults.textContent =
             "Start typing a book name, chapter, or verse to jump directly to a passage.";
           return;
         }
@@ -906,7 +1023,7 @@
             renderBookSuggestions(value);
             return;
           }
-          searchResults.textContent = parsed.message;
+          referenceResults.textContent = parsed.message;
           return;
         }
         if (parsed.kind === "partial") {
@@ -921,7 +1038,7 @@
               displayPassage(parsed.bookId, chapter, options);
             }
           }
-          searchResults.textContent = parsed.message;
+          referenceResults.textContent = parsed.message;
           return;
         }
         if (parsed.kind === "complete") {
@@ -932,11 +1049,11 @@
             endVerse
           });
           if (!loaded) {
-            searchResults.textContent =
+            referenceResults.textContent =
               "That reference was not found. Check the chapter and verse numbers.";
             return;
           }
-          searchResults.textContent = `Showing ${describeReference(parsed)}.`;
+          referenceResults.textContent = `Showing ${describeReference(parsed)}.`;
         }
       };
 
@@ -988,9 +1105,18 @@
         });
       };
 
-      const initializeSearch = () => {
-        searchInput.addEventListener("input", (event) => {
-          handleSearchInput(event.target.value);
+      const initializeReferenceSearch = () => {
+        referenceInput.addEventListener("input", (event) => {
+          handleReferenceInput(event.target.value);
+        });
+      };
+
+      const initializeTextSearch = () => {
+        const debouncedSearch = debounce((value) => {
+          handleTextSearch(value);
+        }, 300);
+        textSearchInput.addEventListener("input", (event) => {
+          debouncedSearch(event.target.value);
         });
       };
 
@@ -1038,7 +1164,8 @@
 
       initializeTabs();
       initializeBrowseControls();
-      initializeSearch();
+      initializeReferenceSearch();
+      initializeTextSearch();
 
       bookSelect.addEventListener("change", () => {
         if (!db) return;
