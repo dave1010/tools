@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rich Text to Markdown</title>
     <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      #pasteArea:empty::before {
+        content: attr(data-placeholder);
+        color: rgb(107 114 128);
+      }
+
+      #pasteArea:focus::before {
+        content: '';
+      }
+    </style>
   </head>
   <body class="bg-brand-50 text-gray-900">
     <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
@@ -16,12 +26,17 @@
       </header>
 
       <section class="space-y-3">
-        <label for="pasteArea" class="block text-sm font-medium text-gray-700">Paste formatted content</label>
-        <textarea
+        <label id="pasteAreaLabel" class="block text-sm font-medium text-gray-700">Paste formatted content</label>
+        <div
           id="pasteArea"
           class="w-full min-h-[180px] resize-vertical rounded-lg border border-brand-200 bg-white p-3 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          placeholder="Tap or click here, then paste your rich text (⌘/Ctrl + V)."
-        ></textarea>
+          contenteditable="true"
+          role="textbox"
+          aria-multiline="true"
+          tabindex="0"
+          aria-labelledby="pasteAreaLabel"
+          data-placeholder="Tap or click here, then paste your rich text (⌘/Ctrl + V)."
+        ></div>
         <p class="text-sm text-gray-500">
           Tip: If your clipboard doesn&apos;t include formatting, the plain text will be used instead.
         </p>
@@ -74,7 +89,6 @@
       };
 
       const convertClipboardData = (event) => {
-        event.preventDefault();
         const clipboardData = event.clipboardData || window.clipboardData;
 
         if (!clipboardData) {
@@ -110,16 +124,21 @@
           sourceType = 'plain text';
         }
 
-        markdownText = markdownText.trimEnd();
+        markdownText = markdownText.trim();
 
         if (!markdownText) {
           updateStatus('Nothing to convert from the clipboard.');
+          resultWrapper.classList.add('hidden');
+          markdownOutput.value = '';
           return;
         }
 
         markdownOutput.value = markdownText;
         resultWrapper.classList.remove('hidden');
-        updateStatus(`Converted from ${sourceType}.`, 'success');
+        const successMessage = sourceType
+          ? `Converted from ${sourceType}.`
+          : 'Converted clipboard contents.';
+        updateStatus(successMessage, 'success');
       };
 
       pasteArea.addEventListener('paste', convertClipboardData);
