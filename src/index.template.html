@@ -32,8 +32,8 @@
     <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden opacity-90">
       <div class="absolute inset-x-[-30%] top-[-25%] hidden h-[60vh] rounded-full bg-gradient-to-r from-fuchsia-600/50 via-purple-500/40 to-cyan-500/40 blur-3xl sm:block"></div>
       <div class="absolute inset-x-[-30%] bottom-[-30%] hidden h-[55vh] rounded-full bg-gradient-to-r from-cyan-500/40 via-blue-500/30 to-fuchsia-600/50 blur-3xl sm:block"></div>
-      <div class="absolute left-1/2 top-[-35%] h-[80vh] w-[160%] -translate-x-1/2 rounded-full bg-gradient-to-br from-fuchsia-600/50 via-purple-500/40 to-cyan-500/40 blur-3xl sm:hidden"></div>
-      <div class="absolute left-1/2 bottom-[-40%] h-[80vh] w-[180%] -translate-x-1/2 rounded-full bg-gradient-to-br from-cyan-500/40 via-blue-500/30 to-fuchsia-600/50 blur-3xl sm:hidden"></div>
+      <div class="absolute inset-0 block bg-[radial-gradient(ellipse_at_top,_rgba(217,70,239,0.32),_rgba(14,165,233,0.12)_60%,_transparent_82%)] blur-3xl sm:hidden"></div>
+      <div class="absolute inset-0 block bg-[radial-gradient(ellipse_at_bottom,_rgba(34,211,238,0.28),_rgba(79,70,229,0.1)_55%,_transparent_85%)] blur-3xl sm:hidden"></div>
     </div>
 
     <main class="relative mx-auto max-w-5xl space-y-16 px-4 py-12 font-sans sm:px-6 md:py-20 lg:px-8">
@@ -78,19 +78,56 @@
           </a>
         </div>
         <div class="space-y-6">
-          <div class="inline-flex rounded-full border border-white/10 bg-white/5 p-1 text-sm font-medium text-white/70">
-            <button type="button" data-tab="category" class="tab-button rounded-full px-4 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">By category</button>
-            <button type="button" data-tab="az" class="tab-button rounded-full px-4 py-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">A–Z</button>
-          </div>
-          <div data-panel="category" class="space-y-8">
+          <div class="overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 backdrop-blur">
+            <div
+              class="flex flex-wrap gap-1 rounded-t-3xl border-b border-white/10 bg-white/5 p-1 text-sm font-semibold text-white/70"
+              role="tablist"
+              aria-label="Browse tools"
+            >
+              <button
+                type="button"
+                id="tab-category"
+                data-tab="category"
+                class="tab-button relative rounded-2xl px-5 py-2 text-white/60 transition duration-200 ease-out hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent after:absolute after:left-2 after:right-2 after:-bottom-[10px] after:h-2 after:rounded-b-full after:bg-transparent after:transition after:duration-200 after:content-['']"
+                role="tab"
+                aria-controls="panel-category"
+              >
+                By category
+              </button>
+              <button
+                type="button"
+                id="tab-az"
+                data-tab="az"
+                class="tab-button relative rounded-2xl px-5 py-2 text-white/60 transition duration-200 ease-out hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent after:absolute after:left-2 after:right-2 after:-bottom-[10px] after:h-2 after:rounded-b-full after:bg-transparent after:transition after:duration-200 after:content-['']"
+                role="tab"
+                aria-controls="panel-az"
+              >
+                A–Z
+              </button>
+            </div>
+            <div
+              id="panel-category"
+              data-panel="category"
+              class="space-y-8 p-6"
+              role="tabpanel"
+              aria-labelledby="tab-category"
+            >
 {{TOOLS_TOC}}
 
 {{TOOLS_BY_CATEGORY}}
-          </div>
-          <div data-panel="az" class="hidden">
-            <ul class="grid gap-4 sm:grid-cols-2">
+            </div>
+            <div
+              id="panel-az"
+              data-panel="az"
+              class="hidden space-y-8 p-6"
+              role="tabpanel"
+              aria-labelledby="tab-az"
+              aria-hidden="true"
+            >
+              <ul class="grid gap-4 sm:grid-cols-2">
 {{TOOLS_AZ}}
-            </ul>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -115,12 +152,24 @@
     const activateTab = (name) => {
       tabButtons.forEach((button) => {
         const isActive = button.dataset.tab === name;
-        button.classList.toggle('bg-cyan-500/20', isActive);
+        button.classList.toggle('bg-gradient-to-r', isActive);
+        button.classList.toggle('from-cyan-500/40', isActive);
+        button.classList.toggle('via-blue-500/25', isActive);
+        button.classList.toggle('to-fuchsia-500/40', isActive);
         button.classList.toggle('text-white', isActive);
-        button.classList.toggle('text-white/70', !isActive);
+        button.classList.toggle('text-white/60', !isActive);
+        button.classList.toggle('shadow-lg', isActive);
+        button.classList.toggle('ring-1', isActive);
+        button.classList.toggle('ring-inset', isActive);
+        button.classList.toggle('ring-white/30', isActive);
+        button.classList.toggle('after:bg-slate-950/70', isActive);
+        button.setAttribute('aria-selected', String(isActive));
+        button.setAttribute('tabindex', isActive ? '0' : '-1');
       });
       panels.forEach((panel) => {
-        panel.classList.toggle('hidden', panel.dataset.panel !== name);
+        const isActive = panel.dataset.panel === name;
+        panel.classList.toggle('hidden', !isActive);
+        panel.setAttribute('aria-hidden', String(!isActive));
       });
     };
 
