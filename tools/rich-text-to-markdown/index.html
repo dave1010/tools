@@ -72,15 +72,172 @@
       const statusMessage = document.getElementById('statusMessage');
       const copyButton = document.getElementById('copyButton');
 
-      const turndownService = typeof TurndownService === 'function'
-        ? new TurndownService({
-            headingStyle: 'atx',
-            codeBlockStyle: 'fenced',
-          })
-        : null;
+      const createTurndownInstance = () => {
+        if (typeof TurndownService !== 'function') {
+          return null;
+        }
 
-      if (turndownService && window.turndownPluginGfm && turndownPluginGfm.gfm) {
-        turndownService.use(turndownPluginGfm.gfm);
+        const instance = new TurndownService({
+          headingStyle: 'atx',
+          codeBlockStyle: 'fenced',
+        });
+
+        if (window.turndownPluginGfm && turndownPluginGfm.gfm) {
+          instance.use(turndownPluginGfm.gfm);
+        }
+
+        return instance;
+      };
+
+      const turndownService = createTurndownInstance();
+      const cellTurndown = createTurndownInstance();
+
+      const sanitizeCellContent = (value) => {
+        if (!value) {
+          return '';
+        }
+
+        return value
+          .replace(/\u00a0/g, ' ')
+          .replace(/\r?\n/g, '<br />')
+          .replace(/\|/g, '\\|')
+          .trim();
+      };
+
+      const extractAlignment = (cell) => {
+        if (!cell || !cell.getAttribute) {
+          return '---';
+        }
+
+        const alignAttribute = (cell.getAttribute('align') || '').toLowerCase();
+        const styleAlign = (cell.style && cell.style.textAlign ? cell.style.textAlign : '').toLowerCase();
+        const alignValue = alignAttribute || styleAlign;
+
+        switch (alignValue) {
+          case 'center':
+            return ':---:';
+          case 'right':
+            return '---:';
+          case 'left':
+            return ':---';
+          default:
+            return '---';
+        }
+      };
+
+      const normalizeRowLength = (values, length) => {
+        const row = new Array(length).fill('');
+        values.forEach((value, index) => {
+          row[index] = value ?? '';
+        });
+        return row;
+      };
+
+      const convertCellToMarkdown = (cell) => {
+        if (!cell) {
+          return '';
+        }
+
+        if (cellTurndown) {
+          try {
+            const converted = cellTurndown.turndown(cell.innerHTML);
+            return sanitizeCellContent(converted);
+          } catch (error) {
+            console.warn('Failed to convert table cell with Turndown', error);
+          }
+        }
+
+        return sanitizeCellContent(cell.textContent || '');
+      };
+
+      const convertTableNodeToMarkdown = (tableNode) => {
+        if (!tableNode || !tableNode.rows) {
+          return '';
+        }
+
+        const allRows = Array.from(tableNode.rows);
+        if (!allRows.length) {
+          return '';
+        }
+
+        const headRows = tableNode.tHead ? Array.from(tableNode.tHead.rows) : [];
+        const headRowSet = new Set(headRows);
+
+        let headerCells = [];
+        let dataRowElements = [];
+
+        if (headRows.length) {
+          headerCells = Array.from(headRows[0].cells);
+          dataRowElements = allRows.filter((row) => !headRowSet.has(row));
+        } else if (allRows.length) {
+          const firstRowCells = Array.from(allRows[0].cells);
+          const hasExplicitHeader = firstRowCells.some(
+            (cell) => cell.tagName && cell.tagName.toLowerCase() === 'th'
+          );
+
+          if (hasExplicitHeader) {
+            headerCells = firstRowCells;
+            dataRowElements = allRows.slice(1);
+          } else {
+            headerCells = [];
+            dataRowElements = allRows.slice();
+          }
+        }
+
+        const bodyRowsMarkdown = dataRowElements.map((row) =>
+          Array.from(row.cells).map(convertCellToMarkdown)
+        );
+
+        const inferredColumnCount = Math.max(
+          headerCells.length,
+          ...bodyRowsMarkdown.map((row) => row.length)
+        );
+
+        const columnCount = inferredColumnCount > 0 ? inferredColumnCount : headerCells.length || 0;
+
+        if (!columnCount) {
+          return '';
+        }
+
+        let headerValues = headerCells.length
+          ? headerCells.map(convertCellToMarkdown)
+          : bodyRowsMarkdown[0]
+          ? bodyRowsMarkdown[0].map((value, index) => value || `Column ${index + 1}`)
+          : Array.from({ length: columnCount }, (_, index) => `Column ${index + 1}`);
+
+        headerValues = normalizeRowLength(headerValues, columnCount);
+
+        const alignmentSources = headerCells.length
+          ? headerCells
+          : bodyRowsMarkdown.length && dataRowElements.length
+          ? Array.from(dataRowElements[0].cells)
+          : [];
+
+        const alignmentRow = normalizeRowLength(
+          alignmentSources.map(extractAlignment),
+          columnCount
+        );
+
+        const bodyLines = bodyRowsMarkdown.length
+          ? bodyRowsMarkdown.map((rowValues) => {
+              const normalizedValues = normalizeRowLength(rowValues, columnCount);
+              return `| ${normalizedValues.join(' | ')} |`;
+            })
+          : [`| ${new Array(columnCount).fill('').join(' | ')} |`];
+
+        const headerLine = `| ${headerValues.join(' | ')} |`;
+        const alignmentLine = `| ${alignmentRow
+          .map((alignment) => (alignment && alignment.trim() ? alignment : '---'))
+          .join(' | ')} |`;
+
+        return `\n${[headerLine, alignmentLine, ...bodyLines].join('\n')}\n`;
+      };
+
+      if (turndownService) {
+        turndownService.addRule('tablesToMarkdown', {
+          filter: 'table',
+          replacement: (_content, node) => convertTableNodeToMarkdown(node),
+        });
       }
 
       const updateStatus = (message, type = 'info') => {
