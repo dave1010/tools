@@ -6,12 +6,10 @@
   html { @apply bg-gray-50 text-gray-800; }
   a { @apply font-medium text-brand-600 hover:text-brand-700 hover:underline; }
 
-  button,
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 font-medium transition disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2;
   }
 
-  button,
   .btn-primary {
     @apply bg-brand-600 text-white shadow-sm hover:bg-brand-700;
   }
