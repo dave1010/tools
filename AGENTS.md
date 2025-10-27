@@ -34,6 +34,12 @@ None.
 - Eg https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
 - Explicit versions (@1.0.0) since it lacks semver resolution.
 
+### esm.sh
+
+- Use for live ESM transforms, not static files. Transforms TS/TSX on the fly.
+- Eg `import * as THREE from "https://esm.sh/three@0.180.0";`
+- tsx mode: load https://esm.sh/tsx as a module → inline <script type="text/tsx">
+
 ## Styling and Page Layout Guidelines
 
 - Use the shared `/assets/tw.css`
