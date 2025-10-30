@@ -52,6 +52,7 @@ Tools live in the [`./tools`](./tools) directory.
 
 - [Bible Verse Explorer](https://tools.dave.engineer/tools/bible-browser) — Browse NET Bible passages by book and chapter.
 - [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html) — Convert Markdown content into HTML
+- [Regex Playground](https://tools.dave.engineer/tools/regex-playground) — Experiment with regular expressions and sample strings
 - [Rich Text to Markdown Converter](https://tools.dave.engineer/tools/rich-text-to-markdown) — Paste formatted content and copy the Markdown result
 - [Scratch Pad](https://tools.dave.engineer/tools/scratch-pad) — Quick notes with local storage
 - [Word & Character Count](https://tools.dave.engineer/tools/word-character-count) — Count words and characters instantly
