@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idea Fusion Lab</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/60 via-white to-white">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Idea Fusion Lab</h1>
+        <p class="text-gray-600">
+          Shuffle unexpected mediums, moods, and constraints to instantly brief your next creative experiment.
+        </p>
+      </header>
+
+      <section class="flex flex-col gap-4 rounded-2xl border border-brand-100 bg-white/95 p-4 shadow-soft md:p-6">
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <button id="rerollAll" class="btn btn-primary" type="button">Shuffle unlocked</button>
+          <button id="copyIdea" class="btn btn-secondary" type="button">Copy summary</button>
+          <span id="copyFeedback" class="text-sm text-brand-700" role="status" aria-live="polite"></span>
+        </div>
+
+        <div id="cards" class="grid gap-4">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <div class="rounded-xl border border-dashed border-brand-200 bg-brand-50/70 p-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-700">Story starter</h2>
+          <p id="promptOutput" class="mt-2 text-lg font-medium text-gray-900"></p>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-soft md:p-6">
+        <header class="flex items-start justify-between gap-2">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">Recent sparks</h2>
+            <p class="text-sm text-gray-500">New ideas automatically appear here so you can loop back later.</p>
+          </div>
+          <button id="clearHistory" class="btn btn-secondary text-sm" type="button">Clear history</button>
+        </header>
+        <ol id="historyList" class="mt-4 space-y-3 text-sm text-gray-700" aria-live="polite"></ol>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/idea-fusion-lab"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const fields = [
+        {
+          id: 'medium',
+          title: 'Medium',
+          description: 'Where the experience primarily lives.',
+          options: [
+            'pop-up learning labyrinth',
+            'immersive audio walk',
+            'pocket-sized zine series',
+            'browser-based ritual',
+            'community-sourced data sculpture',
+            'tiny AR companion',
+            'collaborative projection mapping event',
+            'hyperlocal newsletter experiment',
+            'modular festival booth',
+            'tactile storytelling kit'
+          ]
+        },
+        {
+          id: 'audience',
+          title: 'Primary audience',
+          description: 'Who you want to delight first.',
+          options: [
+            'night-shift workers',
+            'first-time founders',
+            'urban pollinator advocates',
+            'intergenerational families',
+            'teen climate leaders',
+            'community radio hosts',
+            'migrant caregivers',
+            'open-source maintainers',
+            'museum educators',
+            'rural high school makerspaces'
+          ]
+        },
+        {
+          id: 'mood',
+          title: 'Signature mood',
+          description: 'The energy you want people to feel.',
+          options: [
+            'playfully rebellious',
+            'slow and reflective',
+            'radically welcoming',
+            'mischievously optimistic',
+            'quietly subversive',
+            'high-voltage kinetic',
+            'tender and restorative',
+            'mythically grand',
+            'precisely meditative',
+            'joyfully chaotic'
+          ]
+        },
+        {
+          id: 'mechanic',
+          title: 'Core mechanic',
+          description: 'How people move the idea forward.',
+          options: [
+            'borrows a single analog gesture that unlocks the main interaction',
+            'uses wearable sensors as collaborative inputs',
+            'maps live community data into evolving visuals',
+            'orchestrates strangers into micro-ritual teams',
+            'treats sound as the primary navigation layer',
+            'turns failure stories into collectible artifacts',
+            'lets participants remix physical modules like puzzle pieces',
+            'pairs every action with an AI-generated counterpoint',
+            'relies on emergent choreography from crowd movement',
+            'invites local experts to co-direct each session'
+          ]
+        },
+        {
+          id: 'constraint',
+          title: 'Signature constraint',
+          description: 'A guardrail that keeps the idea sharp.',
+          options: [
+            'must adapt seamlessly to spaces with unreliable power',
+            'should complete in under eight minutes without feeling rushed',
+            'needs to work both online and in a single square meter',
+            'can be set up by two people with a backpack of supplies',
+            'should leave behind a tangible trace for future visitors',
+            'has to celebrate one overlooked sensory detail',
+            'needs to reward curiosity rather than speed',
+            'can be paused and resumed days later',
+            'must feel different each time based on ambient conditions',
+            'should produce a collective artifact within the experience'
+          ]
+        },
+        {
+          id: 'catalyst',
+          title: 'Catalyst',
+          description: 'A twist that keeps it memorable.',
+          options: [
+            'features a cameo from a local legend captured on cassette',
+            'hides a decision tree inside a deck of translucent cards',
+            'lets attendees unlock extra layers by trading hand-drawn maps',
+            'anchors each session around a single mysterious field recording',
+            'invites passersby to contribute one sentence to an evolving manifesto',
+            'reveals hidden content through choreographed light sweeps',
+            'syncs with the rhythm of nearby public transit',
+            'rewards participants with custom-printed sigils',
+            'uses biodegradable dye packets to mark progress',
+            'keeps a time capsule that future versions must consult'
+          ]
+        }
+      ];
+
+      const cardsContainer = document.getElementById('cards');
+      const promptOutput = document.getElementById('promptOutput');
+      const rerollAllButton = document.getElementById('rerollAll');
+      const copyButton = document.getElementById('copyIdea');
+      const copyFeedback = document.getElementById('copyFeedback');
+      const historyList = document.getElementById('historyList');
+      const clearHistoryButton = document.getElementById('clearHistory');
+
+      const history = [];
+      const MAX_HISTORY = 8;
+      let lastSignature = '';
+
+      function pickRandom(options, exclude) {
+        if (options.length === 0) {
+          return '';
+        }
+        if (options.length === 1) {
+          return options[0];
+        }
+        let choice = options[Math.floor(Math.random() * options.length)];
+        if (choice === exclude) {
+          return pickRandom(options, exclude);
+        }
+        return choice;
+      }
+
+      function createCard(field) {
+        const article = document.createElement('article');
+        article.className = 'space-y-3 rounded-xl border border-gray-200 bg-white/90 p-4 shadow-soft';
+
+        const header = document.createElement('div');
+        header.className = 'flex items-start justify-between gap-3';
+
+        const textBlock = document.createElement('div');
+        const title = document.createElement('h2');
+        title.className = 'text-sm font-semibold uppercase tracking-wide text-brand-700';
+        title.textContent = field.title;
+        const description = document.createElement('p');
+        description.className = 'text-xs text-gray-500';
+        description.textContent = field.description;
+        textBlock.appendChild(title);
+        textBlock.appendChild(description);
+
+        const lockButton = document.createElement('button');
+        lockButton.type = 'button';
+        lockButton.className = 'btn btn-secondary whitespace-nowrap text-xs';
+        lockButton.setAttribute('aria-pressed', 'false');
+        lockButton.textContent = 'Lock';
+
+        header.appendChild(textBlock);
+        header.appendChild(lockButton);
+
+        const valueBox = document.createElement('div');
+        valueBox.className = 'rounded-lg border border-brand-100 bg-brand-50/60 p-3 text-base font-medium text-gray-900';
+        const valueText = document.createElement('p');
+        valueText.className = 'leading-relaxed';
+        valueBox.appendChild(valueText);
+
+        const rerollButton = document.createElement('button');
+        rerollButton.type = 'button';
+        rerollButton.className = 'btn btn-primary text-sm';
+        rerollButton.textContent = `Reroll ${field.title.toLowerCase()}`;
+
+        article.appendChild(header);
+        article.appendChild(valueBox);
+        article.appendChild(rerollButton);
+
+        field.elements = {
+          article,
+          lockButton,
+          valueText,
+          rerollButton
+        };
+
+        lockButton.addEventListener('click', () => {
+          const isLocked = lockButton.getAttribute('aria-pressed') === 'true';
+          lockButton.setAttribute('aria-pressed', String(!isLocked));
+          lockButton.textContent = isLocked ? 'Lock' : 'Unlock';
+          lockButton.classList.toggle('btn-primary', !isLocked);
+          lockButton.classList.toggle('btn-secondary', isLocked);
+          article.classList.toggle('ring-2', !isLocked);
+          article.classList.toggle('ring-brand-500', !isLocked);
+        });
+
+        rerollButton.addEventListener('click', () => {
+          assignValue(field, true);
+        });
+
+        return article;
+      }
+
+      function assignValue(field, force = false) {
+        const locked = field.elements.lockButton.getAttribute('aria-pressed') === 'true';
+        if (locked && !force) {
+          return;
+        }
+        const next = pickRandom(field.options, field.currentValue);
+        field.currentValue = next;
+        field.elements.valueText.textContent = next;
+        refreshDerivedState();
+      }
+
+      function buildSignature() {
+        const values = fields.map((field) => field.currentValue || '').filter(Boolean);
+        return values.join(' • ');
+      }
+
+      function buildPrompt() {
+        const parts = {
+          medium: fields.find((field) => field.id === 'medium')?.currentValue,
+          audience: fields.find((field) => field.id === 'audience')?.currentValue,
+          mood: fields.find((field) => field.id === 'mood')?.currentValue,
+          mechanic: fields.find((field) => field.id === 'mechanic')?.currentValue,
+          constraint: fields.find((field) => field.id === 'constraint')?.currentValue,
+          catalyst: fields.find((field) => field.id === 'catalyst')?.currentValue
+        };
+
+        if (Object.values(parts).some((value) => !value)) {
+          return '';
+        }
+
+        return `Design a ${parts.mood} ${parts.medium} for ${parts.audience} that ${parts.mechanic}, ${parts.constraint}, and ${parts.catalyst}.`;
+      }
+
+      function buildCopy() {
+        const lines = fields.map((field) => `${field.title}: ${field.currentValue}`);
+        const prompt = promptOutput.textContent?.trim();
+        const header = 'Idea Fusion Lab briefing';
+        return [header, ''.padEnd(header.length, '='), ...lines, '', `Prompt: ${prompt}`].join('\n');
+      }
+
+      function renderHistory() {
+        historyList.innerHTML = '';
+        history.forEach((entry) => {
+          const item = document.createElement('li');
+          item.className = 'rounded-lg border border-gray-200 bg-gray-50/80 p-3';
+
+          const summary = document.createElement('p');
+          summary.className = 'font-medium text-gray-900';
+          summary.textContent = entry.signature;
+
+          const prompt = document.createElement('p');
+          prompt.className = 'mt-1 text-xs text-gray-500';
+          prompt.textContent = entry.prompt;
+
+          item.appendChild(summary);
+          item.appendChild(prompt);
+          historyList.appendChild(item);
+        });
+      }
+
+      function refreshDerivedState() {
+        const prompt = buildPrompt();
+        promptOutput.textContent = prompt;
+
+        const signature = buildSignature();
+        const allFieldsFilled = signature.split(' • ').length === fields.length;
+        if (!prompt || !signature || !allFieldsFilled || signature === lastSignature) {
+          return;
+        }
+
+        lastSignature = signature;
+        history.unshift({ signature, prompt });
+        if (history.length > MAX_HISTORY) {
+          history.length = MAX_HISTORY;
+        }
+        renderHistory();
+      }
+
+      rerollAllButton.addEventListener('click', () => {
+        fields.forEach((field) => assignValue(field));
+      });
+
+      copyButton.addEventListener('click', async () => {
+        const text = buildCopy();
+        try {
+          await navigator.clipboard.writeText(text);
+          showCopyFeedback('Copied to clipboard!');
+        } catch (error) {
+          showCopyFeedback('Select and copy manually — clipboard access was blocked.');
+        }
+      });
+
+      function showCopyFeedback(message) {
+        copyFeedback.textContent = message;
+        if (message) {
+          clearTimeout(showCopyFeedback.timeoutId);
+          showCopyFeedback.timeoutId = setTimeout(() => {
+            copyFeedback.textContent = '';
+          }, 4000);
+        }
+      }
+
+      clearHistoryButton.addEventListener('click', () => {
+        history.length = 0;
+        lastSignature = '';
+        renderHistory();
+        showCopyFeedback('History cleared.');
+      });
+
+      function initialise() {
+        fields.forEach((field) => {
+          const card = createCard(field);
+          cardsContainer.appendChild(card);
+          assignValue(field, true);
+        });
+      }
+
+      initialise();
+    </script>
+  </body>
+</html>
