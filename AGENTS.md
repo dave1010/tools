@@ -4,8 +4,8 @@
 
 - Add a new dir in ./tools
 - Add index.html and any other files
-- Add a README.md with YAML front matter defining `title` and a 4-8 word `description`. Use the README.md for any help text that would otherwise take up soace on the tool web page.
-- Include a `category` in the front matter, reusing an existing category when possible (add a new one if nothing fits).
+- Add a README.md with YAML front matter defining `title` and a 4-8 word `description`. Use the README.md for any help text that would otherwise take up space on the tool web page.
+- Include a `category` in the front matter, reusing an existing category when possible. Add a new one if nothing fits.
 - Need the category list? From the repo root run `grep '^### ' README.md`.
 
 ## Build & Deploy
@@ -51,7 +51,7 @@ None.
 - The page should have the tool as its main focus. Eg use Flexbox (or CSS Grid) to have the tool fill the page.
 - Consider how it looks on mobile.
 - Keep on-page copy short. Move instructions, tips, and troubleshooting info into the tool's README unless it is essential for the current interaction.
-- Add a footer that links back home **and** to the tool's GitHub directory as “About”. Example:
+- Add a footer that links back home and to the tool's GitHub directory as “About”. Example:
   ```html
   <footer class="py-6 text-center text-sm text-gray-500">
     <div class="flex justify-center gap-4">
@@ -70,8 +70,14 @@ If the developer reports that JS is completely broken then surface all errors. E
 
 The Cloudflare Pages function `functions/cerebras-chat.ts` provides OpenAI-compatible LLM inference. See `tools/cerebras-llm-inference/index.html` for a working example. The model `gpt-oss-120b` is the best all rounder.
 
-## GitHub Tokens
+LLMs are not just for chat: they can be used to process and string in any arbitrary way.
+
+## GitHub
+
+### GitHub tokens and auth
 
 For GitHub integrations, the user's browser may already have `github-device-login-token` in local storage. If they don't, or if more permissions are needed, then direct the user to /tools/github-device-login/
 
-See `tools/scratch-pad/index.html` for an example of saving Gists. The web page `https://gistpreview.github.io/?${encodeURIComponent(gistId)}` will render an index.html gist as HTML.
+### Gists
+
+See `tools/scratch-pad/index.html` for an example of saving Gists. The URL `https://gistpreview.github.io/?${encodeURIComponent(gistId)}` will render an index.html gist as HTML.
