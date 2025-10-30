@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Perspective Grid Designer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      body {
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #eff6ff 0%, #bfdbfe 40%, #1d4ed8 110%);
+        color: #0f172a;
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 0.75rem;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.95));
+        box-shadow: 0 40px 80px rgba(30, 64, 175, 0.35);
+      }
+      .control-grid label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1d4ed8;
+      }
+      .control-grid input,
+      .control-grid select {
+        accent-color: #2563eb;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 9999px;
+        background: rgba(219, 234, 254, 0.6);
+        color: #1d4ed8;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-6 font-sans">
+      <header class="space-y-3 text-center">
+        <div class="chip self-center">Real-time perspective scaffolding</div>
+        <h1 class="text-3xl font-bold text-slate-900 md:text-4xl">Perspective Grid Designer</h1>
+        <p class="text-slate-700">
+          Dial in single, dual, or triple vanishing points and export crisp guides for storyboards, architectural concepts, and concept art.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl bg-white/70 p-4 shadow-xl backdrop-blur">
+        <h2 class="text-lg font-semibold text-slate-900">Vanishing point controls</h2>
+        <div class="control-grid grid gap-4 md:grid-cols-2">
+          <label class="space-y-2">
+            <span>Mode</span>
+            <select id="mode" class="w-full rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
+              <option value="one">One-point</option>
+              <option value="two" selected>Two-point</option>
+              <option value="three">Three-point</option>
+            </select>
+          </label>
+          <label class="space-y-2">
+            <span>Horizon height</span>
+            <input id="horizon" type="range" min="25" max="75" value="45" />
+          </label>
+          <label class="space-y-2" data-mode="one">
+            <span>Center offset</span>
+            <input id="centerOffset" type="range" min="-80" max="80" value="0" />
+          </label>
+          <label class="space-y-2" data-mode="two three">
+            <span>Horizontal spread</span>
+            <input id="spread" type="range" min="20" max="45" value="32" />
+          </label>
+          <label class="space-y-2" data-mode="three">
+            <span>Vertical intensity</span>
+            <input id="verticalIntensity" type="range" min="20" max="80" value="40" />
+          </label>
+          <label class="space-y-2">
+            <span>Density</span>
+            <input id="density" type="range" min="6" max="20" value="12" />
+          </label>
+        </div>
+        <p class="text-xs text-slate-500">
+          Toggle to single-point for corridors, two-point for street corners, or three-point for hero shots. The grid updates instantly as you experiment.
+        </p>
+      </section>
+
+      <section class="space-y-4">
+        <div class="relative overflow-hidden rounded-2xl border border-white/40 bg-slate-900/70 p-3 shadow-2xl">
+          <canvas id="gridCanvas" width="900" height="600" aria-label="Perspective grid canvas"></canvas>
+          <div class="pointer-events-none absolute inset-0 rounded-2xl border border-white/10"></div>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-200">
+          <div>
+            <span id="modeLabel" class="font-semibold text-brand-200"></span>
+            <span class="text-slate-400">• Drag sliders for live updates</span>
+          </div>
+          <button id="download" class="btn btn-secondary" type="button">Download PNG</button>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-600">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/perspective-grid-designer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const canvas = document.getElementById('gridCanvas');
+      const ctx = canvas.getContext('2d');
+      const controls = {
+        mode: document.getElementById('mode'),
+        horizon: document.getElementById('horizon'),
+        centerOffset: document.getElementById('centerOffset'),
+        spread: document.getElementById('spread'),
+        verticalIntensity: document.getElementById('verticalIntensity'),
+        density: document.getElementById('density'),
+        download: document.getElementById('download'),
+        modeLabel: document.getElementById('modeLabel')
+      };
+
+      const controlElements = Array.from(document.querySelectorAll('[data-mode]'));
+
+      function updateControlVisibility(mode) {
+        controlElements.forEach((el) => {
+          const modes = el.dataset.mode.split(' ');
+          el.classList.toggle('hidden', !modes.includes(mode));
+        });
+      }
+
+      function setCanvasSize() {
+        const ratio = window.devicePixelRatio || 1;
+        const displayWidth = canvas.clientWidth * ratio;
+        const displayHeight = canvas.clientWidth * 0.66 * ratio;
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function drawLine(x1, y1, x2, y2, color, width = 1) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+
+      function drawPerspective() {
+        setCanvasSize();
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillRect(0, 0, width, height);
+
+        const horizonRatio = controls.horizon.value / 100;
+        const horizonY = height * horizonRatio;
+        const density = parseInt(controls.density.value, 10);
+        const mode = controls.mode.value;
+
+        const centerOffset = (controls.centerOffset.value / 100) * (width * 0.45);
+        const spreadValue = controls.spread.value / 100;
+        const verticalIntensity = controls.verticalIntensity.value / 100;
+
+        const vanishCenter = { x: width / 2 + centerOffset, y: horizonY };
+        const vanishLeft = { x: width * (0.5 - spreadValue), y: horizonY };
+        const vanishRight = { x: width * (0.5 + spreadValue), y: horizonY };
+        const vanishVertical = { x: width / 2, y: -height * verticalIntensity };
+
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.85)';
+        ctx.lineWidth = 1.2 * (window.devicePixelRatio || 1);
+
+        const bottomLeft = { x: 0, y: height };
+        const bottomRight = { x: width, y: height };
+
+        if (mode === 'one') {
+          for (let i = 0; i <= density; i++) {
+            const t = i / density;
+            const x = lerp(bottomLeft.x, bottomRight.x, t);
+            drawLine(vanishCenter.x, vanishCenter.y, x, height, 'rgba(59, 130, 246, 0.5)');
+          }
+          for (let j = 1; j < density; j++) {
+            const t = j / density;
+            const pointA = {
+              x: lerp(vanishCenter.x, bottomLeft.x, t),
+              y: lerp(vanishCenter.y, bottomLeft.y, t)
+            };
+            const pointB = {
+              x: lerp(vanishCenter.x, bottomRight.x, t),
+              y: lerp(vanishCenter.y, bottomRight.y, t)
+            };
+            drawLine(pointA.x, pointA.y, pointB.x, pointB.y, 'rgba(191, 219, 254, 0.4)');
+          }
+        } else {
+          for (let i = 0; i <= density; i++) {
+            const t = i / density;
+            const x = lerp(bottomLeft.x, bottomRight.x, t);
+            const target = { x, y: height };
+            const vanish = x < width / 2 ? vanishLeft : vanishRight;
+            drawLine(vanish.x, vanish.y, target.x, target.y, 'rgba(59, 130, 246, 0.5)');
+          }
+
+          for (let j = 1; j < density; j++) {
+            const t = j / density;
+            const leftPoint = {
+              x: lerp(vanishLeft.x, bottomLeft.x, t),
+              y: lerp(vanishLeft.y, bottomLeft.y, t)
+            };
+            const rightPoint = {
+              x: lerp(vanishRight.x, bottomRight.x, t),
+              y: lerp(vanishRight.y, bottomRight.y, t)
+            };
+            drawLine(leftPoint.x, leftPoint.y, rightPoint.x, rightPoint.y, 'rgba(191, 219, 254, 0.4)');
+          }
+        }
+
+        if (mode === 'three') {
+          for (let i = 0; i <= density; i++) {
+            const t = i / density;
+            const x = lerp(bottomLeft.x, bottomRight.x, t);
+            drawLine(vanishVertical.x, vanishVertical.y, x, height, 'rgba(96, 165, 250, 0.45)');
+          }
+        }
+
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.9)';
+        drawLine(0, horizonY, width, horizonY, 'rgba(56, 189, 248, 0.5)', 1.5);
+
+        controls.modeLabel.textContent =
+          mode === 'one'
+            ? 'One-point perspective'
+            : mode === 'two'
+            ? 'Two-point perspective'
+            : 'Three-point perspective';
+      }
+
+      function downloadPNG() {
+        const link = document.createElement('a');
+        link.download = `perspective-grid-${controls.mode.value}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+
+      Object.values(controls).forEach((control) => {
+        if (!control || control === controls.download || control === controls.modeLabel) return;
+        control.addEventListener('input', () => {
+          updateControlVisibility(controls.mode.value);
+          drawPerspective();
+        });
+      });
+
+      controls.mode.addEventListener('change', () => {
+        updateControlVisibility(controls.mode.value);
+        drawPerspective();
+      });
+
+      controls.download.addEventListener('click', downloadPNG);
+
+      window.addEventListener('resize', drawPerspective);
+
+      updateControlVisibility(controls.mode.value);
+      drawPerspective();
+    </script>
+  </body>
+</html>
