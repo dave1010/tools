@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fractal Playground</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/70 to-white">
+    <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Fractal Playground</h1>
+        <p class="text-gray-600">
+          Dive into endlessly detailed Mandelbrot and Julia sets. Pan, zoom, and tune the parameters to sculpt vivid patterns in real time.
+        </p>
+      </header>
+
+      <section class="flex flex-1 flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div class="space-y-2 text-sm text-gray-600">
+            <p>Drag the canvas to pan, use the slider or mouse wheel to zoom, and adjust Julia constants for entirely new structures.</p>
+            <p class="text-xs text-gray-500">Rendering happens locally in your browser.</p>
+          </div>
+          <div class="rounded-xl border border-dashed border-brand-200 bg-brand-50/70 p-3 text-sm text-brand-800">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-700">Quick tips</h2>
+            <ul class="list-inside list-disc space-y-1">
+              <li>Double-click to zoom in. Shift + double-click zooms out.</li>
+              <li>Scroll the canvas for fine-grained zoom control.</li>
+              <li>Try Julia mode with different constants for abstract shapes.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
+          <div class="order-2 flex flex-col gap-3 md:order-1">
+            <div class="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-900">
+              <canvas
+                id="fractalCanvas"
+                class="block h-[420px] w-full md:h-[480px]"
+                role="img"
+                aria-label="Interactive fractal visualization"
+              ></canvas>
+              <div
+                id="renderStatus"
+                class="pointer-events-none absolute inset-x-3 bottom-3 rounded-full bg-gray-900/80 px-3 py-1 text-center text-xs font-medium text-gray-200"
+              >
+                Ready
+              </div>
+            </div>
+            <p class="text-xs text-gray-500">
+              Current center: <span id="centerDisplay" class="font-mono text-gray-700"></span> · Zoom depth ×<span id="zoomDisplay" class="font-semibold text-gray-700"></span>
+            </p>
+          </div>
+
+          <form class="order-1 space-y-4 rounded-2xl border border-gray-100 bg-gray-50/70 p-4 text-sm text-gray-700 md:order-2" autocomplete="off">
+            <div class="space-y-1">
+              <label for="fractalType" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Fractal</label>
+              <select id="fractalType" class="mt-1 block w-full rounded-lg border-gray-300 bg-white py-2 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500">
+                <option value="mandelbrot">Mandelbrot set</option>
+                <option value="julia">Julia set</option>
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label for="iterationSlider" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Detail level</label>
+              <input
+                id="iterationSlider"
+                type="range"
+                min="50"
+                max="500"
+                step="10"
+                value="200"
+                class="w-full accent-brand-600"
+              />
+              <p class="text-xs text-gray-500">Iterations: <span id="iterationValue" class="font-semibold text-gray-700">200</span></p>
+            </div>
+
+            <div class="space-y-1">
+              <label for="zoomSlider" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Zoom</label>
+              <input id="zoomSlider" type="range" min="0" max="100" value="25" class="w-full accent-brand-600" />
+              <p class="text-xs text-gray-500">Use for gentle zoom adjustments.</p>
+            </div>
+
+            <fieldset id="juliaControls" class="space-y-3 rounded-xl border border-gray-200 bg-white p-3">
+              <legend class="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Julia constant</legend>
+              <div class="space-y-1">
+                <label for="juliaReal" class="flex items-center justify-between text-xs text-gray-600">
+                  <span>Real</span>
+                  <span id="juliaRealValue" class="font-mono text-sm text-gray-900">-0.70</span>
+                </label>
+                <input
+                  id="juliaReal"
+                  type="range"
+                  min="-1.5"
+                  max="1.5"
+                  step="0.01"
+                  value="-0.7"
+                  class="w-full accent-brand-600"
+                />
+              </div>
+              <div class="space-y-1">
+                <label for="juliaImag" class="flex items-center justify-between text-xs text-gray-600">
+                  <span>Imaginary</span>
+                  <span id="juliaImagValue" class="font-mono text-sm text-gray-900">0.27</span>
+                </label>
+                <input
+                  id="juliaImag"
+                  type="range"
+                  min="-1.5"
+                  max="1.5"
+                  step="0.01"
+                  value="0.27"
+                  class="w-full accent-brand-600"
+                />
+              </div>
+              <p class="text-xs text-gray-500">Only active in Julia mode.</p>
+            </fieldset>
+
+            <button type="button" id="resetView" class="w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+              Reset view
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/fractal-playground" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const canvas = document.getElementById('fractalCanvas');
+      const ctx = canvas.getContext('2d');
+      const statusEl = document.getElementById('renderStatus');
+      const iterationSlider = document.getElementById('iterationSlider');
+      const iterationValue = document.getElementById('iterationValue');
+      const zoomSlider = document.getElementById('zoomSlider');
+      const zoomDisplay = document.getElementById('zoomDisplay');
+      const centerDisplay = document.getElementById('centerDisplay');
+      const fractalTypeSelect = document.getElementById('fractalType');
+      const juliaControls = document.getElementById('juliaControls');
+      const juliaReal = document.getElementById('juliaReal');
+      const juliaImag = document.getElementById('juliaImag');
+      const juliaRealValue = document.getElementById('juliaRealValue');
+      const juliaImagValue = document.getElementById('juliaImagValue');
+      const resetButton = document.getElementById('resetView');
+
+      const view = {
+        cx: -0.5,
+        cy: 0,
+        scale: 3.0,
+      };
+
+      const juliaConstant = { re: parseFloat(juliaReal.value), im: parseFloat(juliaImag.value) };
+
+      const SCALE_MAX = 4;
+      const SCALE_MIN = 0.0025;
+
+      let renderRequested = false;
+      let resizeTimeout = null;
+      let statusTimeout = null;
+
+      function sliderToScale(value) {
+        const t = value / 100;
+        return SCALE_MAX * Math.pow(SCALE_MIN / SCALE_MAX, t);
+      }
+
+      function scaleToSlider(scale) {
+        const ratio = Math.log(scale / SCALE_MAX) / Math.log(SCALE_MIN / SCALE_MAX);
+        return Math.min(100, Math.max(0, ratio * 100));
+      }
+
+      function formatNumber(value) {
+        return value.toFixed(3).replace(/\.?0+$/, '');
+      }
+
+      function updateZoomDisplay() {
+        const zoomFactor = SCALE_MAX / view.scale;
+        zoomDisplay.textContent = zoomFactor.toFixed(2);
+        centerDisplay.textContent = `${formatNumber(view.cx)} ${view.cy >= 0 ? '+' : '-'} ${formatNumber(Math.abs(view.cy))}i`;
+      }
+
+      function hslToRgb(h, s, l) {
+        h = h % 360;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const hp = h / 60;
+        const x = c * (1 - Math.abs((hp % 2) - 1));
+        let r = 0, g = 0, b = 0;
+
+        if (hp >= 0 && hp < 1) {
+          r = c;
+          g = x;
+        } else if (hp >= 1 && hp < 2) {
+          r = x;
+          g = c;
+        } else if (hp >= 2 && hp < 3) {
+          g = c;
+          b = x;
+        } else if (hp >= 3 && hp < 4) {
+          g = x;
+          b = c;
+        } else if (hp >= 4 && hp < 5) {
+          r = x;
+          b = c;
+        } else if (hp >= 5 && hp < 6) {
+          r = c;
+          b = x;
+        }
+
+        const m = l - c / 2;
+        return [
+          Math.round((r + m) * 255),
+          Math.round((g + m) * 255),
+          Math.round((b + m) * 255),
+        ];
+      }
+
+      function renderFractal() {
+        renderRequested = false;
+        clearTimeout(statusTimeout);
+        statusEl.textContent = 'Rendering…';
+
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const width = Math.max(1, Math.floor(rect.width * dpr));
+        const height = Math.max(1, Math.floor(rect.height * dpr));
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+
+        const maxIter = parseInt(iterationSlider.value, 10);
+        const aspect = width / height;
+        const scaleY = view.scale / aspect;
+        const imageData = ctx.createImageData(width, height);
+        const data = imageData.data;
+        const fractalType = fractalTypeSelect.value;
+
+        for (let y = 0; y < height; y += 1) {
+          const py = view.cy + (y / height - 0.5) * scaleY;
+          for (let x = 0; x < width; x += 1) {
+            const px = view.cx + (x / width - 0.5) * view.scale;
+
+            let zx;
+            let zy;
+            let cx;
+            let cy;
+
+            if (fractalType === 'julia') {
+              zx = px;
+              zy = py;
+              cx = juliaConstant.re;
+              cy = juliaConstant.im;
+            } else {
+              zx = 0;
+              zy = 0;
+              cx = px;
+              cy = py;
+            }
+
+            let iteration = 0;
+            let zxSq = 0;
+            let zySq = 0;
+
+            while (zxSq + zySq <= 4 && iteration < maxIter) {
+              zy = 2 * zx * zy + cy;
+              zx = zxSq - zySq + cx;
+              zxSq = zx * zx;
+              zySq = zy * zy;
+              iteration += 1;
+            }
+
+            let index = (y * width + x) * 4;
+
+            if (iteration === maxIter) {
+              data[index] = 12;
+              data[index + 1] = 26;
+              data[index + 2] = 75;
+              data[index + 3] = 255;
+            } else {
+              const logZn = Math.log(zxSq + zySq) / 2;
+              const nu = Math.log(Math.max(logZn, 1e-12) / Math.log(2)) / Math.log(2);
+              const smooth = iteration + 1 - nu;
+              const t = Math.min(1, Math.max(0, smooth / maxIter));
+              const hue = 210 + 120 * t;
+              const [r, g, b] = hslToRgb(hue, 0.65, 0.55 - 0.2 * t);
+              data[index] = r;
+              data[index + 1] = g;
+              data[index + 2] = b;
+              data[index + 3] = 255;
+            }
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        statusEl.textContent = 'Rendered';
+        clearTimeout(statusTimeout);
+        statusTimeout = setTimeout(() => {
+          statusEl.textContent = 'Ready';
+        }, 800);
+        updateZoomDisplay();
+      }
+
+      function scheduleRender() {
+        if (!renderRequested) {
+          renderRequested = true;
+          requestAnimationFrame(renderFractal);
+        }
+      }
+
+      function handleResize() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          scheduleRender();
+        }, 150);
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function updateJuliaState() {
+        juliaConstant.re = parseFloat(juliaReal.value);
+        juliaConstant.im = parseFloat(juliaImag.value);
+        juliaRealValue.textContent = juliaConstant.re.toFixed(2);
+        juliaImagValue.textContent = juliaConstant.im.toFixed(2);
+      }
+
+      iterationSlider.addEventListener('input', () => {
+        iterationValue.textContent = iterationSlider.value;
+        scheduleRender();
+      });
+
+      zoomSlider.addEventListener('input', () => {
+        view.scale = sliderToScale(parseFloat(zoomSlider.value));
+        updateZoomDisplay();
+        scheduleRender();
+      });
+
+      fractalTypeSelect.addEventListener('change', () => {
+        const isJulia = fractalTypeSelect.value === 'julia';
+        juliaControls.classList.toggle('opacity-60', !isJulia);
+        juliaControls.classList.toggle('grayscale', !isJulia);
+        [...juliaControls.querySelectorAll('input')].forEach((input) => {
+          input.disabled = !isJulia;
+        });
+        scheduleRender();
+      });
+
+      juliaReal.addEventListener('input', () => {
+        updateJuliaState();
+        scheduleRender();
+      });
+
+      juliaImag.addEventListener('input', () => {
+        updateJuliaState();
+        scheduleRender();
+      });
+
+      resetButton.addEventListener('click', () => {
+        view.cx = -0.5;
+        view.cy = 0;
+        view.scale = 3.0;
+        zoomSlider.value = scaleToSlider(view.scale);
+        iterationSlider.value = 200;
+        iterationValue.textContent = '200';
+        fractalTypeSelect.value = 'mandelbrot';
+        juliaReal.value = '-0.7';
+        juliaImag.value = '0.27';
+        updateJuliaState();
+        fractalTypeSelect.dispatchEvent(new Event('change'));
+        updateZoomDisplay();
+        scheduleRender();
+      });
+
+      let isPanning = false;
+      let lastPointer = { x: 0, y: 0 };
+
+      canvas.addEventListener('pointerdown', (event) => {
+        isPanning = true;
+        lastPointer = { x: event.clientX, y: event.clientY };
+        canvas.setPointerCapture(event.pointerId);
+      });
+
+      canvas.addEventListener('pointermove', (event) => {
+        if (!isPanning) return;
+        const rect = canvas.getBoundingClientRect();
+        const dx = event.clientX - lastPointer.x;
+        const dy = event.clientY - lastPointer.y;
+        lastPointer = { x: event.clientX, y: event.clientY };
+        const scaleX = view.scale;
+        const scaleY = view.scale / (rect.width / rect.height);
+        view.cx -= (dx / rect.width) * scaleX;
+        view.cy -= (dy / rect.height) * scaleY;
+        updateZoomDisplay();
+        scheduleRender();
+      });
+
+      function endPan(event) {
+        if (!isPanning) return;
+        isPanning = false;
+        if (typeof canvas.hasPointerCapture === 'function' && canvas.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      canvas.addEventListener('pointerup', endPan);
+      canvas.addEventListener('pointercancel', endPan);
+
+      canvas.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const delta = -event.deltaY;
+        const zoomDirection = delta > 0 ? 0.9 : 1.1;
+        const oldScale = view.scale;
+        view.scale = clamp(view.scale * zoomDirection, SCALE_MIN, SCALE_MAX);
+
+          const px = (event.clientX - rect.left) / rect.width - 0.5;
+          const py = (event.clientY - rect.top) / rect.height - 0.5;
+          view.cx += px * oldScale - px * view.scale;
+          view.cy += py * oldScale * (rect.height / rect.width) - py * view.scale * (rect.height / rect.width);
+
+        zoomSlider.value = scaleToSlider(view.scale);
+        updateZoomDisplay();
+        scheduleRender();
+      }, { passive: false });
+
+      canvas.addEventListener('dblclick', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const zoomFactor = event.shiftKey ? 2 : 0.5;
+        const oldScale = view.scale;
+        view.scale = clamp(view.scale * zoomFactor, SCALE_MIN, SCALE_MAX);
+
+        const px = (event.clientX - rect.left) / rect.width - 0.5;
+        const py = (event.clientY - rect.top) / rect.height - 0.5;
+        const aspect = rect.width / rect.height;
+        view.cx += px * oldScale - px * view.scale;
+        view.cy += py * oldScale / aspect - py * view.scale / aspect;
+
+        zoomSlider.value = scaleToSlider(view.scale);
+        updateZoomDisplay();
+        scheduleRender();
+      });
+
+      window.addEventListener('resize', handleResize);
+
+      function init() {
+        zoomSlider.value = scaleToSlider(view.scale);
+        updateJuliaState();
+        juliaControls.classList.add('opacity-60', 'grayscale');
+        [...juliaControls.querySelectorAll('input')].forEach((input) => {
+          input.disabled = true;
+        });
+        updateZoomDisplay();
+        scheduleRender();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
