@@ -62,16 +62,6 @@ const escapeHtml = (value) =>
 
 const toolsAlpha = [...tools].sort((a, b) => a.title.localeCompare(b.title));
 
-const categoryOrder = [
-  'Browser',
-  'Developer',
-  'Text',
-  'Encoding',
-  'Measurement',
-  'Conversion',
-  'Visualization',
-];
-
 const toolsByCategory = new Map();
 
 for (const tool of toolsAlpha) {
@@ -80,15 +70,9 @@ for (const tool of toolsAlpha) {
   toolsByCategory.set(tool.category, list);
 }
 
-const availableCategories = Array.from(toolsByCategory.keys());
-const preferredCategories = categoryOrder.filter((category) =>
-  availableCategories.includes(category)
+const orderedCategories = Array.from(toolsByCategory.keys()).sort((a, b) =>
+  a.localeCompare(b, undefined, { sensitivity: 'base' })
 );
-const remainingCategories = availableCategories
-  .filter((category) => !categoryOrder.includes(category))
-  .sort((a, b) => a.localeCompare(b));
-
-const orderedCategories = [...preferredCategories, ...remainingCategories];
 
 const categoryId = (category) =>
   `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'misc'}`;
