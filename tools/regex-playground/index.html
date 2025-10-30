@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Regex Playground</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Regex Playground</h1>
+        <p class="text-sm text-gray-600">
+          Experiment with regular expressions, preview highlighted matches, and use the LLM helpers to explain or generate
+          patterns.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
+        <div class="space-y-3">
+          <label class="block space-y-1">
+            <span class="text-sm font-medium text-gray-700">Regular expression</span>
+            <input
+              id="patternInput"
+              type="text"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              placeholder="Enter a pattern, e.g. ^[A-Z]+$"
+            />
+          </label>
+          <label class="block space-y-1">
+            <span class="text-sm font-medium text-gray-700">Flags</span>
+            <input
+              id="flagsInput"
+              type="text"
+              maxlength="6"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              placeholder="Optional flags, e.g. gim"
+            />
+          </label>
+        </div>
+        <p id="regexError" class="hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+        <div class="flex flex-wrap gap-3">
+          <button id="explainButton" type="button" class="btn btn-primary flex-1 md:flex-none">Explain regex</button>
+          <button id="generateButton" type="button" class="btn btn-secondary flex-1 md:flex-none">Generate sample strings</button>
+          <button id="synthesizeButton" type="button" class="btn flex-1 md:flex-none">Synthesize regex</button>
+        </div>
+        <p id="assistantStatus" class="hidden text-sm text-gray-500"></p>
+      </section>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-base font-semibold text-gray-900">Test strings</h2>
+          <form id="addStringForm" class="flex flex-1 flex-wrap items-center gap-2 md:flex-none">
+            <label class="sr-only" for="newStringInput">Add test string</label>
+            <input
+              id="newStringInput"
+              type="text"
+              class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              placeholder="Add a new string"
+            />
+            <button type="submit" class="btn btn-primary">Add</button>
+          </form>
+        </div>
+        <ul id="stringList" class="space-y-4"></ul>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/regex-playground" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const patternInput = document.getElementById("patternInput");
+      const flagsInput = document.getElementById("flagsInput");
+      const regexErrorEl = document.getElementById("regexError");
+      const stringListEl = document.getElementById("stringList");
+      const addStringForm = document.getElementById("addStringForm");
+      const newStringInput = document.getElementById("newStringInput");
+      const explainButton = document.getElementById("explainButton");
+      const generateButton = document.getElementById("generateButton");
+      const synthesizeButton = document.getElementById("synthesizeButton");
+      const assistantStatus = document.getElementById("assistantStatus");
+
+      const PROXY_URL = "/cerebras-chat";
+      let nextId = 1;
+
+      const state = {
+        pattern: "",
+        flags: "",
+        regex: null,
+        regexError: "",
+        strings: [
+          "hello world",
+          "Hello World",
+          "foo@bar.com",
+          "123-45-6789",
+          "https://example.com",
+        ].map((value) => ({ id: nextId++, value })),
+      };
+
+      function escapeHtml(text) {
+        return text
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function parseRegex() {
+        const pattern = patternInput.value;
+        const flags = flagsInput.value;
+        state.pattern = pattern;
+        state.flags = flags;
+
+        if (!pattern) {
+          state.regex = null;
+          state.regexError = "";
+          return;
+        }
+
+        try {
+          state.regex = new RegExp(pattern, flags);
+          state.regexError = "";
+        } catch (error) {
+          state.regex = null;
+          state.regexError = error.message || "Invalid regular expression";
+        }
+      }
+
+      function highlightMatches(text, regex) {
+        if (!regex) {
+          return escapeHtml(text);
+        }
+
+        let flags = regex.flags;
+        if (!flags.includes("g")) {
+          flags += "g";
+        }
+        const globalRegex = new RegExp(regex.source, flags);
+        let result = "";
+        let lastIndex = 0;
+        let match;
+
+        while ((match = globalRegex.exec(text)) !== null) {
+          const start = match.index ?? 0;
+          const matchText = match[0] ?? "";
+          const end = start + matchText.length;
+
+          if (start > lastIndex) {
+            result += escapeHtml(text.slice(lastIndex, start));
+          }
+
+          if (matchText.length === 0) {
+            result += '<mark class="rounded bg-brand-100 px-1 text-brand-700">∅</mark>';
+            if (globalRegex.lastIndex === start) {
+              globalRegex.lastIndex += 1;
+            }
+            lastIndex = globalRegex.lastIndex;
+            continue;
+          }
+
+          result += `<mark class="rounded bg-brand-100 px-1 text-brand-700">${escapeHtml(matchText)}</mark>`;
+          lastIndex = end;
+        }
+
+        if (lastIndex < text.length) {
+          result += escapeHtml(text.slice(lastIndex));
+        }
+
+        if (result === "") {
+          return escapeHtml(text);
+        }
+
+        return result;
+      }
+
+      function doesMatch(text, regex) {
+        if (!regex) {
+          return false;
+        }
+        const flags = regex.flags.replace(/g/g, "");
+        const testRegex = new RegExp(regex.source, flags);
+        return testRegex.test(text);
+      }
+
+      function renderStrings() {
+        const { regex, regexError, strings } = state;
+        regexErrorEl.textContent = regexError;
+        regexErrorEl.classList.toggle("hidden", !regexError);
+
+        const items = strings
+          .map((item) => {
+            const isMatch = regex ? doesMatch(item.value, regex) : false;
+            const highlight = regex ? highlightMatches(item.value, regex) : escapeHtml(item.value);
+            const statusClass = isMatch
+              ? "bg-green-50 text-green-700 border-green-200"
+              : "bg-red-50 text-red-700 border-red-200";
+            const statusLabel = isMatch ? "Matches" : "No match";
+            return `
+              <li class="space-y-3 rounded-xl border border-gray-200 p-4" data-id="${item.id}">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="rounded-full border ${statusClass} px-3 py-1 text-xs font-medium">${statusLabel}</span>
+                  <button type="button" class="text-sm font-medium text-brand-700 hover:text-brand-600" data-action="remove">Delete</button>
+                </div>
+                <div class="rounded-lg bg-gray-50 p-3 font-mono text-sm text-gray-900 whitespace-pre-wrap" data-role="highlight">${highlight}</div>
+                <label class="block space-y-1">
+                  <span class="text-xs font-medium text-gray-500">Edit string</span>
+                  <textarea data-action="edit" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40" rows="2">${escapeHtml(item.value)}</textarea>
+                </label>
+              </li>
+            `;
+          })
+          .join("");
+
+        stringListEl.innerHTML = items || '<li class="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">Add strings to test your pattern.</li>';
+      }
+
+      function updateMatches() {
+        parseRegex();
+        renderStrings();
+      }
+
+      function addString(value) {
+        if (!value) {
+          return;
+        }
+        state.strings.push({ id: nextId++, value });
+        renderStrings();
+      }
+
+      patternInput.addEventListener("input", () => {
+        updateMatches();
+      });
+
+      flagsInput.addEventListener("input", () => {
+        updateMatches();
+      });
+
+      addStringForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = newStringInput.value;
+        if (value.trim() !== "") {
+          addString(value);
+          newStringInput.value = "";
+          updateMatches();
+        }
+      });
+
+      stringListEl.addEventListener("input", (event) => {
+        const target = event.target;
+        if (target.dataset.action === "edit") {
+          const itemEl = target.closest("li[data-id]");
+          if (!itemEl) return;
+          const id = Number(itemEl.dataset.id);
+          const entry = state.strings.find((s) => s.id === id);
+          if (!entry) return;
+          entry.value = target.value;
+          const highlightEl = itemEl.querySelector('[data-role="highlight"]');
+          if (highlightEl) {
+            const { regex } = state;
+            const highlightHtml = regex ? highlightMatches(entry.value, regex) : escapeHtml(entry.value);
+            highlightEl.innerHTML = highlightHtml;
+          }
+          const badge = itemEl.querySelector("span.rounded-full");
+          if (badge) {
+            if (state.regex && doesMatch(entry.value, state.regex)) {
+              badge.textContent = "Matches";
+              badge.className = "rounded-full border bg-green-50 text-green-700 border-green-200 px-3 py-1 text-xs font-medium";
+            } else {
+              badge.textContent = "No match";
+              badge.className = "rounded-full border bg-red-50 text-red-700 border-red-200 px-3 py-1 text-xs font-medium";
+            }
+          }
+        }
+      });
+
+      stringListEl.addEventListener("click", (event) => {
+        const target = event.target;
+        if (target.dataset.action === "remove") {
+          const itemEl = target.closest("li[data-id]");
+          if (!itemEl) return;
+          const id = Number(itemEl.dataset.id);
+          state.strings = state.strings.filter((s) => s.id !== id);
+          renderStrings();
+        }
+      });
+
+      function setAssistantStatus(message, isError = false) {
+        if (message) {
+          assistantStatus.textContent = message;
+          assistantStatus.classList.remove("hidden");
+          assistantStatus.classList.toggle("text-red-600", isError);
+          assistantStatus.classList.toggle("text-gray-500", !isError);
+        } else {
+          assistantStatus.textContent = "";
+          assistantStatus.classList.add("hidden");
+          assistantStatus.classList.remove("text-red-600");
+          assistantStatus.classList.add("text-gray-500");
+        }
+      }
+
+      async function callAssistant(messages, options = {}) {
+        try {
+          setAssistantStatus("Contacting assistant…");
+          const response = await fetch(PROXY_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-oss-120b",
+              messages,
+              temperature: options.temperature ?? 0.2,
+            }),
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || `Request failed (${response.status})`);
+          }
+
+          const contentType = response.headers.get("content-type") || "";
+          let text;
+          if (contentType.includes("application/json")) {
+            const data = await response.json();
+            text = data?.choices?.[0]?.message?.content || "";
+          } else {
+            text = await response.text();
+          }
+
+          if (!text) {
+            throw new Error("The assistant returned an empty response.");
+          }
+
+          setAssistantStatus("Done.");
+          setTimeout(() => setAssistantStatus(""), 1500);
+          return text.trim();
+        } catch (error) {
+          console.error(error);
+          setAssistantStatus(error.message || "Assistant request failed", true);
+          throw error;
+        }
+      }
+
+      explainButton.addEventListener("click", async () => {
+        if (!state.pattern) {
+          setAssistantStatus("Enter a regex pattern first.", true);
+          return;
+        }
+        const messages = [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant that clearly explains regular expressions. Break patterns down into readable parts, mention important flags, and include examples when helpful.",
+          },
+          {
+            role: "user",
+            content: `Explain the following regular expression:\nPattern: /${state.pattern}/${state.flags}`,
+          },
+        ];
+        try {
+          const explanation = await callAssistant(messages);
+          alert(explanation);
+        } catch (error) {
+          // Errors already reported in status
+        }
+      });
+
+      generateButton.addEventListener("click", async () => {
+        if (!state.pattern) {
+          setAssistantStatus("Enter a regex pattern first.", true);
+          return;
+        }
+        const messages = [
+          {
+            role: "system",
+            content:
+              "You generate test data for regular expressions. Given a pattern, reply with exactly 10 diverse sample strings, each on its own line. The first 5 must match, the last 5 must not match. Do not add numbering or explanations.",
+          },
+          {
+            role: "user",
+            content: `Pattern: /${state.pattern}/${state.flags}`,
+          },
+        ];
+        try {
+          const responseText = await callAssistant(messages);
+          const lines = responseText
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+          if (lines.length === 0) {
+            setAssistantStatus("Assistant did not return any strings.", true);
+            return;
+          }
+          for (const line of lines) {
+            addString(line);
+          }
+          updateMatches();
+        } catch (error) {
+          // handled
+        }
+      });
+
+      synthesizeButton.addEventListener("click", async () => {
+        const request = window.prompt("Describe what the regex should match:");
+        if (!request) {
+          return;
+        }
+        const messages = [
+          {
+            role: "system",
+            content:
+              "You convert natural language requirements into JavaScript-compatible regular expressions. Return only the final regex wrapped in forward slashes, e.g. /example/. Do not include explanations.",
+          },
+          {
+            role: "user",
+            content: request,
+          },
+        ];
+        try {
+          const regexText = await callAssistant(messages, { temperature: 0.1 });
+          const match = regexText.match(/^\s*\/(.*)\/([a-z]*)\s*$/i);
+          if (match) {
+            patternInput.value = match[1];
+            flagsInput.value = match[2];
+            updateMatches();
+          } else {
+            setAssistantStatus("Assistant response was not a valid /pattern/flags string.", true);
+          }
+        } catch (error) {
+          // already handled
+        }
+      });
+
+      updateMatches();
+    </script>
+  </body>
+</html>
