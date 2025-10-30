@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-brand-50">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fun Break Generator</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      @keyframes confettiFall {
+        0% {
+          transform: translate3d(var(--x, 0), -10vh, 0) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translate3d(var(--x, 0), 110vh, 0) rotate(720deg);
+          opacity: 0;
+        }
+      }
+      .confetti-piece {
+        position: fixed;
+        top: 0;
+        width: var(--size, 12px);
+        height: var(--size, 12px);
+        border-radius: 9999px;
+        animation: confettiFall var(--duration, 3s) linear;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-6 font-sans">
+      <header class="space-y-2 text-center">
+        <p class="inline-flex items-center gap-2 rounded-full bg-brand-100 px-4 py-1 text-sm font-medium text-brand-700">
+          🎉 Time for a joy break
+        </p>
+        <h1 class="text-3xl font-bold text-brand-700 md:text-4xl">
+          Fun Break Generator
+        </h1>
+        <p class="text-brand-700/80 md:text-lg">
+          Spin up surprising micro-adventures whenever you need a boost.
+        </p>
+      </header>
+
+      <section class="rounded-3xl bg-white/80 p-6 shadow-sm ring-1 ring-brand-100 backdrop-blur">
+        <div class="flex flex-col gap-6 md:flex-row md:items-center">
+          <div class="flex-1 space-y-4">
+            <div class="rounded-2xl bg-brand-100/70 p-6 text-left shadow-inner">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-600">
+                Your playful mission
+              </h2>
+              <p id="prompt" class="mt-3 text-2xl font-semibold text-brand-700 md:text-3xl"></p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <button id="refresh" class="btn btn-primary">
+                Give me a new one
+              </button>
+              <button id="copy" class="btn btn-secondary" type="button">
+                Copy to clipboard
+              </button>
+              <label class="flex items-center gap-2 rounded-full bg-brand-100 px-4 py-2 text-sm font-medium text-brand-700">
+                <input id="party-mode" type="checkbox" class="h-4 w-4 rounded border-brand-200 text-brand-600 focus:ring-brand-500" />
+                Party mode auto-refresh
+              </label>
+            </div>
+          </div>
+
+          <aside class="w-full max-w-xs rounded-2xl bg-gradient-to-br from-brand-100 to-brand-200 p-4 text-brand-700 shadow-lg md:w-64">
+            <p class="text-sm font-semibold uppercase tracking-wide text-brand-600">Fun streak</p>
+            <p class="mt-3 text-5xl font-bold" id="streak">0</p>
+            <p class="mt-2 text-sm text-brand-700/70">
+              Each new idea adds to your streak. Hit 5+ and confetti kicks in!
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="rounded-3xl bg-white/70 p-6 shadow-sm ring-1 ring-brand-100 backdrop-blur">
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="text-lg font-semibold text-brand-700">Recent sparks</h2>
+          <button id="clear" class="btn" type="button">Clear history</button>
+        </div>
+        <ul id="history" class="mt-4 grid gap-3 text-brand-700"></ul>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/fun-break-generator" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const promptEl = document.querySelector('#prompt');
+      const refreshBtn = document.querySelector('#refresh');
+      const copyBtn = document.querySelector('#copy');
+      const streakEl = document.querySelector('#streak');
+      const partyToggle = document.querySelector('#party-mode');
+      const historyEl = document.querySelector('#history');
+      const clearBtn = document.querySelector('#clear');
+
+      const actions = [
+        'build a Lego tower taller than a coffee mug',
+        'sketch a creature that loves thunderstorms',
+        'invent a five-second jingle for your name',
+        'recreate your favorite emoji using household objects',
+        'write a postcard from a planet made of marshmallows',
+        'freestyle dance like a sprinkler for 30 seconds',
+        'compose a haiku about the nearest snack',
+        'do your most dramatic reading of a random headline',
+        'speed-run folding an origami hat (or your best attempt)',
+        'balance something funny on your head for ten breaths',
+        'design a superhero with the power of extreme coziness',
+        'pretend you are a radio DJ introducing the next song',
+        'stage a tiny photoshoot for an inanimate object',
+        'invent a new handshake and teach it to someone',
+        'create a backup celebratory dance for future wins'
+      ];
+
+      const twists = [
+        'while humming the chorus of your go-to happy song',
+        'with only three colors (bonus if they clash!)',
+        'narrated in an overly serious documentary voice',
+        'in under two minutes—set a timer!',
+        'while wearing the silliest accessory within arm\'s reach',
+        'after spinning around slowly once (no dizziness, please)',
+        'as if you\'re livestreaming to an audience of penguins',
+        'in slow motion, then replay in fast motion',
+        'standing on one foot for the grand finale',
+        'switching dominant hands midway through',
+        'with an imaginary hype squad cheering you on',
+        'adding a mystery sound effect at the end',
+        'whispering the entire time like it\'s top secret',
+        'ending with an enthusiastic self high-five',
+        'after announcing “This is the moment we\'ve trained for!”'
+      ];
+
+      const vibes = [
+        'sparkle storm',
+        'cosmic confetti',
+        'sunrise pop',
+        'moonbeam mellow',
+        'electric raspberry',
+        'tropical neon',
+        'galaxy fizz',
+        'retro arcade',
+        'bubblegum blast',
+        'aurora groove'
+      ];
+
+      let streak = 0;
+      let partyInterval;
+
+      function pick(array) {
+        return array[Math.floor(Math.random() * array.length)];
+      }
+
+      function makePrompt() {
+        const prompt = `${capitalize(pick(actions))} ${pick(twists)}.`;
+        const vibe = pick(vibes);
+        promptEl.textContent = prompt;
+        promptEl.dataset.vibe = vibe;
+        updateHistory(prompt);
+        updateVibe(vibe);
+        streak += 1;
+        streakEl.textContent = streak;
+        if (streak >= 5) {
+          launchConfetti();
+        }
+      }
+
+      function updateHistory(text) {
+        const time = new Intl.DateTimeFormat(undefined, {
+          hour: 'numeric',
+          minute: '2-digit'
+        }).format(new Date());
+        const item = document.createElement('li');
+        item.className = 'rounded-2xl bg-brand-50 p-4 shadow-inner ring-1 ring-brand-100';
+        item.innerHTML = `<p class="font-medium">${text}</p><p class="mt-1 text-sm text-brand-700/70">Saved at ${time}</p>`;
+        historyEl.prepend(item);
+        while (historyEl.children.length > 6) {
+          historyEl.removeChild(historyEl.lastChild);
+        }
+      }
+
+      function updateVibe(vibe) {
+        const vibeMap = {
+          'sparkle storm': ['#bfdbfe', '#eff6ff'],
+          'cosmic confetti': ['#a5b4fc', '#e0e7ff'],
+          'sunrise pop': ['#fbbf24', '#fef3c7'],
+          'moonbeam mellow': ['#a7f3d0', '#ecfeff'],
+          'electric raspberry': ['#f472b6', '#fce7f3'],
+          'tropical neon': ['#34d399', '#d1fae5'],
+          'galaxy fizz': ['#60a5fa', '#dbeafe'],
+          'retro arcade': ['#f97316', '#ffedd5'],
+          'bubblegum blast': ['#f9a8d4', '#fef3f7'],
+          'aurora groove': ['#38bdf8', '#cffafe']
+        };
+        const [from, to] = vibeMap[vibe] || ['#dbeafe', '#bfdbfe'];
+        document.body.style.background = `radial-gradient(circle at top, ${from}, ${to})`;
+      }
+
+      function launchConfetti() {
+        for (let i = 0; i < 24; i++) {
+          const piece = document.createElement('div');
+          piece.className = 'confetti-piece';
+          const colors = ['#3b82f6', '#2563eb', '#1d4ed8', '#f472b6', '#34d399', '#facc15'];
+          piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+          piece.style.left = `${Math.random() * 100}vw`;
+          piece.style.setProperty('--x', `${(Math.random() - 0.5) * 40}vw`);
+          piece.style.setProperty('--duration', `${2.5 + Math.random()}s`);
+          piece.style.setProperty('--size', `${10 + Math.random() * 8}px`);
+          document.body.appendChild(piece);
+          setTimeout(() => piece.remove(), 3200);
+        }
+      }
+
+      function capitalize(text) {
+        return text.charAt(0).toUpperCase() + text.slice(1);
+      }
+
+      function copyPrompt() {
+        const text = promptEl.textContent.trim();
+        if (!text) return;
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => (copyBtn.textContent = 'Copy to clipboard'), 1500);
+          });
+      }
+
+      function togglePartyMode(enabled) {
+        clearInterval(partyInterval);
+        if (enabled) {
+          partyInterval = setInterval(() => {
+            makePrompt();
+          }, 5000);
+        }
+      }
+
+      refreshBtn.addEventListener('click', () => {
+        makePrompt();
+      });
+
+      copyBtn.addEventListener('click', copyPrompt);
+
+      partyToggle.addEventListener('change', (event) => {
+        togglePartyMode(event.target.checked);
+        if (event.target.checked) {
+          makePrompt();
+        }
+      });
+
+      clearBtn.addEventListener('click', () => {
+        historyEl.innerHTML = '';
+        streak = 0;
+        streakEl.textContent = streak;
+        document.body.style.background = '';
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.code === 'Space') {
+          event.preventDefault();
+          makePrompt();
+        }
+      });
+
+      makePrompt();
+    </script>
+  </body>
+</html>
