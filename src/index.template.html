@@ -65,19 +65,50 @@
       </header>
 
       <section id="all-tools" class="space-y-8 text-left">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div class="space-y-2">
             <h2 class="text-3xl font-semibold text-white">Explore the collection</h2>
             <p class="max-w-2xl text-base text-white/70">Handy converters, debuggers, and tiny experiments ready for your next workflow.</p>
           </div>
-          <a href="https://github.com/dave1010/tools/issues/new" class="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 transition hover:text-white">
-            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
-            </svg>
-            Suggest a tool
-          </a>
+          <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:w-auto">
+            <div class="relative w-full sm:max-w-xs">
+              <label for="tool-search" class="sr-only">Search tools</label>
+              <svg class="pointer-events-none absolute inset-y-0 left-3 my-auto size-4 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.5 15.5 20 20m-2.5-6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+              </svg>
+              <input
+                id="tool-search"
+                type="search"
+                name="tool-search"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Search tools..."
+                class="w-full rounded-2xl border border-white/10 bg-white/10 px-10 py-2 text-sm text-white shadow-inner outline-none transition focus:border-cyan-400/60 focus:bg-white/15 focus:ring-2 focus:ring-cyan-400/40"
+              >
+              <div class="pointer-events-none absolute inset-y-0 right-3 hidden items-center text-xs font-semibold text-white/40 sm:flex">
+                <kbd class="rounded border border-white/10 bg-white/5 px-1.5 py-0.5">/</kbd>
+              </div>
+            </div>
+            <a href="https://github.com/dave1010/tools/issues/new" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:border-cyan-400/60 hover:text-white">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+              </svg>
+              Suggest a tool
+            </a>
+          </div>
         </div>
         <div class="space-y-6">
+          <div class="flex flex-col gap-2 text-sm text-white/60 sm:flex-row sm:items-center sm:justify-between">
+            <p data-search-summary>Showing all {{TOOLS_COUNT}} tools</p>
+            <p class="flex items-center gap-1 text-white/50">
+              <span class="hidden sm:inline">Tip:</span>
+              <span class="flex items-center gap-1">
+                Press
+                <kbd class="rounded border border-white/20 bg-white/5 px-1.5 py-0.5 text-xs text-white/70">/</kbd>
+                to focus search
+              </span>
+            </p>
+          </div>
           <div class="overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 backdrop-blur">
             <div
               class="flex flex-wrap gap-1 rounded-t-3xl border-b border-white/10 bg-white/5 p-1 text-sm font-semibold text-white/70"
@@ -129,6 +160,12 @@
               </ul>
             </div>
           </div>
+          <div
+            data-search-empty
+            class="hidden rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-sm text-white/70"
+          >
+            No tools match your search. Try a different keyword.
+          </div>
         </div>
       </section>
 
@@ -177,6 +214,106 @@
       activateTab('category');
       tabButtons.forEach((button) => {
         button.addEventListener('click', () => activateTab(button.dataset.tab));
+      });
+    }
+
+    const searchInput = document.getElementById('tool-search');
+    const searchSummary = document.querySelector('[data-search-summary]');
+    const emptyState = document.querySelector('[data-search-empty]');
+    const categorySections = Array.from(document.querySelectorAll('[data-category-section]'));
+    const categoryItems = Array.from(document.querySelectorAll('#panel-category [data-tool-card]'));
+    const azItems = Array.from(document.querySelectorAll('#panel-az [data-tool-card]'));
+
+    const buildMatchValue = (item) =>
+      `${item.dataset.toolTitle ?? ''} ${item.dataset.toolDescription ?? ''} ${item.dataset.toolCategory ?? ''}`.trim().toLowerCase();
+
+    const matchCache = new WeakMap();
+    const getMatchValue = (item) => {
+      if (!matchCache.has(item)) {
+        matchCache.set(item, buildMatchValue(item));
+      }
+      return matchCache.get(item);
+    };
+
+    const totalTools = azItems.length;
+
+    const updateSearch = (rawQuery) => {
+      const query = rawQuery.trim();
+      const normalizedQuery = query.toLowerCase();
+      let visibleCount = 0;
+
+      const evaluateItem = (item, cacheKey) => {
+        const matchValue = getMatchValue(item);
+        const isMatch = !normalizedQuery || matchValue.includes(normalizedQuery);
+        item.classList.toggle('hidden', !isMatch);
+        item.setAttribute('aria-hidden', String(!isMatch));
+        if (cacheKey === 'az' && isMatch) {
+          visibleCount += 1;
+        }
+        return isMatch;
+      };
+
+      azItems.forEach((item) => evaluateItem(item, 'az'));
+      categoryItems.forEach((item) => evaluateItem(item));
+
+      categorySections.forEach((section) => {
+        const items = Array.from(section.querySelectorAll('[data-tool-card]'));
+        const visibleInSection = items.filter((item) => !item.classList.contains('hidden')).length;
+        const shouldHide = normalizedQuery && visibleInSection === 0;
+        section.classList.toggle('hidden', shouldHide);
+        section.setAttribute('aria-hidden', String(shouldHide));
+        const countEl = section.querySelector('[data-category-count]');
+        if (countEl) {
+          const total = Number(countEl.dataset.categoryTotal ?? items.length);
+          if (!normalizedQuery) {
+            countEl.textContent = `${total} tool${total === 1 ? '' : 's'}`;
+          } else if (visibleInSection === 0) {
+            countEl.textContent = 'No matches';
+          } else {
+            countEl.textContent = `${visibleInSection} match${visibleInSection === 1 ? '' : 'es'}`;
+          }
+        }
+      });
+
+      if (searchSummary) {
+        if (!normalizedQuery) {
+          searchSummary.textContent = `Showing all ${totalTools} tools`;
+        } else if (visibleCount === 0) {
+          searchSummary.textContent = `No tools match “${query}”`;
+        } else {
+          searchSummary.textContent = `Showing ${visibleCount} tool${visibleCount === 1 ? '' : 's'} matching “${query}”`;
+        }
+      }
+
+      if (emptyState) {
+        const showEmpty = Boolean(normalizedQuery && visibleCount === 0);
+        emptyState.classList.toggle('hidden', !showEmpty);
+      }
+    };
+
+    if (searchInput) {
+      const handleSearchInput = () => updateSearch(searchInput.value);
+      searchInput.addEventListener('input', handleSearchInput);
+      searchInput.addEventListener('search', handleSearchInput);
+      updateSearch(searchInput.value);
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== '/' || event.altKey || event.ctrlKey || event.metaKey) return;
+        const activeElement = document.activeElement;
+        if (!activeElement) {
+          event.preventDefault();
+          searchInput.focus();
+          searchInput.select();
+          return;
+        }
+        const tagName = activeElement.tagName;
+        const isEditable = activeElement.isContentEditable;
+        if (isEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+          return;
+        }
+        event.preventDefault();
+        searchInput.focus();
+        searchInput.select();
       });
     }
   </script>
