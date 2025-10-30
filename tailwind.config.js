@@ -2,6 +2,7 @@
 export default {
   content: [
     "./index.html",
+    "./404.html",
     "./tools/**/*.{html,js,ts,jsx,tsx}"
   ],
   theme: {
