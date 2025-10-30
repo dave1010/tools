@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Impromptu Celebration Generator</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      @keyframes confettiFall {
+        0% {
+          transform: translate3d(0, -10%, 0) rotate(0deg);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        100% {
+          transform: translate3d(var(--drift, 0px), 120vh, 0) rotate(var(--rotation, 360deg));
+          opacity: 0;
+        }
+      }
+
+      .confetti-piece {
+        position: absolute;
+        font-size: clamp(1.25rem, 1.8vw, 2.75rem);
+        pointer-events: none;
+        animation: confettiFall linear forwards;
+        will-change: transform, opacity;
+      }
+
+      .badge {
+        border-radius: 9999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: #2563eb;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        box-shadow: 0 10px 25px -15px rgba(37, 99, 235, 0.9);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/80 to-white">
+    <main class="mx-auto flex min-h-screen max-w-3xl flex-col space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-3 text-center">
+        <div class="flex justify-center">
+          <span class="badge" aria-hidden="true">instant confetti</span>
+        </div>
+        <h1 class="text-3xl font-semibold text-gray-900">Impromptu Celebration Generator</h1>
+        <p class="text-gray-600">
+          Smash the party button to dream up a celebration concept, complete with vibe, soundtrack, signature snack, and a
+          pleasantly ridiculous twist. Emoji confetti included.
+        </p>
+      </header>
+
+      <section
+        class="relative flex flex-1 flex-col gap-6 overflow-hidden rounded-3xl border border-brand-100 bg-white/90 p-4 shadow-soft md:p-6"
+      >
+        <div id="confettiContainer" aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden"></div>
+
+        <div class="space-y-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              id="generate"
+              type="button"
+              class="btn btn-primary flex items-center gap-2"
+              aria-label="Spin up a new celebration"
+            >
+              <span aria-hidden="true">🎉</span>
+              <span>Spin a celebration</span>
+            </button>
+
+            <button id="copy" type="button" class="btn btn-secondary flex items-center gap-2">
+              <span aria-hidden="true">📋</span>
+              <span>Copy plan</span>
+            </button>
+
+            <button
+              id="auto"
+              type="button"
+              class="btn flex items-center gap-2 border border-brand-200 bg-brand-50/80 text-brand-700 hover:bg-brand-100"
+              aria-pressed="false"
+            >
+              <span aria-hidden="true">🔁</span>
+              <span>Auto party mode</span>
+            </button>
+          </div>
+
+          <label class="flex flex-wrap items-center gap-3 text-sm text-gray-600" for="intensity">
+            <span class="font-medium text-gray-800">Confetti blast level</span>
+            <input
+              id="intensity"
+              type="range"
+              min="1"
+              max="5"
+              value="3"
+              class="h-2 w-48 flex-1 cursor-pointer appearance-none rounded-full bg-brand-100"
+            />
+            <span id="intensityLabel" class="text-brand-600 font-semibold">Level 3</span>
+          </label>
+        </div>
+
+        <article
+          class="relative flex flex-1 flex-col gap-4 rounded-2xl border border-dashed border-brand-200 bg-brand-50/70 p-4 text-left text-gray-800 md:p-6"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <p id="resultTitle" class="text-sm font-semibold uppercase tracking-wide text-brand-700">Tap the button to begin</p>
+          <div class="space-y-3 text-lg leading-relaxed text-gray-900" id="result"></div>
+          <div class="mt-auto space-y-1 text-sm text-gray-500">
+            <p id="status">No celebrations yet. Ready when you are!</p>
+          </div>
+        </article>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/impromptu-celebration-generator"
+            class="font-medium text-brand-700 hover:text-brand-600"
+          >
+            About
+          </a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const generateButton = document.getElementById('generate');
+      const copyButton = document.getElementById('copy');
+      const autoButton = document.getElementById('auto');
+      const intensityInput = document.getElementById('intensity');
+      const intensityLabel = document.getElementById('intensityLabel');
+      const result = document.getElementById('result');
+      const resultTitle = document.getElementById('resultTitle');
+      const status = document.getElementById('status');
+      const confettiContainer = document.getElementById('confettiContainer');
+
+      const vibes = [
+        'neon-drenched optimism',
+        'cozy cosmic wonder',
+        'retro roller-disco chic',
+        'sunrise-on-Mars glow',
+        'secret speakeasy sparkle',
+        'forest fairy mischief',
+        'galactic karaoke frenzy',
+        'slow-motion confetti serenity',
+        'underground pillow fort rave',
+        'skyline rooftop jubilee'
+      ];
+
+      const venues = [
+        'inside a glittering cloud observatory',
+        'across a floating parade of hot-air libraries',
+        'beneath a gigantic glow-in-the-dark terrarium',
+        'atop a rewired carousel that only plays bossa nova',
+        'within a zero-gravity balloon lounge',
+        'through a labyrinth of holographic campfires',
+        'on a pop-up boardwalk made of marshmallows',
+        'inside a traveling planetarium train car',
+        'in the secret courtyard behind a candy museum',
+        'around a campfire that roasts color-changing popcorn'
+      ];
+
+      const soundtracks = [
+        'an 8-bit orchestra covering power ballads',
+        'live looping saxophones over lo-fi beats',
+        'a choir of synth whales humming lullabies',
+        'hyperpop accordion remixes',
+        'jazzy chiptune improvisations',
+        'electro-samba percussion with laser harps',
+        'sitar-powered vaporwave grooves',
+        'a cosmic funk marching band',
+        'ambient thunderstorms mixed with disco strings',
+        'ukulele dubstep collaborations'
+      ];
+
+      const snacks = [
+        'sparkling meteor macarons',
+        'miniature waffles stacked like skyscrapers',
+        'liquid nitrogen sorbet flights',
+        'rainbow popcorn with edible glitter',
+        'galaxy churros dipped in nebula sauce',
+        'DIY mochi paint palettes',
+        'astro-cotton candy bouquets',
+        'chocolate-covered constellation strawberries',
+        'nitro cold brew floats',
+        'artisan glowstick popsicles'
+      ];
+
+      const twists = [
+        'every guest leaves with a newly invented superpower',
+        'gravity reverses for 20 seconds every hour',
+        'there is a surprise cooperative dance battle against your future selves',
+        'time slows down whenever someone compliments another guest',
+        'a friendly AI DJ remixes any conversation into a chorus',
+        'confetti forms constellations spelling inside jokes',
+        'guests must unlock the dessert table by solving a group riddle',
+        'a holographic otter hosts the opening ceremony',
+        'everyone gets a mysterious envelope with a mini adventure prompt',
+        'the lights dim whenever laughter hits 120 decibels'
+      ];
+
+      const emojis = ['🎉', '✨', '🎈', '🥳', '💫', '🌈', '🪩', '🎆', '🎊', '🍰'];
+
+      let autoInterval = null;
+
+      function pickRandom(list) {
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
+      function updateIntensityLabel(value) {
+        intensityLabel.textContent = `Level ${value}`;
+      }
+
+      function createCelebration() {
+        const vibe = pickRandom(vibes);
+        const venue = pickRandom(venues);
+        const soundtrack = pickRandom(soundtracks);
+        const snack = pickRandom(snacks);
+        const twist = pickRandom(twists);
+
+        resultTitle.textContent = 'Your celebration recipe';
+        result.innerHTML = `
+          <p><span class="font-semibold text-brand-700">Vibe:</span> ${vibe}.</p>
+          <p><span class="font-semibold text-brand-700">Venue:</span> ${venue}.</p>
+          <p><span class="font-semibold text-brand-700">Soundtrack:</span> ${soundtrack}.</p>
+          <p><span class="font-semibold text-brand-700">Signature snack:</span> ${snack}.</p>
+          <p><span class="font-semibold text-brand-700">Plot twist:</span> ${twist}.</p>
+        `;
+        status.textContent = 'Celebration ready! Tap copy to share the plan.';
+        launchConfetti();
+      }
+
+      function launchConfetti() {
+        const level = Number(intensityInput.value);
+        const pieceCount = 24 + level * 12;
+
+        for (let i = 0; i < pieceCount; i += 1) {
+          const piece = document.createElement('span');
+          piece.className = 'confetti-piece';
+          piece.textContent = pickRandom(emojis);
+          piece.style.left = `${Math.random() * 100}%`;
+          piece.style.animationDuration = `${3 + Math.random() * 2}s`;
+          piece.style.animationDelay = `${Math.random() * 0.6}s`;
+          piece.style.setProperty('--drift', `${(Math.random() - 0.5) * 200}px`);
+          piece.style.setProperty('--rotation', `${Math.random() * 720 - 360}deg`);
+
+          confettiContainer.appendChild(piece);
+
+          piece.addEventListener(
+            'animationend',
+            () => {
+              piece.remove();
+            },
+            { once: true }
+          );
+        }
+      }
+
+      function updateAutoButton(isActive) {
+        autoButton.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        autoButton.classList.toggle('ring-2', isActive);
+        autoButton.classList.toggle('ring-brand-300', isActive);
+        autoButton.classList.toggle('bg-brand-50/80', !isActive);
+        autoButton.classList.toggle('bg-brand-200', isActive);
+        autoButton.classList.toggle('text-brand-700', !isActive);
+        autoButton.classList.toggle('text-brand-900', isActive);
+        autoButton.innerHTML = isActive
+          ? '<span aria-hidden="true">🎶</span><span>Auto mode is grooving</span>'
+          : '<span aria-hidden="true">🔁</span><span>Auto party mode</span>';
+      }
+
+      function startAutoMode() {
+        if (autoInterval) {
+          clearInterval(autoInterval);
+        }
+        updateAutoButton(true);
+        createCelebration();
+        autoInterval = setInterval(createCelebration, 5000);
+        status.textContent = 'Auto party mode is running every 5 seconds.';
+      }
+
+      function stopAutoMode(message = 'Auto party paused. Manual celebrations ready.') {
+        updateAutoButton(false);
+        if (autoInterval) {
+          clearInterval(autoInterval);
+          autoInterval = null;
+        }
+        status.textContent = message;
+      }
+
+      function toggleAutoMode() {
+        const isActive = autoButton.getAttribute('aria-pressed') === 'true';
+        if (isActive) {
+          stopAutoMode();
+          return;
+        }
+
+        startAutoMode();
+      }
+
+      function copyPlan() {
+        const text = result.innerText.trim();
+        if (!text) {
+          status.textContent = 'Generate a celebration before copying.';
+          return;
+        }
+
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+          status.textContent = 'Clipboard access is unavailable in this browser.';
+          return;
+        }
+
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            status.textContent = 'Copied! Drop it in the group chat.';
+            launchConfetti();
+          })
+          .catch(() => {
+            status.textContent = 'Copy failed. Try again after granting clipboard permissions.';
+          });
+      }
+
+      generateButton.addEventListener('click', createCelebration);
+      copyButton.addEventListener('click', copyPlan);
+      autoButton.addEventListener('click', toggleAutoMode);
+      intensityInput.addEventListener('input', (event) => {
+        updateIntensityLabel(event.target.value);
+      });
+
+      updateIntensityLabel(intensityInput.value);
+      updateAutoButton(false);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && autoInterval) {
+          stopAutoMode('Auto party paused while the tab is hidden. Come back to restart!');
+        }
+      });
+    </script>
+  </body>
+</html>
