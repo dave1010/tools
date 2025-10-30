@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dream Contraption Forge</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/70 via-white to-brand-100/40">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <p class="text-sm uppercase tracking-wide text-brand-600">Idea collider</p>
+        <h1 class="text-3xl font-semibold text-gray-900 md:text-4xl">Dream Contraption Forge</h1>
+        <p class="text-gray-600">
+          Fuse vibrant materials, eccentric behaviors, and helpful sidekicks into a coherent invention pitch you can riff on.
+        </p>
+      </header>
+
+      <section class="rounded-2xl border border-brand-100 bg-white/70 p-4 shadow-sm backdrop-blur md:p-6">
+        <form id="forge-form" class="space-y-4">
+          <div class="space-y-1">
+            <label for="prompt" class="font-medium text-gray-800">What should this contraption respond to?</label>
+            <textarea
+              id="prompt"
+              name="prompt"
+              rows="3"
+              class="w-full rounded-xl border border-brand-100 bg-white/80 p-3 shadow-inner focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              placeholder="e.g. help me focus while working late"
+            ></textarea>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="space-y-1 text-sm font-medium text-gray-800">
+              Desired vibe
+              <select
+                id="vibe"
+                class="w-full rounded-xl border border-brand-100 bg-white/80 p-2 font-normal text-gray-900 shadow-inner focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              >
+                <option value="soothing">Soothing & restorative</option>
+                <option value="kinetic">High-energy & kinetic</option>
+                <option value="whimsical">Whimsical & surreal</option>
+                <option value="precision">Precise & hyper-efficient</option>
+              </select>
+            </label>
+
+            <label class="space-y-1 text-sm font-medium text-gray-800">
+              Remix intensity
+              <div class="flex items-center gap-3 rounded-xl border border-brand-100 bg-white/80 px-3 py-2 shadow-inner">
+                <input
+                  type="range"
+                  id="intensity"
+                  min="1"
+                  max="5"
+                  value="3"
+                  class="h-2 flex-1 cursor-pointer rounded-full bg-brand-100 accent-brand-500"
+                />
+                <span id="intensity-label" class="w-12 text-right text-sm font-semibold text-brand-700">3</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="text-sm text-gray-500">
+              Remix intensity nudges how poetic and unexpected the ensemble becomes.
+            </div>
+            <button type="submit" class="btn btn-primary">Forge a Contraption</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="space-y-4 rounded-2xl border border-brand-100 bg-white/80 p-4 shadow-sm backdrop-blur md:p-6">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-xl font-semibold text-gray-900">Your latest contraption</h2>
+          <button id="copy-button" type="button" class="btn btn-secondary">Copy concept</button>
+        </div>
+        <article id="result" class="space-y-4 text-gray-800">
+          <p class="text-sm text-gray-500">Fill in the prompt and forge a contraption to get started.</p>
+        </article>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/dream-contraption-forge"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const promptInput = document.getElementById("prompt");
+      const vibeSelect = document.getElementById("vibe");
+      const intensityInput = document.getElementById("intensity");
+      const intensityLabel = document.getElementById("intensity-label");
+      const form = document.getElementById("forge-form");
+      const resultContainer = document.getElementById("result");
+      const copyButton = document.getElementById("copy-button");
+
+      const vibeDescriptors = {
+        soothing: [
+          "calming",
+          "slow-blooming",
+          "tidal",
+          "velvet",
+          "resonant"
+        ],
+        kinetic: [
+          "electric",
+          "rapid-cycle",
+          "momentum-rich",
+          "percussive",
+          "thrumming"
+        ],
+        whimsical: [
+          "dandelion-light",
+          "mischievous",
+          "kaleidoscopic",
+          "gravity-defying",
+          "storybook"
+        ],
+        precision: [
+          "clockwork",
+          "vector-aligned",
+          "laser-trim",
+          "measured",
+          "crystalline"
+        ]
+      };
+
+      const cores = [
+        "self-balancing habitat ring",
+        "responsive origami chassis",
+        "aurora-threaded canopy",
+        "modular hover lattice",
+        "microclimate braids",
+        "harmonic feedback engine",
+        "chrono-synced task loom",
+        "sonic bloom capsule",
+        "bioluminescent guidance rail",
+        "cloud-soft suspension core"
+      ];
+
+      const materials = [
+        "translucent aerogel facets",
+        "reclaimed meteorite alloys",
+        "programmable moss tiles",
+        "handspun copper filaments",
+        "ceramic memory shells",
+        "kinetic glass feathers",
+        "smart velvet membranes",
+        "recyclable silk circuits",
+        "auric bamboo lattices",
+        "folded graphene ribbons"
+      ];
+
+      const companions = [
+        "a choir of palm-sized guidance sprites",
+        "three chatty archive beetles",
+        "orbiting origami drones",
+        "a duo of empathetic tuning forks",
+        "an adjustable moonlight prism",
+        "six programmable pocket comets",
+        "a soft-spoken compass jelly",
+        "a nebula of story-thread fireflies",
+        "the ever-curious sketching otter",
+        "a council of polite micro-owls"
+      ];
+
+      const twists = [
+        "sings back your intentions as layered chimes",
+        "rewinds ambient noise into gentle counter-melodies",
+        "brews miniature weather patterns that match your heartbeat",
+        "stitches dream fragments into morning blueprints",
+        "translates muscle tension into floating light scripts",
+        "maps room acoustics into ribbon trails you can follow",
+        "suspends clutter in pockets of slowed gravity",
+        "coaxes forgotten hobbies into playful side quests",
+        "calibrates motivation with shimmering progress halos",
+        "invites neighborhood legends to contribute hidden modes"
+      ];
+
+      const originHooks = [
+        "Prototyped during a midnight maintenance window on a floating library.",
+        "Rumored to have evolved from a retired parade float that refused to stop dreaming.",
+        "Sketched on a napkin by a synesthetic botanist between thunderclaps.",
+        "Derived from a collaboration between rooftop astronomers and subway poets.",
+        "Pieced together from fragments of a traveling circus laboratory.",
+        "Reverse-engineered from an antique empathy compass discovered in a tide pool.",
+        "Inspired by lullabies collected from commuter trains across seven cities.",
+        "Blueprinted by three siblings who vowed to bottle twilight.",
+        "Born when a workshop fanfare collided with a meditation retreat.",
+        "Adapted from a museum installation that kept reorganizing itself at night."
+      ];
+
+      const taglines = [
+        "When daydreams decide to get practical.",
+        "Hold the improbable and watch it organize itself.",
+        "Because routines deserve wonder, too.",
+        "Sculpt your vibe, let the contraption do the rest.",
+        "From spark to spectacle in one gentle loop.",
+        "Steady focus with a wink of stardust.",
+        "Harness the delightful science of maybe.",
+        "Turn latent potential into playful momentum.",
+        "Invite serendipity into your daily rituals.",
+        "Weave whimsy straight into your workflow."
+      ];
+
+      const adjectives = [
+        "luminous",
+        "serendipitous",
+        "interstellar",
+        "ever-shifting",
+        "pocket-sized",
+        "modular",
+        "synesthetic",
+        "artisanal",
+        "garden-fresh",
+        "sapphire"
+      ];
+
+      const nouns = [
+        "atelier",
+        "forge",
+        "navigator",
+        "loom",
+        "array",
+        "relay",
+        "cartographer",
+        "greenhouse",
+        "engine",
+        "chorus"
+      ];
+
+      function sample(list, intensity, extraSpin = false) {
+        const clones = [...list];
+        const picks = [];
+        const count = Math.min(Math.ceil(intensity / 2) + (extraSpin ? 1 : 0), clones.length);
+        for (let i = 0; i < count; i++) {
+          const index = Math.floor(Math.random() * clones.length);
+          picks.push(clones.splice(index, 1)[0]);
+        }
+        return picks;
+      }
+
+      function titleCase(str) {
+        return str
+          .split(" ")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+      }
+
+      function createName(intensity) {
+        const first = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const second = nouns[Math.floor(Math.random() * nouns.length)];
+        return intensity > 3
+          ? `${titleCase(first)} ${titleCase(second)} Constellation`
+          : `${titleCase(first)} ${titleCase(second)}`;
+      }
+
+      function craftConcept({ prompt, vibe, intensity }) {
+        const descriptor = sample(vibeDescriptors[vibe], intensity)[0];
+        const core = sample(cores, intensity)[0];
+        const selectedMaterials = sample(materials, intensity, true);
+        const companion = sample(companions, intensity, true)[0];
+        const twist = sample(twists, intensity, true)[0];
+        const origin = sample(originHooks, intensity, true)[0];
+        const tagline = sample(taglines, intensity)[0];
+
+        const name = createName(intensity);
+
+        return {
+          name,
+          tagline,
+          descriptor,
+          core,
+          materials: selectedMaterials,
+          companion,
+          twist,
+          origin,
+          prompt
+        };
+      }
+
+      function renderConcept(concept) {
+        const {
+          name,
+          tagline,
+          descriptor,
+          core,
+          materials,
+          companion,
+          twist,
+          origin,
+          prompt
+        } = concept;
+
+        resultContainer.innerHTML = `
+          <div class="space-y-2 rounded-xl border border-brand-100 bg-white/80 p-4 shadow-inner">
+            <p class="text-xs uppercase tracking-wide text-brand-600">Concept name</p>
+            <h3 class="text-2xl font-semibold text-gray-900">${name}</h3>
+            <p class="text-brand-700">${tagline}</p>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-2 rounded-xl border border-brand-100 bg-white/60 p-4">
+              <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Mission focus</h4>
+              <p class="text-gray-700">${prompt || "You left the prompt open, so the Forge embraced pure intuition."}</p>
+            </div>
+            <div class="space-y-2 rounded-xl border border-brand-100 bg-white/60 p-4">
+              <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Core temperament</h4>
+              <p class="text-gray-700">A ${descriptor} apparatus anchored by a ${core}.</p>
+            </div>
+          </div>
+          <div class="space-y-2 rounded-xl border border-brand-100 bg-white/60 p-4">
+            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Material ensemble</h4>
+            <ul class="list-inside list-disc space-y-1 text-gray-700">
+              ${materials.map((item) => `<li>${item}</li>`).join("")}
+            </ul>
+          </div>
+          <div class="space-y-2 rounded-xl border border-brand-100 bg-white/60 p-4">
+            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Signature flourish</h4>
+            <p class="text-gray-700">Guided by ${companion}, it ${twist}.</p>
+          </div>
+          <div class="space-y-2 rounded-xl border border-brand-100 bg-white/60 p-4">
+            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-600">Origin note</h4>
+            <p class="text-gray-700">${origin}</p>
+          </div>
+        `;
+      }
+
+      function handleGenerate(event) {
+        event.preventDefault();
+        const prompt = promptInput.value.trim();
+        const vibe = vibeSelect.value;
+        const intensity = Number(intensityInput.value);
+        const concept = craftConcept({ prompt, vibe, intensity });
+        renderConcept(concept);
+        copyButton.dataset.clipboard = buildClipboardText(concept);
+      }
+
+      function buildClipboardText(concept) {
+        const { name, tagline, prompt, descriptor, core, materials, companion, twist, origin } = concept;
+        return [
+          `${name} — ${tagline}`,
+          "",
+          `Mission focus: ${prompt || "Open-ended intuition"}`,
+          `Temperament: ${descriptor} with a ${core}.`,
+          "Materials:",
+          ...materials.map((item) => `- ${item}`),
+          `Signature flourish: Guided by ${companion}, it ${twist}.`,
+          `Origin note: ${origin}`
+        ].join("\n");
+      }
+
+      form.addEventListener("submit", handleGenerate);
+
+      intensityInput.addEventListener("input", () => {
+        intensityLabel.textContent = intensityInput.value;
+      });
+
+      copyButton.addEventListener("click", async () => {
+        const payload = copyButton.dataset.clipboard;
+        if (!payload) {
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(payload);
+          copyButton.textContent = "Copied!";
+          copyButton.classList.add("ring-2", "ring-brand-300");
+          setTimeout(() => {
+            copyButton.textContent = "Copy concept";
+            copyButton.classList.remove("ring-2", "ring-brand-300");
+          }, 1600);
+        } catch (error) {
+          copyButton.textContent = "Copy failed";
+          copyButton.classList.add("ring-2", "ring-red-300");
+          setTimeout(() => {
+            copyButton.textContent = "Copy concept";
+            copyButton.classList.remove("ring-2", "ring-red-300");
+          }, 1600);
+        }
+      });
+    </script>
+  </body>
+</html>
