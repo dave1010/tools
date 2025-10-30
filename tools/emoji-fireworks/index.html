@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Emoji Fireworks Party</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        background: radial-gradient(circle at top, rgba(59, 130, 246, 0.3), transparent 55%),
+          linear-gradient(180deg, #dbeafe 0%, #eff6ff 40%, #ffffff 100%);
+      }
+
+      .playground {
+        background: linear-gradient(180deg, rgba(37, 99, 235, 0.15), rgba(59, 130, 246, 0.05));
+        position: relative;
+        overflow: hidden;
+      }
+
+      .emoji {
+        position: absolute;
+        inset: auto;
+        left: 50%;
+        bottom: 0;
+        translate: -50% 0;
+        animation: burst 1600ms forwards ease-out;
+        will-change: transform, opacity;
+        text-shadow: 0 12px 24px rgba(15, 23, 42, 0.28);
+      }
+
+      @keyframes burst {
+        0% {
+          transform: translate(0, 0) scale(0.4);
+          opacity: 0;
+        }
+        20% {
+          opacity: 1;
+        }
+        60% {
+          transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(calc(var(--x) * 1.35), calc(var(--y) * 1.35)) rotate(calc(var(--r) * 1.2)) scale(0.4);
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body class="min-h-screen font-sans text-gray-900">
+    <main class="mx-auto flex min-h-screen max-w-3xl flex-col space-y-4 p-4 md:p-6">
+      <header class="space-y-3 text-center">
+        <h1 class="text-4xl font-semibold tracking-tight text-gray-900">Emoji Fireworks Party</h1>
+        <p class="mx-auto max-w-2xl text-base text-gray-600 md:text-lg">
+          Launch celebratory bursts of emojis, tune the chaos level, and let party mode fill the sky with colorful reactions.
+        </p>
+      </header>
+
+      <section class="playground flex flex-1 flex-col gap-6 rounded-3xl border border-brand-100 bg-white/70 p-4 shadow-soft md:p-6">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div class="space-y-2">
+            <p class="text-sm text-gray-600">
+              Choose how intense you want the celebration to be, then tap launch or switch on party mode to keep the fireworks rolling.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+              <button id="launch" class="btn btn-primary" type="button">Launch burst 🎉</button>
+              <button id="party" class="btn btn-secondary" type="button">Start party mode</button>
+              <span id="status" class="text-sm text-gray-500">Party mode off</span>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-brand-100 bg-brand-50/70 p-4 text-sm text-brand-700">
+            <div class="flex items-center justify-between gap-3">
+              <label class="font-medium text-brand-800" for="intensity">Chaos level</label>
+              <output id="intensityValue" class="font-semibold text-brand-900">7</output>
+            </div>
+            <input
+              id="intensity"
+              class="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-brand-200"
+              type="range"
+              min="3"
+              max="16"
+              value="7"
+            />
+            <p class="mt-2 text-xs text-brand-700/80">
+              Higher levels add more emojis and longer bursts. Party mode respects your setting.
+            </p>
+          </div>
+        </div>
+
+        <div
+          id="sky"
+          class="flex-1 rounded-2xl border border-dashed border-brand-200 bg-gradient-to-b from-white/80 via-brand-50/60 to-white/90"
+          role="img"
+          aria-label="Colorful emoji fireworks playground"
+        ></div>
+      </section>
+
+      <section class="grid gap-4 rounded-2xl border border-gray-200 bg-white/80 p-4 text-sm text-gray-700 md:grid-cols-2">
+        <div class="space-y-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-700">Emoji playlist</h2>
+          <p>
+            Each burst mixes emojis from categories like sparkles, party icons, animals, food, and even a few chaotic surprises.
+          </p>
+        </div>
+        <div class="space-y-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-700">Pro tip</h2>
+          <p>
+            Toggle party mode and drag the chaos level while it runs—the bursts instantly react so you can dial in the perfect vibe for your next celebration.
+          </p>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/emoji-fireworks" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const sky = document.getElementById('sky');
+      const launchButton = document.getElementById('launch');
+      const partyButton = document.getElementById('party');
+      const status = document.getElementById('status');
+      const intensityInput = document.getElementById('intensity');
+      const intensityValue = document.getElementById('intensityValue');
+
+      const emojiPool = [
+        '🎆',
+        '✨',
+        '🌟',
+        '🎉',
+        '🎈',
+        '🥳',
+        '🎊',
+        '🪩',
+        '💫',
+        '🌈',
+        '🦄',
+        '🍕',
+        '🪅',
+        '🍩',
+        '🧁',
+        '🚀',
+        '🌌',
+        '🧃',
+        '🔥',
+        '🎮',
+        '💃',
+        '🕺',
+        '🎵',
+        '😎',
+        '🤖',
+        '🌠',
+        '🍿',
+        '🧨',
+        '🌀',
+        '🧸'
+      ];
+
+      let partyInterval = null;
+
+      function randomBetween(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function createBurst() {
+        const intensity = Number(intensityInput.value);
+        const emojiCount = Math.floor(randomBetween(intensity, intensity + 6));
+
+        for (let i = 0; i < emojiCount; i += 1) {
+          const emoji = document.createElement('span');
+          emoji.className = 'emoji text-3xl md:text-4xl';
+          emoji.textContent = emojiPool[Math.floor(Math.random() * emojiPool.length)];
+
+          const offsetX = randomBetween(-160, 160);
+          const offsetY = randomBetween(-240, -120);
+          const rotation = randomBetween(-40, 40);
+          const duration = randomBetween(1300, 2000);
+          const delay = randomBetween(0, 180);
+
+          emoji.style.setProperty('--x', `${offsetX}px`);
+          emoji.style.setProperty('--y', `${offsetY}px`);
+          emoji.style.setProperty('--r', `${rotation}deg`);
+          emoji.style.animationDuration = `${duration}ms`;
+          emoji.style.animationDelay = `${delay}ms`;
+          emoji.style.fontSize = `${randomBetween(32, 64)}px`;
+          emoji.style.left = `${50 + randomBetween(-25, 25)}%`;
+
+          sky.appendChild(emoji);
+
+          emoji.addEventListener(
+            'animationend',
+            () => {
+              emoji.remove();
+            },
+            { once: true }
+          );
+        }
+      }
+
+      function updateIntensityLabel() {
+        intensityValue.textContent = intensityInput.value;
+      }
+
+      function togglePartyMode() {
+        if (partyInterval) {
+          clearInterval(partyInterval);
+          partyInterval = null;
+          partyButton.textContent = 'Start party mode';
+          partyButton.classList.remove('btn-primary');
+          partyButton.classList.add('btn-secondary');
+          status.textContent = 'Party mode off';
+          status.classList.replace('text-brand-600', 'text-gray-500');
+          return;
+        }
+
+        createBurst();
+        partyInterval = setInterval(() => {
+          createBurst();
+        }, 1400);
+
+        partyButton.textContent = 'Stop party mode';
+        partyButton.classList.remove('btn-secondary');
+        partyButton.classList.add('btn-primary');
+        status.textContent = 'Party mode on';
+        status.classList.replace('text-gray-500', 'text-brand-600');
+      }
+
+      launchButton.addEventListener('click', () => {
+        createBurst();
+      });
+
+      partyButton.addEventListener('click', () => {
+        togglePartyMode();
+      });
+
+      intensityInput.addEventListener('input', () => {
+        updateIntensityLabel();
+        if (partyInterval) {
+          createBurst();
+        }
+      });
+
+      intensityInput.addEventListener('change', updateIntensityLabel);
+
+      window.addEventListener('blur', () => {
+        if (partyInterval) {
+          togglePartyMode();
+        }
+      });
+
+      updateIntensityLabel();
+    </script>
+  </body>
+</html>
