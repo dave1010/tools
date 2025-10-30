@@ -56,4 +56,8 @@ Tools live in the [`./tools`](./tools) directory.
 
 - [3D Game of Life](https://tools.dave.engineer/tools/3d-game-of-life) — Explore animated voxel life simulation
 
+### Learning
+
+- [Times Tables Trainer](https://tools.dave.engineer/tools/times-tables-trainer) — Practice multiplication with spaced repetition
+
 <!-- TOOLS-LIST:END -->
