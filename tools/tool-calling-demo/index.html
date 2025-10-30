@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Tool Calling Demo</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+      <header class="text-center space-y-2">
+        <h1 class="text-3xl font-semibold text-gray-900">LLM Tool Calling Demo</h1>
+        <p class="text-sm text-gray-600">
+          Send a question and watch the assistant request the JavaScript evaluation tool when it needs to calculate something.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
+        <div class="space-y-2">
+          <label class="space-y-1">
+            <span class="block text-sm font-medium text-gray-700">Ask the assistant</span>
+            <textarea
+              id="userInput"
+              rows="3"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              placeholder="e.g. How many days until Christmas?"
+              required
+            ></textarea>
+            <span class="block text-xs text-gray-500">Press ⌘+Enter or Ctrl+Enter to send quickly.</span>
+          </label>
+          <button
+            id="sendButton"
+            type="button"
+            class="btn btn-primary w-full justify-center"
+          >
+            Ask
+          </button>
+          <p id="status" class="hidden text-sm text-red-600"></p>
+        </div>
+
+        <div>
+          <h2 class="text-base font-semibold text-gray-900">Conversation</h2>
+          <div id="conversation" class="mt-2 h-60 overflow-y-auto rounded-xl bg-gray-50 p-4 text-sm text-gray-900">
+            <p id="emptyConversation" class="mt-6 text-center text-gray-500">
+              The assistant replies will appear here.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="space-y-3 rounded-2xl bg-white p-6 shadow">
+        <h2 class="text-base font-semibold text-gray-900">Tool activity</h2>
+        <p class="text-sm text-gray-600">
+          Every tool request and response is shown so you can see how the assistant reasons with data returned from the JavaScript tool.
+        </p>
+        <div id="toolLog" class="h-56 overflow-y-auto rounded-xl bg-gray-50 p-4 text-xs text-gray-900">
+          <p id="emptyToolLog" class="mt-6 text-center text-gray-500">No tool calls yet.</p>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/tool-calling-demo"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const PROXY_URL = "/cerebras-chat";
+      const MODEL = "gpt-oss-120b";
+      const TOOL_SCHEMA = [
+        {
+          type: "function",
+          function: {
+            name: "run_js",
+            strict: true,
+            description:
+              "Evaluate small JavaScript snippets to perform calculations. Use it when you need math, date, or other deterministic answers.",
+            parameters: {
+              type: "object",
+              properties: {
+                code: {
+                  type: "string",
+                  description:
+                    "JavaScript code that returns a result. Use `return` or the final expression value to send data back."
+                }
+              },
+              required: ["code"]
+            }
+          }
+        }
+      ];
+
+      const systemPrompt = `You are a helpful assistant with access to a JavaScript evaluation tool named run_js. Use it whenever a precise calculation or date math is required. Explain the answer to the user clearly once you have the tool results.`;
+
+      const messages = [
+        {
+          role: "system",
+          content: systemPrompt
+        }
+      ];
+
+      const conversationLog = [];
+      const toolLog = [];
+
+      const userInput = document.getElementById("userInput");
+      const sendButton = document.getElementById("sendButton");
+      const statusEl = document.getElementById("status");
+      const conversationEl = document.getElementById("conversation");
+      const emptyConversationEl = document.getElementById("emptyConversation");
+      const toolLogEl = document.getElementById("toolLog");
+      const emptyToolLogEl = document.getElementById("emptyToolLog");
+
+      function setStatus(message) {
+        if (message) {
+          statusEl.textContent = message;
+          statusEl.classList.remove("hidden");
+        } else {
+          statusEl.textContent = "";
+          statusEl.classList.add("hidden");
+        }
+      }
+
+      function renderConversation() {
+        conversationEl.replaceChildren();
+        if (conversationLog.length === 0) {
+          emptyConversationEl.classList.remove("hidden");
+          conversationEl.appendChild(emptyConversationEl);
+          return;
+        }
+        emptyConversationEl.classList.add("hidden");
+
+        const fragment = document.createDocumentFragment();
+        for (const entry of conversationLog) {
+          const wrapper = document.createElement("div");
+          wrapper.className = "space-y-1";
+
+          const label = document.createElement("p");
+          label.className = "text-xs font-semibold uppercase tracking-wide text-gray-500";
+          label.textContent = entry.role === "user" ? "User" : entry.role === "assistant" ? "Assistant" : entry.role;
+
+          const bubble = document.createElement("pre");
+          bubble.className = `whitespace-pre-wrap rounded-lg px-3 py-2 font-sans text-sm ${
+            entry.role === "user" ? "bg-brand-100/70" : "bg-white"
+          }`;
+          bubble.textContent = entry.content;
+
+          wrapper.appendChild(label);
+          wrapper.appendChild(bubble);
+          fragment.appendChild(wrapper);
+        }
+
+        conversationEl.appendChild(fragment);
+        conversationEl.scrollTop = conversationEl.scrollHeight;
+      }
+
+      function renderToolLog() {
+        toolLogEl.replaceChildren();
+        if (toolLog.length === 0) {
+          emptyToolLogEl.classList.remove("hidden");
+          toolLogEl.appendChild(emptyToolLogEl);
+          return;
+        }
+        emptyToolLogEl.classList.add("hidden");
+
+        const fragment = document.createDocumentFragment();
+        for (const item of toolLog) {
+          const wrapper = document.createElement("div");
+          wrapper.className = "space-y-1 rounded-lg bg-white/80 p-3 shadow-sm";
+
+          const title = document.createElement("p");
+          title.className = "text-xs font-semibold uppercase tracking-wide text-gray-500";
+          title.textContent = item.type;
+
+          const body = document.createElement("pre");
+          body.className = "whitespace-pre-wrap font-mono text-[11px] leading-snug text-gray-900";
+          body.textContent = item.content;
+
+          wrapper.appendChild(title);
+          wrapper.appendChild(body);
+          fragment.appendChild(wrapper);
+        }
+
+        toolLogEl.appendChild(fragment);
+        toolLogEl.scrollTop = toolLogEl.scrollHeight;
+      }
+
+      function safeStringify(value, spacing) {
+        return JSON.stringify(
+          value,
+          (_, val) => (typeof val === "bigint" ? val.toString() : val),
+          spacing
+        );
+      }
+
+      async function runJavaScript(code) {
+        const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+        const sandboxValues = {
+          Math,
+          Date,
+          Intl,
+          Number,
+          String,
+          Boolean,
+          JSON,
+          Array,
+          BigInt,
+          BigInt64Array,
+          BigUint64Array,
+          parseFloat,
+          parseInt
+        };
+        const fn = new AsyncFunction(
+          "sandbox",
+          `\"use strict\";
+           const { Math, Date, Intl, Number, String, Boolean, JSON, Array, BigInt, BigInt64Array, BigUint64Array, parseFloat, parseInt } = sandbox;
+           const globalThis = undefined;
+           const window = undefined;
+           const document = undefined;
+           const Function = undefined;
+           const eval = undefined;
+           return await (async () => { ${code}\n })();`
+        );
+        return await fn(sandboxValues);
+      }
+
+      function addConversation(role, content) {
+        conversationLog.push({ role, content: String(content ?? "") });
+        renderConversation();
+      }
+
+      function addToolLog(type, content) {
+        toolLog.push({ type, content });
+        renderToolLog();
+      }
+
+      async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) {
+          return;
+        }
+
+        userInput.value = "";
+        setStatus("");
+        sendButton.disabled = true;
+        addConversation("user", text);
+        messages.push({ role: "user", content: text });
+
+        try {
+          let delivered = false;
+          for (let step = 0; step < 6; step += 1) {
+            const response = await fetch(PROXY_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: MODEL,
+                messages,
+                tools: TOOL_SCHEMA,
+                parallel_tool_calls: false,
+                temperature: 0,
+                top_p: 1
+              })
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`API error: ${response.status} ${errorText}`);
+            }
+
+            const payload = await response.json();
+            const choice = payload?.choices?.[0]?.message;
+            if (!choice) {
+              throw new Error("No response from model");
+            }
+
+            messages.push({
+              role: "assistant",
+              content: choice.content ?? "",
+              tool_calls: choice.tool_calls ?? []
+            });
+
+            if (choice.tool_calls && choice.tool_calls.length > 0) {
+              const interimText = choice.content?.trim();
+              if (interimText) {
+                addConversation("assistant", interimText);
+              }
+              choice.tool_calls.forEach((call) => {
+                let parsedArguments;
+                try {
+                  parsedArguments = JSON.parse(call.function.arguments || "{}");
+                } catch (err) {
+                  parsedArguments = call.function.arguments;
+                }
+                addToolLog(
+                  `Request • ${call.function.name}`,
+                  safeStringify(
+                    {
+                      tool_call_id: call.id,
+                      arguments: parsedArguments
+                    },
+                    2
+                  )
+                );
+              });
+
+              for (const call of choice.tool_calls) {
+                let toolResult;
+                let success = true;
+                try {
+                  const args = JSON.parse(call.function.arguments || "{}");
+                  if (!args.code || String(args.code).trim() === "") {
+                    throw new Error("Tool call did not include code to run");
+                  }
+                  const result = await runJavaScript(String(args.code));
+                  toolResult = { result };
+                } catch (err) {
+                  success = false;
+                  toolResult = {
+                    error: err instanceof Error ? err.message : String(err)
+                  };
+                }
+
+                addToolLog(
+                  `Response • ${call.function.name}${success ? "" : " (error)"}`,
+                  safeStringify(toolResult, 2)
+                );
+
+                messages.push({
+                  role: "tool",
+                  tool_call_id: call.id,
+                  content: safeStringify(toolResult)
+                });
+              }
+
+              continue;
+            }
+
+            const finalText = choice.content?.trim();
+            if (finalText) {
+              addConversation("assistant", finalText);
+            }
+            delivered = true;
+            break;
+          }
+
+          if (!delivered) {
+            setStatus("The model stopped without a final response. Try asking again.");
+          }
+        } catch (error) {
+          console.error(error);
+          setStatus(error instanceof Error ? error.message : String(error));
+        } finally {
+          sendButton.disabled = false;
+          userInput.focus();
+        }
+      }
+
+      sendButton.addEventListener("click", sendMessage);
+      userInput.addEventListener("keydown", (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+
+      userInput.focus();
+    </script>
+  </body>
+</html>
