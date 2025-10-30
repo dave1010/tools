@@ -16,6 +16,14 @@ Tools live in the [`./tools`](./tools) directory.
 - [Local Storage Viewer](https://tools.dave.engineer/tools/local-storage-viewer) — Inspect and manage browser localStorage
 - [Origin Private File System Viewer](https://tools.dave.engineer/tools/origin-private-file-system-viewer) — Browse and manage Origin Private File System
 
+### Conversion
+
+- [2D Size Comparator](https://tools.dave.engineer/tools/area-size-comparator) — Visualize and compare rectangular dimensions with overlays.
+- [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
+- [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw) — Estimate projector throw from lux readings
+- [Running Pace Planner](https://tools.dave.engineer/tools/running-pace-planner) — Plan running pace, splits, and finish time
+- [Speed Unit Converter](https://tools.dave.engineer/tools/speed-unit-converter) — Convert speed units instantly
+
 ### Developer
 
 - [Cerebras LLM Inference](https://tools.dave.engineer/tools/cerebras-llm-inference) — Chat with Cerebras models via the built-in proxy worker
@@ -23,6 +31,22 @@ Tools live in the [`./tools`](./tools) directory.
 - [GitHub Device Login](https://tools.dave.engineer/tools/github-device-login) — Start the GitHub device flow and store the resulting access token locally.
 - [JSON Formatter](https://tools.dave.engineer/tools/json-formatter) — Format and validate JSON data
 - [Prompt to Web Page](https://tools.dave.engineer/tools/prompt-to-web-page) — Turn a short idea into a rendered web page
+
+### Encoding
+
+- [Basic QR Code Generator](https://tools.dave.engineer/tools/basic-qr-code) — Generate QR codes from text
+- [Morse Code to Text](https://tools.dave.engineer/tools/morse-code-to-text) — Tap or hold to transcribe Morse code into plain text
+- [QR Code Reader](https://tools.dave.engineer/tools/qr-code-reader) — Upload QR code image and extract text/URL
+
+### Learning
+
+- [Times Tables Trainer](https://tools.dave.engineer/tools/times-tables-trainer) — Practice multiplication with spaced repetition
+
+### Measurement
+
+- [Ambient Noise Profiler](https://tools.dave.engineer/tools/ambient-noise-profiler) — Real-time ambient frequency visualizer
+- [Bubble Level](https://tools.dave.engineer/tools/bubble-level) — Simple digital bubble level
+- [Compass](https://tools.dave.engineer/tools/compass) — Heading indicator with magnetometer data
 
 ### Text
 
@@ -32,32 +56,9 @@ Tools live in the [`./tools`](./tools) directory.
 - [Scratch Pad](https://tools.dave.engineer/tools/scratch-pad) — Quick notes with local storage
 - [Word & Character Count](https://tools.dave.engineer/tools/word-character-count) — Count words and characters instantly
 
-### Encoding
-
-- [Basic QR Code Generator](https://tools.dave.engineer/tools/basic-qr-code) — Generate QR codes from text
-- [Morse Code to Text](https://tools.dave.engineer/tools/morse-code-to-text) — Tap or hold to transcribe Morse code into plain text
-- [QR Code Reader](https://tools.dave.engineer/tools/qr-code-reader) — Upload QR code image and extract text/URL
-
-### Measurement
-
-- [Ambient Noise Profiler](https://tools.dave.engineer/tools/ambient-noise-profiler) — Real-time ambient frequency visualizer
-- [Bubble Level](https://tools.dave.engineer/tools/bubble-level) — Simple digital bubble level
-- [Compass](https://tools.dave.engineer/tools/compass) — Heading indicator with magnetometer data
-
-### Conversion
-
-- [2D Size Comparator](https://tools.dave.engineer/tools/area-size-comparator) — Visualize and compare rectangular dimensions with overlays.
-- [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
-- [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw) — Estimate projector throw from lux readings
-- [Running Pace Planner](https://tools.dave.engineer/tools/running-pace-planner) — Plan running pace, splits, and finish time
-- [Speed Unit Converter](https://tools.dave.engineer/tools/speed-unit-converter) — Convert speed units instantly
-
 ### Visualization
 
 - [3D Game of Life](https://tools.dave.engineer/tools/3d-game-of-life) — Explore animated voxel life simulation
-
-### Learning
-
-- [Times Tables Trainer](https://tools.dave.engineer/tools/times-tables-trainer) — Practice multiplication with spaced repetition
+- [Perspective Grid Designer](https://tools.dave.engineer/tools/perspective-grid-designer) — Interactive vanishing-point grid generator
 
 <!-- TOOLS-LIST:END -->
