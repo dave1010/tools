@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Emoji Slot Machine</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      body {
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #dbeafe 0%, #eff6ff 60%, #fff 100%);
+      }
+      .slot-frame {
+        background: linear-gradient(145deg, rgba(59, 130, 246, 0.18), rgba(37, 99, 235, 0.08));
+        border-radius: 1.5rem;
+        padding: 1.5rem;
+        box-shadow: 0 20px 45px rgba(29, 78, 216, 0.15);
+      }
+      .slot-display {
+        background: white;
+        border-radius: 1rem;
+        min-width: 5rem;
+        min-height: 5rem;
+        display: grid;
+        place-items: center;
+        font-size: 2.75rem;
+        transition: transform 0.2s ease;
+        box-shadow: inset 0 0 0 4px rgba(59, 130, 246, 0.15);
+      }
+      .slot-display.spinning {
+        animation: bounce 0.3s ease-in-out infinite;
+      }
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-6px);
+        }
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 9999px;
+        background: rgba(59, 130, 246, 0.12);
+        color: #1d4ed8;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      .burst {
+        position: absolute;
+        pointer-events: none;
+        animation: floatUp 1.2s ease-out forwards;
+        font-size: clamp(2rem, 5vw, 3rem);
+      }
+      @keyframes floatUp {
+        0% {
+          transform: translate(-50%, 0) scale(0.7);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(-50%, -150px) scale(1.2);
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body class="font-sans">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-6">
+      <header class="space-y-2 text-center">
+        <p class="badge mx-auto w-max">🎉 Instant dopamine machine</p>
+        <h1 class="text-3xl md:text-4xl font-bold text-brand-700">Emoji Slot Machine</h1>
+        <p class="text-brand-600 text-lg">Spin the reels, discover ridiculous combos, and chase that triple-match glory.</p>
+      </header>
+
+      <section class="slot-frame space-y-6">
+        <div class="flex flex-col md:flex-row items-center justify-center gap-6">
+          <div id="slot-a" class="slot-display">🍉</div>
+          <div id="slot-b" class="slot-display">🥨</div>
+          <div id="slot-c" class="slot-display">🌮</div>
+        </div>
+
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-center">
+          <button id="spin" class="btn btn-primary text-lg px-6 py-3">Spin</button>
+          <div class="flex items-center gap-3 justify-center">
+            <label for="chaos" class="font-medium text-brand-700">Chaos level</label>
+            <input id="chaos" type="range" min="1" max="5" value="3" class="w-40 accent-brand-600" />
+          </div>
+          <button id="party" class="btn btn-secondary">Party mode: Off</button>
+        </div>
+
+        <div class="text-center space-y-2">
+          <p id="status" class="text-brand-700 text-xl font-semibold">Hit spin to roll the vibes.</p>
+          <p class="text-brand-600" id="history">No legendary combos... yet.</p>
+        </div>
+      </section>
+
+      <section class="grid gap-4 md:grid-cols-2">
+        <article class="rounded-2xl bg-white/70 p-4 shadow">
+          <h2 class="font-semibold text-brand-700 mb-2">Combo Lore</h2>
+          <ul class="space-y-1 text-brand-600 text-sm" id="combo-list">
+            <li>🍕 + 🍦 + 🛸 &mdash; "Late-night abduction snacks"</li>
+            <li>🐸 + ☕ + 📚 &mdash; "Cottagecore cram session"</li>
+            <li>🤖 + 🪩 + 🧋 &mdash; "Cybernetic bubble tea rave"</li>
+          </ul>
+        </article>
+        <article class="rounded-2xl bg-white/70 p-4 shadow space-y-2">
+          <h2 class="font-semibold text-brand-700">Pro tips</h2>
+          <p class="text-brand-600 text-sm">Press <kbd class="rounded bg-brand-100 px-2 py-1 font-semibold text-brand-700">Space</kbd> to spin faster than humanly possible.</p>
+          <p class="text-brand-600 text-sm">Crank the chaos to invite weirder emoji into the mix.</p>
+          <p class="text-brand-600 text-sm">Triple matches trigger a confetti blast and get logged forever.</p>
+        </article>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/emoji-slot-machine" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const slots = [
+        document.getElementById('slot-a'),
+        document.getElementById('slot-b'),
+        document.getElementById('slot-c'),
+      ];
+      const spinButton = document.getElementById('spin');
+      const status = document.getElementById('status');
+      const history = document.getElementById('history');
+      const chaos = document.getElementById('chaos');
+      const partyToggle = document.getElementById('party');
+      const comboList = document.getElementById('combo-list');
+
+      const baseEmoji = ['🍕', '🍣', '🍩', '🍉', '🍔', '🌮', '🥨', '🍜', '🥑', '🧀'];
+      const rareEmoji = ['🛸', '🧠', '🦄', '🤖', '🪩', '🧋', '🎪', '🐉', '🦕'];
+      const chaosEmoji = ['🌀', '🧪', '🧨', '🦩', '🪬', '🛼', '🧸', '🥎', '🥥', '🪐'];
+
+      let spinning = false;
+      let partyMode = false;
+      const legendaryCombos = new Set();
+
+      function getEmojiPool() {
+        const chaosLevel = Number(chaos.value);
+        const pool = [...baseEmoji];
+        if (chaosLevel >= 2) pool.push(...rareEmoji.slice(0, 3));
+        if (chaosLevel >= 3) pool.push(...rareEmoji);
+        if (chaosLevel >= 4) pool.push(...chaosEmoji.slice(0, 5));
+        if (chaosLevel >= 5) pool.push(...chaosEmoji);
+        return pool;
+      }
+
+      function randomEmoji() {
+        const pool = getEmojiPool();
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      function toggleSpinning(state) {
+        slots.forEach((slot) => slot.classList.toggle('spinning', state));
+        spinning = state;
+      }
+
+      function createBurst(emoji, x, y) {
+        const burst = document.createElement('span');
+        burst.textContent = emoji;
+        burst.className = 'burst';
+        burst.style.left = `${x}px`;
+        burst.style.top = `${y}px`;
+        document.body.appendChild(burst);
+        setTimeout(() => burst.remove(), 1200);
+      }
+
+      function celebrateTriple(matchEmoji) {
+        status.textContent = `JACKPOT! ${matchEmoji.repeat(3)} is legendary.`;
+        status.classList.add('text-brand-600');
+        const key = `${matchEmoji}${Date.now()}`;
+        legendaryCombos.add(key);
+        const item = document.createElement('li');
+        item.textContent = `${matchEmoji} ${matchEmoji} ${matchEmoji} — "${sillyName(matchEmoji)}"`;
+        comboList.prepend(item);
+        if (partyMode) {
+          const { innerWidth, innerHeight } = window;
+          for (let i = 0; i < 24; i += 1) {
+            const x = Math.random() * innerWidth;
+            const y = innerHeight - Math.random() * (innerHeight / 3);
+            const emoji = randomEmoji();
+            createBurst(emoji, x, y);
+          }
+        }
+      }
+
+      function sillyName(emoji) {
+        const prefix = ['Galactic', 'Spicy', 'Quantum', 'Chaotic', 'Secret', 'Mythic'];
+        const suffix = ['Fiesta', 'Ritual', 'Extravaganza', 'Symphony', 'Dreamscape', 'Carnival'];
+        return `${prefix[Math.floor(Math.random() * prefix.length)]} ${emoji} ${suffix[Math.floor(Math.random() * suffix.length)]}`;
+      }
+
+      async function spinSlots() {
+        if (spinning) return;
+        toggleSpinning(true);
+        spinButton.disabled = true;
+        status.textContent = 'Spinning up the fun...';
+        status.classList.remove('text-brand-600');
+
+        const spins = [
+          500 + Math.random() * 400,
+          700 + Math.random() * 400,
+          900 + Math.random() * 400,
+        ];
+
+        const finalEmoji = [];
+
+        await Promise.all(
+          slots.map((slot, index) => {
+            return new Promise((resolve) => {
+              const duration = spins[index];
+              let elapsed = 0;
+              const interval = 80 - Number(chaos.value) * 5;
+              const timer = setInterval(() => {
+                slot.textContent = randomEmoji();
+              }, Math.max(interval, 25));
+
+              const stopTimer = setInterval(() => {
+                elapsed += 50;
+                if (elapsed >= duration) {
+                  clearInterval(timer);
+                  clearInterval(stopTimer);
+                  const emoji = randomEmoji();
+                  slot.textContent = emoji;
+                  finalEmoji[index] = emoji;
+                  resolve();
+                }
+              }, 50);
+            });
+          })
+        );
+
+        toggleSpinning(false);
+        spinButton.disabled = false;
+
+        const [a, b, c] = finalEmoji;
+        if (a === b && b === c) {
+          celebrateTriple(a);
+          history.textContent = `Last run: ${a} ${b} ${c} — Triple!`;
+        } else {
+          const story = `${a} ${b} ${c} — ${sillyName(b)}`;
+          status.textContent = story;
+          history.textContent = `Last run: ${story}`;
+        }
+      }
+
+      spinButton.addEventListener('click', spinSlots);
+
+      window.addEventListener('keydown', (event) => {
+        if (event.code === 'Space') {
+          event.preventDefault();
+          spinSlots();
+        }
+      });
+
+      partyToggle.addEventListener('click', () => {
+        partyMode = !partyMode;
+        partyToggle.textContent = partyMode ? 'Party mode: On ✨' : 'Party mode: Off';
+        partyToggle.classList.toggle('btn-primary', partyMode);
+        partyToggle.classList.toggle('btn-secondary', !partyMode);
+      });
+    </script>
+  </body>
+</html>
