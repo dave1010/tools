@@ -93,7 +93,13 @@ const orderedCategories = [...preferredCategories, ...remainingCategories];
 const categoryId = (category) =>
   `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'misc'}`;
 
-const toolCard = (tool) => `        <li>
+const toolCard = (tool) => `        <li
+          data-tool-card
+          data-tool-slug="${escapeHtml(tool.slug)}"
+          data-tool-title="${escapeHtml(tool.title)}"
+          data-tool-description="${escapeHtml(tool.description)}"
+          data-tool-category="${escapeHtml(tool.category)}"
+        >
           <a href="/tools/${tool.slug}" class="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-white/5 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-cyan-400/60 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
             <div class="flex items-center justify-between gap-3">
               <span class="text-lg font-semibold text-white transition-colors duration-200 group-hover:text-cyan-200">${escapeHtml(tool.title)}</span>
@@ -113,10 +119,20 @@ const categorySections = orderedCategories
   .map((category) => {
     const items = toolsByCategory.get(category)?.map((tool) => toolCard(tool)).join('\n') ?? '';
     const id = categoryId(category);
-    return `      <section id="${id}" class="space-y-4">
+    const count = toolsByCategory.get(category)?.length ?? 0;
+    return `      <section
+        id="${id}"
+        class="space-y-4"
+        data-category-section
+        data-category-name="${escapeHtml(category)}"
+      >
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-2xl font-semibold text-white">${escapeHtml(category)}</h3>
-          <span class="text-sm font-medium text-white/60">${toolsByCategory.get(category)?.length ?? 0} tool${(toolsByCategory.get(category)?.length ?? 0) === 1 ? '' : 's'}</span>
+          <span
+            class="text-sm font-medium text-white/60"
+            data-category-count
+            data-category-total="${count}"
+          >${count} tool${count === 1 ? '' : 's'}</span>
         </div>
         <ul class="grid gap-4 sm:grid-cols-2">
 ${items}
