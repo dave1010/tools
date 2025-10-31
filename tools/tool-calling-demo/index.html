@@ -80,14 +80,14 @@
             name: "run_js",
             strict: true,
             description:
-              "Evaluate small JavaScript snippets to perform calculations. Use it when you need math, date, or other deterministic answers.",
+              "Evaluate small JavaScript snippets to perform calculations. When calling this tool, provide JSON like {\"code\": \"const diff = Math.abs(a - b); return diff;\"}.",
             parameters: {
               type: "object",
               properties: {
                 code: {
                   type: "string",
                   description:
-                    "JavaScript code that returns a result. Use `return` or the final expression value to send data back."
+                    "JavaScript code that must end with an explicit return of the final value. Example: \"const days = (end - start) / msPerDay; return Math.round(days);\""
                 }
               },
               required: ["code"]
@@ -96,7 +96,16 @@
         }
       ];
 
-      const systemPrompt = `You are a helpful assistant with access to a JavaScript evaluation tool named run_js. Use it whenever a precise calculation or date math is required. Explain the answer to the user clearly once you have the tool results.`;
+      const systemPrompt = `You are a helpful assistant with access to a JavaScript evaluation tool named run_js. Use it whenever a precise calculation or date math is required.
+
+When you call run_js you must:
+- Send arguments as strict JSON with a single string field named "code".
+- Escape quotation marks so the JSON is valid.
+- End the snippet with an explicit return statement so the tool can send a value back.
+
+Example arguments: {"code": "const today = new Date(); const christmas = new Date(today.getFullYear(), 11, 25); const diffMs = christmas - today; const days = Math.round(diffMs / (24 * 60 * 60 * 1000)); return days;"}
+
+Explain the answer to the user clearly once you have the tool results.`;
 
       const messages = [
         {
