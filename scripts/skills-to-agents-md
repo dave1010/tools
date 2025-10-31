@@ -58,6 +58,7 @@ skills.sort((a, b) => a.name.localeCompare(b.name));
 const listLines = skills.map((skill) => `- [${skill.name}](${skill.link}) - ${skill.description}`);
 const skillsBlock = [
   '<skills>',
+  '# Skills',
   'You have new skills. If any skill might be relevant then you MUST read it.',
   '',
   ...listLines,
