@@ -6,7 +6,7 @@
 - Add index.html and any other files
 - Add a README.md with YAML front matter defining `title` and a 4-8 word `description`. Use the README.md for any help text that would otherwise take up space on the tool web page.
 - Include a `category` in the front matter, reusing an existing category when possible. Add a new one if nothing fits.
-- Optional: set `featured: true` in the front matter to highlight a tool card on the homepage.
+- Only when requested: set `featured: true` in the front matter to highlight a tool card on the homepage.
 - Need the category list? From the repo root run `grep '^### ' README.md`.
 
 ## Build & Deploy
