@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Text Case Converter</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-brand-50 text-slate-900">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2">
+        <h1 class="text-3xl font-semibold text-brand-700">Text Case Converter</h1>
+        <p class="text-slate-600">
+          Transform any text into the letter case you need and copy the result in one click.
+        </p>
+      </header>
+
+      <section class="rounded-lg border border-brand-100 bg-white shadow-sm">
+        <div class="flex flex-col gap-4 p-4 md:p-6">
+          <label class="flex flex-col gap-2">
+            <span class="text-sm font-medium text-brand-700">Input text</span>
+            <textarea
+              id="input-text"
+              class="min-h-[140px] w-full rounded-md border border-brand-200 bg-brand-50 p-3 text-base shadow-inner focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              placeholder="Paste or type your text here..."
+            ></textarea>
+          </label>
+
+          <label class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <span class="text-sm font-medium text-brand-700">Choose a case</span>
+            <select
+              id="case-select"
+              class="w-full rounded-md border border-brand-200 bg-white px-3 py-2 text-base shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 md:w-64"
+            >
+              <option value="sentence">Sentence case</option>
+              <option value="title">Title Case</option>
+              <option value="lower">lowercase</option>
+              <option value="upper">UPPERCASE</option>
+              <option value="camel">camelCase</option>
+              <option value="pascal">PascalCase</option>
+              <option value="snake">snake_case</option>
+              <option value="kebab">kebab-case</option>
+            </select>
+          </label>
+
+          <label class="flex flex-col gap-2">
+            <span class="text-sm font-medium text-brand-700">Converted text</span>
+            <textarea
+              id="output-text"
+              class="min-h-[140px] w-full rounded-md border border-brand-200 bg-brand-50 p-3 text-base shadow-inner focus:outline-none"
+              readonly
+            ></textarea>
+          </label>
+
+          <div class="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
+            <span id="status" class="text-sm text-slate-500"></span>
+            <button id="copy-btn" class="btn btn-primary self-end px-4 py-2">
+              Copy converted text
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">
+            ← Back to tools.dave.engineer
+          </a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/text-case-converter"
+            class="font-medium text-brand-700 hover:text-brand-600"
+          >
+            About
+          </a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const input = document.getElementById("input-text");
+      const output = document.getElementById("output-text");
+      const caseSelect = document.getElementById("case-select");
+      const copyBtn = document.getElementById("copy-btn");
+      const status = document.getElementById("status");
+      let statusTimeout = null;
+
+      const SEPARATORS = /[\s_\-]+/;
+
+      function toSentenceCase(text) {
+        return text
+          .toLowerCase()
+          .replace(/(^\\s*[a-z])|([.!?]\\s*[a-z])/g, (match) => match.toUpperCase());
+      }
+
+      function toTitleCase(text) {
+        return text
+          .toLowerCase()
+          .replace(/\\b([a-z])(\\w*)/g, (_, first, rest) => first.toUpperCase() + rest);
+      }
+
+      function splitWords(text) {
+        if (!text) return [];
+        const words = text
+          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+          .split(SEPARATORS)
+          .filter(Boolean);
+        return words;
+      }
+
+      function toCamelCase(text, capitalizeFirst = false) {
+        const words = splitWords(text);
+        return words
+          .map((word, index) => {
+            const lower = word.toLowerCase();
+            if (index === 0 && !capitalizeFirst) {
+              return lower;
+            }
+            return lower.charAt(0).toUpperCase() + lower.slice(1);
+          })
+          .join("");
+      }
+
+      function toSnakeCase(text, separator = "_") {
+        return splitWords(text)
+          .map((word) => word.toLowerCase())
+          .join(separator);
+      }
+
+      function transform() {
+        const text = input.value;
+        let result = text;
+
+        switch (caseSelect.value) {
+          case "sentence":
+            result = toSentenceCase(text);
+            break;
+          case "title":
+            result = toTitleCase(text);
+            break;
+          case "lower":
+            result = text.toLowerCase();
+            break;
+          case "upper":
+            result = text.toUpperCase();
+            break;
+          case "camel":
+            result = toCamelCase(text, false);
+            break;
+          case "pascal":
+            result = toCamelCase(text, true);
+            break;
+          case "snake":
+            result = toSnakeCase(text, "_");
+            break;
+          case "kebab":
+            result = toSnakeCase(text, "-");
+            break;
+        }
+
+        output.value = result;
+      }
+
+      function showStatus(message, variant = "success") {
+        status.textContent = message;
+        status.className = `text-sm ${variant === "error" ? "text-red-600" : "text-brand-600"}`;
+        if (statusTimeout) {
+          clearTimeout(statusTimeout);
+        }
+        statusTimeout = setTimeout(() => {
+          status.textContent = "";
+        }, 3000);
+      }
+
+      async function copyOutput() {
+        if (!output.value) {
+          showStatus("Nothing to copy yet.", "error");
+          return;
+        }
+
+        try {
+          await navigator.clipboard.writeText(output.value);
+          showStatus("Copied to clipboard!");
+        } catch (error) {
+          showStatus("Clipboard copy failed. Select and copy manually.", "error");
+        }
+      }
+
+      input.addEventListener("input", transform);
+      caseSelect.addEventListener("change", transform);
+      copyBtn.addEventListener("click", () => copyOutput());
+
+      transform();
+    </script>
+  </body>
+</html>
