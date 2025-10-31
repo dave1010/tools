@@ -44,16 +44,6 @@ None.
 
 If the developer reports that JS is completely broken then surface all errors. Eg `window.addEventListener('error', ...`
 
-## GitHub Integration
-
-### GitHub tokens and auth
-
-For GitHub integrations, the user's browser may already have `github-device-login-token` in local storage. If they don't, or if more permissions are needed, then direct the user to /tools/github-device-login/
-
-### Gists
-
-See `tools/scratch-pad/index.html` for an example of saving Gists. The URL `https://gistpreview.github.io/?${encodeURIComponent(gistId)}` will render an index.html gist as HTML.
-
 <skills>
 
 ## Skills
@@ -61,6 +51,7 @@ See `tools/scratch-pad/index.html` for an example of saving Gists. The URL `http
 You have new skills. If any skill might be relevant then you MUST read it.
 
 - [cdn-usage](skills/cdn-usage/SKILL.md) - Use when adding external browser dependencies via CDN - Provides CDN selection guidance to ensure reliable script loading.
+- [github-integration](skills/github-integration/SKILL.md) - Use when building GitHub-based features - Explains auth token usage and Gist rendering helpers.
 - [llm-inference](skills/llm-inference/SKILL.md) - Use when orchestrating Cloudflare LLM calls or prompts - Explains available inference endpoints so the agent selects suitable models.
 - [writing-skills](skills/writing-skills/SKILL.md) - Use when creating or updating SKILL.md documentation - Guides them through required front matter and consistent markdown content.
 </skills>
