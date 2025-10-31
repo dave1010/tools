@@ -1,6 +1,6 @@
 ---
 name: github-integration
-description: "Use when building GitHub-based features - Explains auth token usage and Gist rendering helpers."
+description: "Use when building GitHub-based features - Explains auth token usage, Gist reading/writing and rendering helpers."
 ---
 
 ## GitHub tokens and auth
