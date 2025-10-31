@@ -218,9 +218,28 @@
     </main>
   </div>
   <script>
-    const tabButtons = Array.from(document.querySelectorAll('[data-tab]'));
-    const panels = Array.from(document.querySelectorAll('[data-panel]'));
+    const queryAll = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+    const toggleClasses = (element, classes, force) => {
+      classes.forEach((cls) => element.classList.toggle(cls, force));
+    };
+
+    const tabButtons = queryAll('[data-tab]');
+    const panels = queryAll('[data-panel]');
     const tabList = document.querySelector('[data-tablist]');
+
+    const activeTabClasses = [
+      'bg-gradient-to-r',
+      'from-cyan-500/40',
+      'via-blue-500/25',
+      'to-fuchsia-500/40',
+      'text-white',
+      'shadow-lg',
+      'ring-1',
+      'ring-inset',
+      'ring-white/30',
+      'after:bg-slate-950/70',
+    ];
+    const inactiveTabClasses = ['text-white/60'];
 
     let activeTabName = null;
     let preferredTabName = 'category';
@@ -233,17 +252,8 @@
       }
       tabButtons.forEach((button) => {
         const isActive = button.dataset.tab === name;
-        button.classList.toggle('bg-gradient-to-r', isActive);
-        button.classList.toggle('from-cyan-500/40', isActive);
-        button.classList.toggle('via-blue-500/25', isActive);
-        button.classList.toggle('to-fuchsia-500/40', isActive);
-        button.classList.toggle('text-white', isActive);
-        button.classList.toggle('text-white/60', !isActive);
-        button.classList.toggle('shadow-lg', isActive);
-        button.classList.toggle('ring-1', isActive);
-        button.classList.toggle('ring-inset', isActive);
-        button.classList.toggle('ring-white/30', isActive);
-        button.classList.toggle('after:bg-slate-950/70', isActive);
+        toggleClasses(button, activeTabClasses, isActive);
+        toggleClasses(button, inactiveTabClasses, !isActive);
         button.setAttribute('aria-selected', String(isActive));
         button.setAttribute('tabindex', isActive ? '0' : '-1');
       });
@@ -264,13 +274,21 @@
     const searchInput = document.getElementById('tool-search');
     const searchSummary = document.querySelector('[data-search-summary]');
     const emptyState = document.querySelector('[data-search-empty]');
-    const categorySections = Array.from(document.querySelectorAll('[data-category-section]'));
-    const categoryItems = Array.from(document.querySelectorAll('#panel-category [data-tool-card]'));
-    const featuredItems = Array.from(document.querySelectorAll('#panel-featured [data-tool-card]'));
-    const azItems = Array.from(document.querySelectorAll('#panel-az [data-tool-card]'));
+    const categorySections = queryAll('[data-category-section]');
+    const categorySectionData = categorySections.map((section) => {
+      const items = queryAll('[data-tool-card]', section);
+      const countEl = section.querySelector('[data-category-count]');
+      const total = Number(countEl?.dataset.categoryTotal ?? items.length);
+      return { section, items, countEl, total };
+    });
+    const featuredItems = queryAll('#panel-featured [data-tool-card]');
+    const azItems = queryAll('#panel-az [data-tool-card]');
+    const categoryItems = queryAll('#panel-category [data-tool-card]');
 
     const buildMatchValue = (item) =>
-      `${item.dataset.toolTitle ?? ''} ${item.dataset.toolDescription ?? ''} ${item.dataset.toolCategory ?? ''}`.trim().toLowerCase();
+      `${item.dataset.toolTitle ?? ''} ${item.dataset.toolDescription ?? ''} ${item.dataset.toolCategory ?? ''}`
+        .trim()
+        .toLowerCase();
 
     const matchCache = new WeakMap();
     const getMatchValue = (item) => {
@@ -287,37 +305,34 @@
       const normalizedQuery = query.toLowerCase();
       let visibleCount = 0;
 
-      const evaluateItem = (item, cacheKey) => {
+      const evaluateItem = (item, { trackVisible = false } = {}) => {
         const matchValue = getMatchValue(item);
         const isMatch = !normalizedQuery || matchValue.includes(normalizedQuery);
         item.classList.toggle('hidden', !isMatch);
         item.setAttribute('aria-hidden', String(!isMatch));
-        if (cacheKey === 'az' && isMatch) {
+        if (trackVisible && isMatch) {
           visibleCount += 1;
         }
         return isMatch;
       };
 
       featuredItems.forEach((item) => evaluateItem(item));
-      azItems.forEach((item) => evaluateItem(item, 'az'));
+      azItems.forEach((item) => evaluateItem(item, { trackVisible: true }));
       categoryItems.forEach((item) => evaluateItem(item));
 
-      categorySections.forEach((section) => {
-        const items = Array.from(section.querySelectorAll('[data-tool-card]'));
+      categorySectionData.forEach(({ section, items, countEl, total }) => {
         const visibleInSection = items.filter((item) => !item.classList.contains('hidden')).length;
         const shouldHide = normalizedQuery && visibleInSection === 0;
         section.classList.toggle('hidden', shouldHide);
         section.setAttribute('aria-hidden', String(shouldHide));
-        const countEl = section.querySelector('[data-category-count]');
-        if (countEl) {
-          const total = Number(countEl.dataset.categoryTotal ?? items.length);
-          if (!normalizedQuery) {
-            countEl.textContent = `${total} tool${total === 1 ? '' : 's'}`;
-          } else if (visibleInSection === 0) {
-            countEl.textContent = 'No matches';
-          } else {
-            countEl.textContent = `${visibleInSection} match${visibleInSection === 1 ? '' : 'es'}`;
-          }
+
+        if (!countEl) return;
+        if (!normalizedQuery) {
+          countEl.textContent = `${total} tool${total === 1 ? '' : 's'}`;
+        } else if (visibleInSection === 0) {
+          countEl.textContent = 'No matches';
+        } else {
+          countEl.textContent = `${visibleInSection} match${visibleInSection === 1 ? '' : 'es'}`;
         }
       });
 
