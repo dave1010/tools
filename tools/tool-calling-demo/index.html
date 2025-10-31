@@ -200,7 +200,7 @@
 
       async function runJavaScript(code) {
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-        const sandboxValues = {
+        const sandbox = {
           Math,
           Date,
           Intl,
@@ -215,18 +215,21 @@
           parseFloat,
           parseInt
         };
+
+        const keys = Object.keys(sandbox);
         const fn = new AsyncFunction(
-          "sandbox",
-          `\"use strict\";
-           const { Math, Date, Intl, Number, String, Boolean, JSON, Array, BigInt, BigInt64Array, BigUint64Array, parseFloat, parseInt } = sandbox;
+          ...keys,
+          `"use strict";
            const globalThis = undefined;
            const window = undefined;
            const document = undefined;
            const Function = undefined;
-           const eval = undefined;
-           return await (async () => { ${code}\n })();`
+           const AsyncFunction = undefined;
+           return await (async () => {
+             ${code}
+           })();`
         );
-        return await fn(sandboxValues);
+        return await fn(...keys.map((key) => sandbox[key]));
       }
 
       function addConversation(role, content) {
