@@ -1,0 +1,37 @@
+name: Generate new tool with Codex
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-tool:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Codex to scaffold tool
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/prompts/codex-new-tool.md
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: codex/new-tool
+          commit-message: "Codex: add new tool"
+          title: "Codex: add new tool"
+          body: |
+            This PR was created automatically by the Codex generation workflow.
+
+            Codex summary:
+            ${{ steps.run_codex.outputs.final-message }}
+          author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          delete-branch: true
