@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+const repoRoot = path.resolve(__dirname, '..');
+const skillsRoot = path.join(repoRoot, 'skills');
+const agentsPath = path.join(repoRoot, 'AGENTS.md');
+
+if (!fs.existsSync(skillsRoot)) {
+  console.error(`Skills directory not found at ${skillsRoot}`);
+  process.exit(1);
+}
+
+const skillDirs = fs.readdirSync(skillsRoot, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory());
+
+const skills = skillDirs.map((dirent) => {
+  const skillPath = path.join(skillsRoot, dirent.name, 'SKILL.md');
+  if (!fs.existsSync(skillPath)) {
+    throw new Error(`Missing SKILL.md for skill directory: ${dirent.name}`);
+  }
+
+  const content = fs.readFileSync(skillPath, 'utf8');
+  const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/);
+  if (!frontMatterMatch) {
+    throw new Error(`No front matter found in ${skillPath}`);
+  }
+
+  const frontMatterLines = frontMatterMatch[1]
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const data = {};
+  for (const line of frontMatterLines) {
+    const [key, ...rest] = line.split(':');
+    if (!key || rest.length === 0) {
+      continue;
+    }
+    data[key.trim()] = rest.join(':').trim().replace(/^"|"$/g, '');
+  }
+
+  const { name, description } = data;
+  if (!name || !description) {
+    throw new Error(`Front matter in ${skillPath} must include name and description.`);
+  }
+
+  return {
+    name,
+    description,
+    link: path.join('skills', dirent.name, 'SKILL.md').replace(/\\/g, '/'),
+  };
+});
+
+skills.sort((a, b) => a.name.localeCompare(b.name));
+
+const listLines = skills.map((skill) => `- [${skill.name}](${skill.link}) - ${skill.description}`);
+const skillsBlock = [
+  '<skills>',
+  'You have new skills. If any skill might be relevant then you MUST read it.',
+  '',
+  ...listLines,
+  '</skills>',
+].join('\n');
+
+let agentsContent = fs.readFileSync(agentsPath, 'utf8');
+const skillsTagRegex = /<skills>[\s\S]*?<\/skills>/m;
+
+if (skillsTagRegex.test(agentsContent)) {
+  agentsContent = agentsContent.replace(skillsTagRegex, skillsBlock);
+} else {
+  agentsContent = agentsContent.replace(/\s*$/, '\n');
+  if (!agentsContent.endsWith('\n')) {
+    agentsContent += '\n';
+  }
+  agentsContent = `${agentsContent}\n${skillsBlock}`.replace(/^\n+/, '');
+}
+
+agentsContent = agentsContent.replace(/\s*$/, '\n');
+
+fs.writeFileSync(agentsPath, agentsContent);

@@ -82,3 +82,11 @@ For GitHub integrations, the user's browser may already have `github-device-logi
 ### Gists
 
 See `tools/scratch-pad/index.html` for an example of saving Gists. The URL `https://gistpreview.github.io/?${encodeURIComponent(gistId)}` will render an index.html gist as HTML.
+
+<skills>
+You have new skills. If any skill might be relevant then you MUST read it.
+
+- [cdn-usage](skills/cdn-usage/SKILL.md) - Use when adding external browser dependencies via CDN - Provides CDN selection guidance to ensure reliable script loading.
+- [llm-inference](skills/llm-inference/SKILL.md) - Use when orchestrating Cloudflare LLM calls or prompts - Explains available inference endpoints so the agent selects suitable models.
+- [writing-skills](skills/writing-skills/SKILL.md) - Use when drafting new tool or documentation instructions - Reminds them of required structure so deliverables stay compliant.
+</skills>
