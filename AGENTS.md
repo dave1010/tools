@@ -18,29 +18,6 @@
 
 None.
 
-## CDNs (if needed)
-
-- UMD is probably best, unkess you're composing multiple modern packages and know they expose export syntax.
-- Skip integrity hashes (LLMs get them wrong)
-- LLM training data may get URLs wrong. Add `onerror="alert('Failed to load: ' + this.src)"`
-
-### jsDelivr
-
-- Use npm syntax: https://cdn.jsdelivr.net/npm/package@1 (auto-resolves latest 1.x)
-- Works for ESM and UMD; safe default when unsure.
-
-### cdnjs
-
-- Only for very well-known libraries
-- Eg https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
-- Explicit versions (@1.0.0) since it lacks semver resolution.
-
-### esm.sh
-
-- Use for live ESM transforms, not static files. Transforms TS/TSX on the fly.
-- Eg `import * as THREE from "https://esm.sh/three@0.180.0";`
-- tsx mode: load https://esm.sh/tsx as a module → inline <script type="text/tsx">
-
 ## Styling and Page Layout Guidelines
 
 - Use the shared `/assets/tw.css`
@@ -67,13 +44,7 @@ None.
 
 If the developer reports that JS is completely broken then surface all errors. Eg `window.addEventListener('error', ...`
 
-## LLM Inference
-
-The Cloudflare Pages function `functions/cerebras-chat.ts` provides OpenAI-compatible LLM inference. See `tools/cerebras-llm-inference/index.html` for a working example. The model `gpt-oss-120b` is the best all rounder.
-
-LLMs are not just for chat: they can be used to process any string in any arbitrary way. If making a tool that requires the LLM to respond in a specific way or format then be very clear and explicit in its system prompt; eg what to include/exclude, plain/markdown formatting, length, etc.
-
-## GitHub
+## GitHub Integration
 
 ### GitHub tokens and auth
 
@@ -84,6 +55,7 @@ For GitHub integrations, the user's browser may already have `github-device-logi
 See `tools/scratch-pad/index.html` for an example of saving Gists. The URL `https://gistpreview.github.io/?${encodeURIComponent(gistId)}` will render an index.html gist as HTML.
 
 <skills>
+# Skills
 You have new skills. If any skill might be relevant then you MUST read it.
 
 - [cdn-usage](skills/cdn-usage/SKILL.md) - Use when adding external browser dependencies via CDN - Provides CDN selection guidance to ensure reliable script loading.
