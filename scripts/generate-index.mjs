@@ -38,18 +38,23 @@ for (const entry of entries) {
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
+    if (/^(true|false)$/i.test(value)) {
+      data[key] = value.toLowerCase() === 'true';
+      continue;
+    }
     data[key] = value;
   }
 
   const title = data.title;
   const description = data.description;
   const category = data.category?.trim() || 'Miscellaneous';
+  const featured = data.featured === true;
 
   if (!title || !description) {
     throw new Error(`README.md for tool "${slug}" must define both title and description.`);
   }
 
-  tools.push({ slug, title, description, category });
+  tools.push({ slug, title, description, category, featured });
 }
 
 const escapeHtml = (value) =>
@@ -77,17 +82,34 @@ const orderedCategories = Array.from(toolsByCategory.keys()).sort((a, b) =>
 const categoryId = (category) =>
   `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'misc'}`;
 
-const toolCard = (tool) => `        <li
+const toolCard = (tool) => {
+  const cardBaseClasses =
+    'group relative flex h-full flex-col overflow-hidden rounded-2xl border p-5 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200';
+  const cardStateClasses = tool.featured
+    ? 'border-amber-300/70 bg-amber-500/10 shadow-[0_15px_45px_-15px_rgba(251,191,36,0.65)] hover:-translate-y-1 hover:shadow-[0_20px_55px_-15px_rgba(251,191,36,0.8)]'
+    : 'border-fuchsia-500/30 bg-white/5 hover:-translate-y-1 hover:border-cyan-400/60 hover:bg-white/10';
+  const badge = tool.featured
+    ? `<span class="absolute right-5 top-5 inline-flex items-center gap-1 rounded-full border border-amber-200/60 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-100">Featured</span>`
+    : '';
+  const titleClasses = tool.featured
+    ? 'text-lg font-semibold text-white transition-colors duration-200 group-hover:text-amber-50'
+    : 'text-lg font-semibold text-white transition-colors duration-200 group-hover:text-cyan-200';
+  const accentIconClasses = tool.featured
+    ? 'rounded-full bg-amber-400/20 p-2 text-amber-100 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-amber-50'
+    : 'rounded-full bg-fuchsia-500/20 p-2 text-fuchsia-200 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-white';
+  return `        <li
           data-tool-card
           data-tool-slug="${escapeHtml(tool.slug)}"
           data-tool-title="${escapeHtml(tool.title)}"
           data-tool-description="${escapeHtml(tool.description)}"
           data-tool-category="${escapeHtml(tool.category)}"
+          data-tool-featured="${tool.featured ? 'true' : 'false'}"
         >
-          <a href="/tools/${tool.slug}" class="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-white/5 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-cyan-400/60 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
+          <a href="/tools/${tool.slug}" class="${cardBaseClasses} ${cardStateClasses}">
+            ${badge}
             <div class="flex items-center justify-between gap-3">
-              <span class="text-lg font-semibold text-white transition-colors duration-200 group-hover:text-cyan-200">${escapeHtml(tool.title)}</span>
-              <span aria-hidden="true" class="rounded-full bg-fuchsia-500/20 p-2 text-fuchsia-200 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-white">
+              <span class="${titleClasses}">${escapeHtml(tool.title)}</span>
+              <span aria-hidden="true" class="${accentIconClasses}">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7" />
                 </svg>
@@ -96,6 +118,7 @@ const toolCard = (tool) => `        <li
             <p class="mt-3 text-sm text-white/70">${escapeHtml(tool.description)}</p>
           </a>
         </li>`;
+};
 
 const listItems = toolsAlpha.map((tool) => toolCard(tool)).join('\n');
 

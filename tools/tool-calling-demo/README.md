@@ -1,6 +1,7 @@
 ---
 title: Tool Calling Demo
 description: Watch Cerebras tool calls unfold
+featured: true
 category: Developer
 ---
 

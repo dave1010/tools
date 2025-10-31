@@ -1,6 +1,7 @@
 ---
 title: Regex Playground
 description: Experiment with regular expressions and sample strings
+featured: true
 category: Text
 ---
 
