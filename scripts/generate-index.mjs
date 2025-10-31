@@ -120,6 +120,14 @@ const toolCard = (tool) => {
         </li>`;
 };
 
+const featuredTools = toolsAlpha.filter((tool) => tool.featured);
+const featuredItems =
+  featuredTools.length > 0
+    ? featuredTools.map((tool) => toolCard(tool)).join('\n')
+    : `        <li class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-white/70">
+          No featured tools yet. Check back soon!
+        </li>`;
+
 const listItems = toolsAlpha.map((tool) => toolCard(tool)).join('\n');
 
 const categorySections = orderedCategories
@@ -161,7 +169,7 @@ const tocMarkup = `          <nav class="flex flex-wrap gap-2" aria-label="Tool 
 
 const template = await fs.readFile(templatePath, 'utf8');
 
-const requiredPlaceholders = ['{{TOOLS_TOC}}', '{{TOOLS_BY_CATEGORY}}', '{{TOOLS_AZ}}'];
+const requiredPlaceholders = ['{{TOOLS_TOC}}', '{{TOOLS_BY_CATEGORY}}', '{{TOOLS_AZ}}', '{{TOOLS_FEATURED}}'];
 
 for (const placeholder of requiredPlaceholders) {
   if (!template.includes(placeholder)) {
@@ -172,6 +180,7 @@ for (const placeholder of requiredPlaceholders) {
 let html = template
   .replace('{{TOOLS_TOC}}', tocMarkup)
   .replace('{{TOOLS_BY_CATEGORY}}', categorySections)
+  .replace('{{TOOLS_FEATURED}}', featuredItems)
   .replace('{{TOOLS_AZ}}', listItems);
 
 if (template.includes('{{TOOLS_COUNT}}')) {
