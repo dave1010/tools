@@ -1,6 +1,7 @@
 ---
 title: Bible Verse Explorer
 description: Browse NET Bible passages by book and chapter.
+featured: true
 category: Text
 ---
 

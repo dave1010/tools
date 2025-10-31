@@ -1,6 +1,7 @@
 ---
 title: Prompt to Web Page
 description: Turn a short idea into a rendered web page
+featured: true
 category: Developer
 ---
 
