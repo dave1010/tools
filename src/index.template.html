@@ -124,21 +124,13 @@
             >
               <button
                 type="button"
-                id="tab-featured"
-                data-tab="featured"
-                class="tab-button relative rounded-2xl px-5 py-2 text-white/60 transition duration-200 ease-out hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent after:absolute after:left-2 after:right-2 after:-bottom-[10px] after:h-2 after:rounded-b-full after:bg-transparent after:transition after:duration-200 after:content-['']"
-                role="tab"
-                aria-controls="panel-featured"
-              >
-                Featured
-              </button>
-              <button
-                type="button"
                 id="tab-category"
                 data-tab="category"
                 class="tab-button relative rounded-2xl px-5 py-2 text-white/60 transition duration-200 ease-out hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent after:absolute after:left-2 after:right-2 after:-bottom-[10px] after:h-2 after:rounded-b-full after:bg-transparent after:transition after:duration-200 after:content-['']"
                 role="tab"
                 aria-controls="panel-category"
+                aria-selected="true"
+                tabindex="0"
               >
                 By category
               </button>
@@ -149,28 +141,30 @@
                 class="tab-button relative rounded-2xl px-5 py-2 text-white/60 transition duration-200 ease-out hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent after:absolute after:left-2 after:right-2 after:-bottom-[10px] after:h-2 after:rounded-b-full after:bg-transparent after:transition after:duration-200 after:content-['']"
                 role="tab"
                 aria-controls="panel-az"
+                aria-selected="false"
+                tabindex="-1"
               >
                 A–Z
               </button>
-            </div>
-            <div
-              id="panel-featured"
-              data-panel="featured"
-              class="space-y-8 p-6"
-              role="tabpanel"
-              aria-labelledby="tab-featured"
-            >
-              <ul class="grid gap-4 sm:grid-cols-2">
-{{TOOLS_FEATURED}}
-              </ul>
+              <button
+                type="button"
+                id="tab-featured"
+                data-tab="featured"
+                class="tab-button relative rounded-2xl px-5 py-2 text-white/60 transition duration-200 ease-out hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent after:absolute after:left-2 after:right-2 after:-bottom-[10px] after:h-2 after:rounded-b-full after:bg-transparent after:transition after:duration-200 after:content-['']"
+                role="tab"
+                aria-controls="panel-featured"
+                aria-selected="false"
+                tabindex="-1"
+              >
+                Featured
+              </button>
             </div>
             <div
               id="panel-category"
               data-panel="category"
-              class="hidden space-y-8 p-6"
+              class="space-y-8 p-6"
               role="tabpanel"
               aria-labelledby="tab-category"
-              aria-hidden="true"
             >
 {{TOOLS_TOC}}
 
@@ -186,6 +180,18 @@
             >
               <ul class="grid gap-4 sm:grid-cols-2">
 {{TOOLS_AZ}}
+              </ul>
+            </div>
+            <div
+              id="panel-featured"
+              data-panel="featured"
+              class="hidden space-y-8 p-6"
+              role="tabpanel"
+              aria-labelledby="tab-featured"
+              aria-hidden="true"
+            >
+              <ul class="grid gap-4 sm:grid-cols-2">
+{{TOOLS_FEATURED}}
               </ul>
             </div>
           </div>
@@ -217,7 +223,7 @@
     const tabList = document.querySelector('[data-tablist]');
 
     let activeTabName = null;
-    let preferredTabName = 'featured';
+    let preferredTabName = 'category';
 
     const activateTab = (name, { userInitiated = false } = {}) => {
       if (!name) return;
