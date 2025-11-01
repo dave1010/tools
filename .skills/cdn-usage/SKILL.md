@@ -14,6 +14,14 @@ description: "Use when adding external browser dependencies via CDN - Provides C
 - Use npm syntax: https://cdn.jsdelivr.net/npm/package@1 (auto-resolves latest 1.x)
 - Works for ESM and UMD; safe default when unsure.
 
+Example:
+
+```javascript
+<script type="module">
+import duckdbduckdbWasm from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.30.0/+esm'
+</script>
+```
+
 ### cdnjs
 
 - Only for very well-known libraries
