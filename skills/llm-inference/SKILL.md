@@ -1,6 +1,6 @@
 ---
 name: llm-inference
-description: "Use when orchestrating Cloudflare LLM calls or prompts - Explains available inference endpoints so the agent selects suitable models."
+description: "Use when wanting to interact with any LLM - Explains available inference endpoints so the agent selects suitable models."
 ---
 
 ## LLM Inference
