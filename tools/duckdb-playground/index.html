@@ -128,7 +128,7 @@
       type="module"
       onerror="alert('Failed to load: ' + this.src)"
     >
-      import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-esm.js";
+      import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.30.0/dist/duckdb-esm.js";
 
       const statusBadge = document.getElementById("status-badge");
       const loadSampleButton = document.getElementById("load-sample");
@@ -258,6 +258,8 @@
       };
 
       const initializeDuckDB = async () => {
+        let workerUrl;
+        let worker;
         try {
           setStatus("Fetching bundles…");
           const bundles = duckdb.getJsDelivrBundles();
@@ -268,7 +270,12 @@
           }
 
           setStatus("Starting worker…");
-          const worker = new Worker(bundle.mainWorker);
+          workerUrl = URL.createObjectURL(
+            new Blob([`importScripts("${bundle.mainWorker}");`], {
+              type: "text/javascript",
+            }),
+          );
+          worker = new Worker(workerUrl);
           const logger = new duckdb.ConsoleLogger();
           db = new duckdb.AsyncDuckDB(logger, worker);
 
@@ -287,6 +294,13 @@
           console.error(error);
           setStatus("DuckDB failed to load", "error");
           showMessage(error instanceof Error ? error.message : "Failed to initialize DuckDB.", "error");
+        } finally {
+          if (!loaded && worker) {
+            worker.terminate();
+          }
+          if (workerUrl) {
+            URL.revokeObjectURL(workerUrl);
+          }
         }
       };
 
