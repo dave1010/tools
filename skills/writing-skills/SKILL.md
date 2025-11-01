@@ -1,6 +1,6 @@
 ---
 name: writing-skills
-description: "Use when creating or updating SKILL.md documentation - Guides them through required front matter and consistent markdown content."
+description: "Use when creating or updating SKILL.md documentation - Explains how and why to create a skill."
 ---
 
 Skills are used to for context that *may* be useful to a coding agent, without bloating LLM context at times theyre not useful.
@@ -26,6 +26,6 @@ Skills live in `/skills`, with each skill having its own directory.
 
 Other files, like scripts or data, may live in the directory and be referenced by the skill.
 
-## Maintenance
+## AGENTS.md
 
-Run `scripts/skills-to-agents-md` after updates to regenerate the skills list in AGENTS.md.
+A GitHub Action automatically regenerates the skills list in AGENTS.md.
