@@ -77,6 +77,41 @@
               Files stay in your browser. The tool auto-detects formats and creates a table you can query.
             </p>
           </form>
+
+          <form id="remote-form" class="space-y-3 rounded-xl border border-gray-200 bg-brand-50/60 p-3">
+            <h3 class="font-medium text-gray-900">Load from URL</h3>
+            <div class="space-y-1">
+              <label for="remote-url" class="text-sm font-medium text-gray-700">Remote CSV, Parquet, or JSON URL</label>
+              <input
+                id="remote-url"
+                name="remote-url"
+                type="url"
+                placeholder="https://example.com/data.csv"
+                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                required
+              />
+            </div>
+            <div class="space-y-1">
+              <label for="remote-table" class="text-sm font-medium text-gray-700">Table name</label>
+              <input
+                id="remote-table"
+                type="text"
+                placeholder="auto-filled from URL"
+                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <button
+              id="import-remote"
+              type="submit"
+              class="btn btn-secondary w-full justify-center disabled:cursor-not-allowed"
+              disabled
+            >
+              Load remote data
+            </button>
+            <p class="text-xs text-gray-500">
+              Data is fetched in your browser and stored in-memory. Ensure the server allows cross-origin requests.
+            </p>
+          </form>
         </div>
       </section>
 
@@ -136,6 +171,10 @@
       const fileInput = document.getElementById("file-input");
       const tableNameInput = document.getElementById("table-name");
       const importButton = document.getElementById("import-file");
+      const remoteForm = document.getElementById("remote-form");
+      const remoteUrlInput = document.getElementById("remote-url");
+      const remoteTableInput = document.getElementById("remote-table");
+      const importRemoteButton = document.getElementById("import-remote");
       const sqlInput = document.getElementById("sql-input");
       const runButton = document.getElementById("run-query");
       const clearButton = document.getElementById("clear-results");
@@ -148,6 +187,43 @@
       let conn;
       let loaded = false;
       let fileCounter = 0;
+
+      const supportedExtensions = ["csv", "tsv", "txt", "parquet", "json", "ndjson"];
+
+      const detectExtension = (value) => {
+        if (!value) {
+          return "";
+        }
+        const withoutQuery = value.split("?")[0].split("#")[0];
+        const segments = withoutQuery.split(".");
+        if (segments.length < 2) {
+          return "";
+        }
+        return segments.pop().toLowerCase();
+      };
+
+      const buildCreateTableQuery = (identifier, fileName, extension) => {
+        if (["csv", "tsv", "txt"].includes(extension)) {
+          return `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_csv_auto('${fileName}')`;
+        }
+        if (extension === "parquet") {
+          return `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_parquet('${fileName}')`;
+        }
+        return `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_json_auto('${fileName}')`;
+      };
+
+      const deriveNameFromUrl = (url) => {
+        try {
+          const parsed = new URL(url);
+          const segments = parsed.pathname.split("/").filter(Boolean);
+          if (segments.length) {
+            return segments[segments.length - 1];
+          }
+        } catch (error) {
+          console.warn("Failed to parse URL", error);
+        }
+        return "remote_table";
+      };
 
       const setStatus = (text, variant = "info") => {
         statusBadge.textContent = text;
@@ -287,6 +363,7 @@
           setStatus("DuckDB ready", "ready");
           loadSampleButton.disabled = false;
           importButton.disabled = false;
+          importRemoteButton.disabled = false;
           runButton.disabled = false;
 
           sqlInput.value = "SELECT * FROM missions LIMIT 5;";
@@ -356,8 +433,8 @@
           return;
         }
 
-        const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-        const supported = ["csv", "tsv", "txt", "parquet", "json", "ndjson"];
+        const extension = detectExtension(file.name);
+        const supported = supportedExtensions;
         if (!supported.includes(extension)) {
           showMessage("Unsupported file type. Use CSV, Parquet, or JSON.", "error");
           return;
@@ -371,15 +448,7 @@
         try {
           await db.registerFileHandle(uniqueName, file);
 
-          let query;
-          if (["csv", "tsv", "txt"].includes(extension)) {
-            query = `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_csv_auto('${uniqueName}')`;
-          } else if (extension === "parquet") {
-            query = `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_parquet('${uniqueName}')`;
-          } else {
-            query = `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_json_auto('${uniqueName}')`;
-          }
-
+          const query = buildCreateTableQuery(identifier, uniqueName, extension);
           await conn.query(query);
           showMessage(`Loaded file into table "${identifier}".`, "success");
         } catch (error) {
@@ -388,6 +457,52 @@
         } finally {
           setStatus("DuckDB ready", "ready");
           importButton.disabled = false;
+        }
+      };
+
+      const loadRemoteIntoDuckDB = async (event) => {
+        event.preventDefault();
+        if (!loaded || !conn) {
+          return;
+        }
+
+        const url = remoteUrlInput.value.trim();
+        if (!url) {
+          showMessage("Enter a URL to load.", "error");
+          return;
+        }
+
+        const extension = detectExtension(url);
+        if (!supportedExtensions.includes(extension)) {
+          showMessage("Unsupported URL file type. Use CSV, Parquet, or JSON.", "error");
+          return;
+        }
+
+        const identifier = toIdentifier(remoteTableInput.value || deriveNameFromUrl(url).replace(/\.[^.]+$/, ""));
+        const uniqueName = `remote_${++fileCounter}`;
+
+        importRemoteButton.disabled = true;
+        setStatus("Fetching remote data…");
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch data (status ${response.status}).`);
+          }
+          const buffer = new Uint8Array(await response.arrayBuffer());
+          await db.registerFileBuffer(uniqueName, buffer);
+
+          const query = buildCreateTableQuery(identifier, uniqueName, extension);
+          await conn.query(query);
+          showMessage(`Loaded remote data into table "${identifier}".`, "success");
+        } catch (error) {
+          console.error(error);
+          showMessage(
+            error instanceof Error ? error.message : "Failed to import remote data.",
+            "error",
+          );
+        } finally {
+          setStatus("DuckDB ready", "ready");
+          importRemoteButton.disabled = false;
         }
       };
 
@@ -445,6 +560,7 @@
 
       loadSampleButton.addEventListener("click", loadSampleData);
       uploadForm.addEventListener("submit", loadFileIntoDuckDB);
+      remoteForm.addEventListener("submit", loadRemoteIntoDuckDB);
       runButton.addEventListener("click", runQuery);
       clearButton.addEventListener("click", () => {
         hideMessage();
@@ -454,6 +570,22 @@
         if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
           event.preventDefault();
           runQuery();
+        }
+      });
+
+      remoteUrlInput.addEventListener("input", () => {
+        if (remoteUrlInput.value) {
+          const name = deriveNameFromUrl(remoteUrlInput.value);
+          if (!remoteTableInput.value || remoteTableInput.dataset.autofill !== "false") {
+            remoteTableInput.value = toIdentifier(name.replace(/\.[^.]+$/, ""));
+            remoteTableInput.dataset.autofill = "true";
+          }
+        }
+      });
+
+      remoteTableInput.addEventListener("input", () => {
+        if (remoteTableInput.dataset.autofill === "true") {
+          remoteTableInput.dataset.autofill = "false";
         }
       });
 
