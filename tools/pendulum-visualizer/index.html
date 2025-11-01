@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pendulum Studio</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/70 to-white">
+    <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Pendulum Studio</h1>
+        <p class="text-gray-600">
+          Explore the graceful motion and chaos of single, double, and triple pendulums.
+          Tune the rods, gravity, and damping, drag bobs to new starting points, and
+          trace their paths in real time.
+        </p>
+      </header>
+
+      <section class="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,280px)] md:items-start">
+          <div class="order-2 flex flex-col gap-3 md:order-1">
+            <div class="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-900">
+              <canvas
+                id="pendulumCanvas"
+                class="block h-[420px] w-full md:h-[480px]"
+                role="img"
+                aria-label="Interactive pendulum simulation"
+              ></canvas>
+              <div
+                class="pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-between rounded-full bg-gray-900/75 px-3 py-1 text-[11px] font-medium text-gray-100"
+              >
+                <span id="modeLabel">Single pendulum</span>
+                <span>Drag a bob to set its start position</span>
+              </div>
+            </div>
+            <p class="text-xs text-gray-500">
+              Trails capture the outermost bob. Use the clear button if you want a fresh canvas.
+            </p>
+          </div>
+
+          <form id="controlPanel" class="order-1 space-y-4 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-sm text-gray-700 md:order-2" autocomplete="off">
+            <div class="space-y-1">
+              <label for="segmentSelect" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Pendulum</label>
+              <select id="segmentSelect" class="mt-1 block w-full rounded-lg border-gray-300 bg-white py-2 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500">
+                <option value="1">Single</option>
+                <option value="2">Double</option>
+                <option value="3">Triple</option>
+              </select>
+            </div>
+
+            <div id="lengthControls" class="space-y-3"></div>
+
+            <div class="space-y-1">
+              <label for="gravitySlider" class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <span>Gravity</span>
+                <span id="gravityValue" class="font-mono text-xs text-gray-600">0.90</span>
+              </label>
+              <input id="gravitySlider" type="range" min="0.2" max="1.8" step="0.05" value="0.9" class="w-full accent-brand-600" />
+            </div>
+
+            <div class="space-y-1">
+              <label for="dampingSlider" class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <span>Damping</span>
+                <span id="dampingValue" class="font-mono text-xs text-gray-600">0.995</span>
+              </label>
+              <input id="dampingSlider" type="range" min="0.94" max="0.999" step="0.001" value="0.995" class="w-full accent-brand-600" />
+            </div>
+
+            <div class="flex items-center justify-between rounded-xl border border-brand-200 bg-brand-50/80 px-3 py-2 text-xs text-brand-800">
+              <label class="flex items-center gap-2">
+                <input id="trailToggle" type="checkbox" checked class="rounded border-brand-300 text-brand-600 focus:ring-brand-500" />
+                <span>Show trail</span>
+              </label>
+              <button type="button" id="clearTrail" class="btn btn-secondary px-3 py-1 text-xs">Clear</button>
+            </div>
+
+            <button type="button" id="resetButton" class="btn btn-primary w-full">Reset pendulum</button>
+          </form>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/pendulum-visualizer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const canvas = document.getElementById('pendulumCanvas');
+      const ctx = canvas.getContext('2d');
+      const segmentSelect = document.getElementById('segmentSelect');
+      const lengthControls = document.getElementById('lengthControls');
+      const gravitySlider = document.getElementById('gravitySlider');
+      const gravityValue = document.getElementById('gravityValue');
+      const dampingSlider = document.getElementById('dampingSlider');
+      const dampingValue = document.getElementById('dampingValue');
+      const trailToggle = document.getElementById('trailToggle');
+      const clearTrailButton = document.getElementById('clearTrail');
+      const resetButton = document.getElementById('resetButton');
+      const modeLabel = document.getElementById('modeLabel');
+
+      const state = {
+        segmentCount: 1,
+        lengths: [200],
+        points: [],
+        gravity: 0.9,
+        damping: 0.995,
+        anchor: { x: 0, y: 0 },
+        draggingIndex: null,
+        trail: [],
+        showTrail: true,
+      };
+
+      const MAX_TRAIL_POINTS = 1200;
+      const LENGTH_MIN = 60;
+      const LENGTH_MAX = 260;
+
+      function setCanvasSize() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const targetWidth = Math.floor(rect.width * dpr);
+        const targetHeight = Math.floor(rect.height * dpr);
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        const previousAnchor = { x: state.anchor.x, y: state.anchor.y };
+        state.anchor.x = rect.width / 2;
+        state.anchor.y = 70;
+        const dx = state.anchor.x - previousAnchor.x;
+        const dy = state.anchor.y - previousAnchor.y;
+        if ((dx !== 0 || dy !== 0) && state.points.length) {
+          for (const point of state.points) {
+            point.x += dx;
+            point.y += dy;
+            point.prevX += dx;
+            point.prevY += dy;
+          }
+        }
+      }
+
+      function buildLengthControls() {
+        lengthControls.innerHTML = '';
+        state.lengths.forEach((length, index) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'space-y-1';
+          const label = document.createElement('label');
+          label.className = 'flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500';
+          label.setAttribute('for', `length-${index}`);
+          label.innerHTML = `<span>Rod ${index + 1}</span><span class="font-mono text-xs text-gray-600"><span id="length-value-${index}">${length.toFixed(0)}</span> px</span>`;
+          const input = document.createElement('input');
+          input.type = 'range';
+          input.min = String(LENGTH_MIN);
+          input.max = String(LENGTH_MAX);
+          input.step = '1';
+          input.value = String(length.toFixed(0));
+          input.id = `length-${index}`;
+          input.className = 'w-full accent-brand-600';
+          input.addEventListener('input', (event) => {
+            const value = Number(event.target.value);
+            state.lengths[index] = value;
+            const valueLabel = document.getElementById(`length-value-${index}`);
+            if (valueLabel) {
+              valueLabel.textContent = value.toFixed(0);
+            }
+            applyLengthChanges();
+          });
+          wrapper.appendChild(label);
+          wrapper.appendChild(input);
+          lengthControls.appendChild(wrapper);
+        });
+      }
+
+      function createPendulumPoints() {
+        state.points = [];
+        for (let i = 0; i < state.segmentCount; i++) {
+          const prev = i === 0 ? state.anchor : state.points[i - 1];
+          const point = {
+            x: prev.x,
+            y: prev.y + state.lengths[i],
+            prevX: prev.x,
+            prevY: prev.y + state.lengths[i],
+            dragged: false,
+          };
+          state.points.push(point);
+        }
+        state.trail.length = 0;
+        state.draggingIndex = null;
+      }
+
+      function setSegmentCount(count) {
+        const defaults = {
+          1: [220],
+          2: [200, 180],
+          3: [180, 160, 140],
+        };
+        state.segmentCount = count;
+        segmentSelect.value = String(count);
+        state.lengths = (defaults[count] || new Array(count).fill(180)).map((value) => Math.max(LENGTH_MIN, Math.min(LENGTH_MAX, value)));
+        createPendulumPoints();
+        buildLengthControls();
+        updateModeLabel();
+      }
+
+      function updateModeLabel() {
+        const labels = {
+          1: 'Single pendulum',
+          2: 'Double pendulum',
+          3: 'Triple pendulum',
+        };
+        modeLabel.textContent = labels[state.segmentCount] || `${state.segmentCount}-link pendulum`;
+      }
+
+      function applyLengthChanges() {
+        for (let i = 0; i < state.points.length; i++) {
+          const start = i === 0 ? state.anchor : state.points[i - 1];
+          const end = state.points[i];
+          const dx = end.x - start.x;
+          const dy = end.y - start.y;
+          const dist = Math.hypot(dx, dy);
+          const target = state.lengths[i];
+          if (dist < 1e-3) {
+            end.x = start.x;
+            end.y = start.y + target;
+          } else {
+            const ratio = target / dist;
+            end.x = start.x + dx * ratio;
+            end.y = start.y + dy * ratio;
+          }
+          end.prevX = end.x;
+          end.prevY = end.y;
+        }
+        state.trail.length = 0;
+      }
+
+      function integrate() {
+        for (let i = 0; i < state.points.length; i++) {
+          const point = state.points[i];
+          if (point.dragged) {
+            point.prevX = point.x;
+            point.prevY = point.y;
+            continue;
+          }
+          const velocityX = (point.x - point.prevX) * state.damping;
+          const velocityY = (point.y - point.prevY) * state.damping + state.gravity;
+          point.prevX = point.x;
+          point.prevY = point.y;
+          point.x += velocityX;
+          point.y += velocityY;
+        }
+      }
+
+      function satisfyConstraints() {
+        const iterations = 6;
+        for (let iter = 0; iter < iterations; iter++) {
+          for (let i = 0; i < state.points.length; i++) {
+            const start = i === 0 ? state.anchor : state.points[i - 1];
+            const end = state.points[i];
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const dist = Math.hypot(dx, dy) || 1e-6;
+            const diff = (dist - state.lengths[i]) / dist;
+
+            if (i === 0) {
+              if (!end.dragged) {
+                end.x -= dx * diff;
+                end.y -= dy * diff;
+              }
+            } else {
+              if (!state.points[i - 1].dragged) {
+                state.points[i - 1].x += dx * diff * 0.5;
+                state.points[i - 1].y += dy * diff * 0.5;
+              }
+              if (!end.dragged) {
+                end.x -= dx * diff * 0.5;
+                end.y -= dy * diff * 0.5;
+              }
+            }
+          }
+        }
+      }
+
+      function updateTrail() {
+        if (!state.showTrail || state.points.length === 0) return;
+        const last = state.points[state.points.length - 1];
+        state.trail.push({ x: last.x, y: last.y });
+        if (state.trail.length > MAX_TRAIL_POINTS) {
+          state.trail.splice(0, state.trail.length - MAX_TRAIL_POINTS);
+        }
+      }
+
+      function draw() {
+        const { width, height } = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, width, height);
+
+        // background subtle gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, 'rgba(15,23,42,0.9)');
+        gradient.addColorStop(1, 'rgba(15,23,42,0.6)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // draw trail
+        if (state.showTrail && state.trail.length > 1) {
+          ctx.beginPath();
+          const first = state.trail[0];
+          ctx.moveTo(first.x, first.y);
+          for (let i = 1; i < state.trail.length; i++) {
+            const point = state.trail[i];
+            ctx.lineTo(point.x, point.y);
+          }
+          ctx.strokeStyle = 'rgba(59,130,246,0.45)';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+        }
+
+        // draw rods and bobs
+        let start = state.anchor;
+        ctx.lineWidth = 2.4;
+        ctx.strokeStyle = 'rgba(226,232,240,0.85)';
+        ctx.fillStyle = '#1d4ed8';
+
+        for (let i = 0; i < state.points.length; i++) {
+          const point = state.points[i];
+          ctx.beginPath();
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(point.x, point.y);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 10, 0, Math.PI * 2);
+          ctx.fillStyle = point.dragged ? '#facc15' : '#3b82f6';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(148,163,184,0.9)';
+          ctx.stroke();
+
+          start = point;
+          ctx.strokeStyle = 'rgba(226,232,240,0.85)';
+        }
+
+        // draw anchor
+        ctx.beginPath();
+        ctx.fillStyle = '#f8fafc';
+        ctx.arc(state.anchor.x, state.anchor.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = 'rgba(148,163,184,0.8)';
+        ctx.stroke();
+      }
+
+      function step() {
+        integrate();
+        satisfyConstraints();
+        updateTrail();
+        draw();
+        requestAnimationFrame(step);
+      }
+
+      function updateGravityDisplay() {
+        gravityValue.textContent = state.gravity.toFixed(2);
+      }
+
+      function updateDampingDisplay() {
+        dampingValue.textContent = state.damping.toFixed(3);
+      }
+
+      function onPointerDown(event) {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        let closestIndex = -1;
+        let minDistance = Infinity;
+        for (let i = 0; i < state.points.length; i++) {
+          const point = state.points[i];
+          const distance = Math.hypot(point.x - x, point.y - y);
+          if (distance < 28 && distance < minDistance) {
+            minDistance = distance;
+            closestIndex = i;
+          }
+        }
+        if (closestIndex !== -1) {
+          state.draggingIndex = closestIndex;
+          const point = state.points[closestIndex];
+          point.dragged = true;
+          point.x = x;
+          point.y = y;
+          point.prevX = x;
+          point.prevY = y;
+          canvas.setPointerCapture(event.pointerId);
+          state.trail.length = 0;
+        }
+      }
+
+      function onPointerMove(event) {
+        if (state.draggingIndex === null) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const point = state.points[state.draggingIndex];
+        point.x = x;
+        point.y = y;
+        point.prevX = x;
+        point.prevY = y;
+      }
+
+      function endDrag(event) {
+        if (state.draggingIndex === null) return;
+        const point = state.points[state.draggingIndex];
+        point.dragged = false;
+        point.prevX = point.x;
+        point.prevY = point.y;
+        state.draggingIndex = null;
+        if (event) {
+          const hasCapture = typeof canvas.hasPointerCapture === 'function' ? canvas.hasPointerCapture(event.pointerId) : false;
+          if (hasCapture) {
+            canvas.releasePointerCapture(event.pointerId);
+          }
+        }
+      }
+
+      segmentSelect.addEventListener('change', (event) => {
+        const count = Number(event.target.value);
+        setSegmentCount(count);
+        applyLengthChanges();
+      });
+
+      gravitySlider.addEventListener('input', (event) => {
+        state.gravity = Number(event.target.value);
+        updateGravityDisplay();
+      });
+
+      dampingSlider.addEventListener('input', (event) => {
+        state.damping = Number(event.target.value);
+        updateDampingDisplay();
+      });
+
+      trailToggle.addEventListener('change', (event) => {
+        state.showTrail = event.target.checked;
+        if (!state.showTrail) {
+          state.trail.length = 0;
+        }
+      });
+
+      clearTrailButton.addEventListener('click', () => {
+        state.trail.length = 0;
+      });
+
+      resetButton.addEventListener('click', () => {
+        createPendulumPoints();
+        applyLengthChanges();
+      });
+
+      canvas.addEventListener('pointerdown', onPointerDown);
+      canvas.addEventListener('pointermove', onPointerMove);
+      canvas.addEventListener('pointerup', endDrag);
+      canvas.addEventListener('pointercancel', endDrag);
+
+      window.addEventListener('resize', () => {
+        setCanvasSize();
+      });
+
+      function init() {
+        setCanvasSize();
+        setSegmentCount(Number(segmentSelect.value) || 1);
+        updateGravityDisplay();
+        updateDampingDisplay();
+        requestAnimationFrame(step);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
