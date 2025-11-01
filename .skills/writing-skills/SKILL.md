@@ -7,7 +7,7 @@ Skills are used to for context that *may* be useful to a coding agent, without b
 
 Skills are only worthwhile if the coding agent fails a task without the skill.
 
-Skills live in `/skills`, with each skill having its own directory.
+Skills live in `/.skills`, with each skill having its own directory.
 
 ## SKILL.md
 

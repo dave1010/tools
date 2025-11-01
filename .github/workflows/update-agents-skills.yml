@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'skills/**'
+      - '.skills/**'
   workflow_dispatch:
 
 jobs:

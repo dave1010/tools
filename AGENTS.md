@@ -50,8 +50,8 @@ If the developer reports that JS is completely broken then surface all errors. E
 
 You have new skills. If any skill might be relevant then you MUST read it.
 
-- [cdn-usage](skills/cdn-usage/SKILL.md) - Use when adding external browser dependencies via CDN - Provides CDN selection guidance to ensure reliable script loading.
-- [github-integration](skills/github-integration/SKILL.md) - Use when building GitHub-based features - Explains auth token usage, Gist reading/writing and rendering helpers.
-- [llm-inference](skills/llm-inference/SKILL.md) - Use when wanting to interact with any LLM - Explains available inference endpoints so the agent selects suitable models.
-- [writing-skills](skills/writing-skills/SKILL.md) - Use when creating or updating SKILL.md documentation - Explains how and why to create a skill.
+- [cdn-usage](.skills/cdn-usage/SKILL.md) - Use when adding external browser dependencies via CDN - Provides CDN selection guidance to ensure reliable script loading.
+- [github-integration](.skills/github-integration/SKILL.md) - Use when building GitHub-based features - Explains auth token usage, Gist reading/writing and rendering helpers.
+- [llm-inference](.skills/llm-inference/SKILL.md) - Use when wanting to interact with any LLM - Explains available inference endpoints so the agent selects suitable models.
+- [writing-skills](.skills/writing-skills/SKILL.md) - Use when creating or updating SKILL.md documentation - Explains how and why to create a skill.
 </skills>
