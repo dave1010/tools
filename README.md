@@ -64,6 +64,7 @@ Tools live in the [`./tools`](./tools) directory.
 
 - [3D Game of Life](https://tools.dave.engineer/tools/3d-game-of-life) — Explore animated voxel life simulation
 - [Fractal Playground](https://tools.dave.engineer/tools/fractal-playground) — Interactive Mandelbrot and Julia explorer
+- [Map Explorer](https://tools.dave.engineer/tools/map-explorer) — Full screen map with geolocation button
 - [Perspective Grid Designer](https://tools.dave.engineer/tools/perspective-grid-designer) — Interactive vanishing-point grid generator
 
 <!-- TOOLS-LIST:END -->
