@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GBFS Explorer</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css">
+  <style>
+    #map {
+      height: 24rem;
+    }
+
+    @media (min-width: 768px) {
+      #map {
+        height: 32rem;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+    <header class="space-y-2">
+      <h1 class="text-3xl font-semibold text-brand-700">GBFS Explorer</h1>
+      <p class="text-slate-600">Browse bike, scooter, and other shared mobility feeds, then visualize the available stations and geofencing zones on a map.</p>
+    </header>
+
+    <section class="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div class="grid gap-4 md:grid-cols-2">
+        <label class="space-y-1 text-sm font-medium text-slate-700" for="country-select">
+          Country
+          <select id="country-select" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500" aria-describedby="country-help" disabled>
+            <option value="">Loading…</option>
+          </select>
+          <p id="country-help" class="text-xs font-normal text-slate-500">Filtered list of GBFS schemes by ISO country code.</p>
+        </label>
+
+        <label class="space-y-1 text-sm font-medium text-slate-700" for="scheme-select">
+          Scheme
+          <select id="scheme-select" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500" disabled aria-describedby="scheme-help">
+            <option value="">Select a country to list schemes</option>
+          </select>
+          <p id="scheme-help" class="text-xs font-normal text-slate-500">Names are shown with their location for quick scanning.</p>
+        </label>
+      </div>
+
+      <form id="custom-form" class="space-y-2" autocomplete="off">
+        <label class="block text-sm font-medium text-slate-700" for="custom-url">Custom auto-discovery URL</label>
+        <div class="flex flex-col gap-2 md:flex-row">
+          <input id="custom-url" type="url" inputmode="url" placeholder="https://example.com/path/gbfs.json" class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500" aria-describedby="custom-help">
+          <button type="submit" class="btn btn-primary md:w-auto">Load</button>
+        </div>
+        <p id="custom-help" class="text-xs text-slate-500">Paste any valid GBFS auto-discovery endpoint if it is not listed above.</p>
+      </form>
+
+      <div class="space-y-2">
+        <h2 class="text-sm font-semibold text-slate-700">Available feeds</h2>
+        <div id="feed-list" class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
+          Choose a scheme to list its GBFS feeds.
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <h2 class="text-sm font-semibold text-slate-700">Status</h2>
+        <p id="status" class="text-sm text-slate-600">Loading GBFS directory…</p>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div id="map" role="presentation" aria-hidden="true"></div>
+    </section>
+
+    <footer class="py-6 text-center text-sm text-slate-500">
+      <div class="flex justify-center gap-4">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+        <a href="https://github.com/dave1010/tools/tree/main/tools/gbfs-explorer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+      </div>
+    </footer>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <script>
+    (function () {
+      const CSV_URL = 'https://raw.githubusercontent.com/MobilityData/gbfs/master/systems.csv';
+      const countrySelect = document.getElementById('country-select');
+      const schemeSelect = document.getElementById('scheme-select');
+      const customForm = document.getElementById('custom-form');
+      const customUrlInput = document.getElementById('custom-url');
+      const feedList = document.getElementById('feed-list');
+      const statusEl = document.getElementById('status');
+
+      let schemes = [];
+      let mapLoaded = false;
+      let currentPopup = null;
+      let currentRequestToken = 0;
+      let map = null;
+      let pendingStationGeoJSON = null;
+      let pendingGeofenceGeoJSON = null;
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function updateStatus(message, type = 'info') {
+        statusEl.textContent = message;
+        statusEl.className = type === 'error'
+          ? 'text-sm text-red-600'
+          : 'text-sm text-slate-600';
+      }
+
+      function splitCSVLine(line) {
+        const result = [];
+        let current = '';
+        let insideQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            if (insideQuotes && line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              insideQuotes = !insideQuotes;
+            }
+          } else if (char === ',' && !insideQuotes) {
+            result.push(current);
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current);
+        return result.map((value) => value.trim());
+      }
+
+      function parseCSV(text) {
+        const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '');
+        if (lines.length <= 1) {
+          return [];
+        }
+        const headers = splitCSVLine(lines[0]);
+        return lines.slice(1).map((line) => {
+          const values = splitCSVLine(line);
+          const record = {};
+          headers.forEach((header, index) => {
+            record[header] = values[index] ?? '';
+          });
+          return record;
+        });
+      }
+
+      function groupByCountry(data) {
+        const map = new Map();
+        for (const entry of data) {
+          const code = entry['Country Code'] || '??';
+          if (!map.has(code)) {
+            map.set(code, []);
+          }
+          map.get(code).push(entry);
+        }
+        for (const list of map.values()) {
+          list.sort((a, b) => {
+            const nameA = `${a.Name || ''} ${a.Location || ''}`.trim().toLowerCase();
+            const nameB = `${b.Name || ''} ${b.Location || ''}`.trim().toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+        }
+        return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+      }
+
+      function renderCountryOptions(data) {
+        const grouped = groupByCountry(data);
+        countrySelect.innerHTML = '<option value="">Select a country</option>' +
+          grouped.map(([code]) => `<option value="${escapeHtml(code)}">${escapeHtml(code)}</option>`).join('');
+        countrySelect.disabled = false;
+        updateStatus('Pick a country and scheme to explore its feeds.');
+      }
+
+      function renderSchemesForCountry(code) {
+        if (!code) {
+          schemeSelect.innerHTML = '<option value="">Select a country to list schemes</option>';
+          schemeSelect.disabled = true;
+          return;
+        }
+        const options = schemes.filter((entry) => entry['Country Code'] === code);
+        if (!options.length) {
+          schemeSelect.innerHTML = '<option value="">No schemes found for this country</option>';
+          schemeSelect.disabled = true;
+          return;
+        }
+        schemeSelect.innerHTML = '<option value="">Select a scheme</option>' + options.map((entry) => {
+          const label = [entry.Name, entry.Location].filter(Boolean).join(' — ');
+          const url = entry['Auto-Discovery URL'] || '';
+          const disabled = url ? '' : 'disabled';
+          const fallback = entry.Name || entry['System ID'] || entry.System || 'Unnamed scheme';
+          return `<option value="${escapeHtml(url)}" ${disabled}>${escapeHtml(label || fallback)}</option>`;
+        }).join('');
+        schemeSelect.disabled = false;
+      }
+
+      function listFeeds(feeds, emptyMessage = 'No feeds published in the auto-discovery file.') {
+        if (!feeds || !feeds.length) {
+          feedList.innerHTML = `<p class="text-sm text-slate-500">${escapeHtml(emptyMessage)}</p>`;
+          return;
+        }
+        const content = feeds.map((feed) => {
+          const name = escapeHtml(feed.name || 'unknown');
+          const url = feed.url;
+          if (!url) {
+            return `<div class="flex items-center justify-between gap-2 rounded-lg bg-slate-100 px-3 py-2"><span>${name}</span><span class="text-xs text-slate-500">Missing URL</span></div>`;
+          }
+          return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="flex items-center justify-between gap-2 rounded-lg bg-slate-100 px-3 py-2 hover:bg-slate-200"><span>${name}</span><span class="text-xs text-brand-600">Open</span></a>`;
+        }).join('');
+        feedList.innerHTML = `<div class="grid gap-2">${content}</div>`;
+      }
+
+      function flattenCoordinates(coords, accumulator) {
+        if (!Array.isArray(coords)) {
+          return;
+        }
+        if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+          accumulator.push(coords);
+          return;
+        }
+        for (const item of coords) {
+          flattenCoordinates(item, accumulator);
+        }
+      }
+
+      function computeBounds(stationsGeoJSON, geofencingGeoJSON) {
+        const points = [];
+        if (stationsGeoJSON && Array.isArray(stationsGeoJSON.features)) {
+          for (const feature of stationsGeoJSON.features) {
+            const coords = feature?.geometry?.coordinates;
+            if (Array.isArray(coords) && coords.length >= 2) {
+              points.push(coords);
+            }
+          }
+        }
+        if (geofencingGeoJSON && Array.isArray(geofencingGeoJSON.features)) {
+          for (const feature of geofencingGeoJSON.features) {
+            flattenCoordinates(feature?.geometry?.coordinates, points);
+          }
+        }
+        if (!points.length) {
+          return null;
+        }
+        let minLng = points[0][0];
+        let minLat = points[0][1];
+        let maxLng = points[0][0];
+        let maxLat = points[0][1];
+        for (const [lng, lat] of points) {
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+        return [[minLng, minLat], [maxLng, maxLat]];
+      }
+
+      function getFeedUrl(autoData, feedName) {
+        if (!autoData) {
+          return null;
+        }
+        const locales = autoData.data ? Object.values(autoData.data) : [];
+        for (const locale of locales) {
+          const feeds = Array.isArray(locale?.feeds) ? locale.feeds : [];
+          for (const feed of feeds) {
+            if (feed.name === feedName) {
+              return feed.url || null;
+            }
+          }
+        }
+        return null;
+      }
+
+      function extractFeeds(autoData) {
+        const feedsByLocale = autoData?.data ? Object.values(autoData.data) : [];
+        const seen = new Map();
+        for (const locale of feedsByLocale) {
+          for (const feed of locale?.feeds || []) {
+            if (!seen.has(feed.name)) {
+              seen.set(feed.name, feed);
+            }
+          }
+        }
+        return Array.from(seen.values());
+      }
+
+      function toCount(value) {
+        if (value === null || value === undefined || value === '') {
+          return '';
+        }
+        const num = Number(value);
+        return Number.isFinite(num) ? num : value;
+      }
+
+      function toYesNo(value) {
+        if (typeof value === 'boolean') {
+          return value ? 'Yes' : 'No';
+        }
+        if (typeof value === 'number') {
+          if (value === 1) return 'Yes';
+          if (value === 0) return 'No';
+        }
+        if (typeof value === 'string') {
+          const normalized = value.trim().toLowerCase();
+          if (['1', 'true', 'yes'].includes(normalized)) return 'Yes';
+          if (['0', 'false', 'no'].includes(normalized)) return 'No';
+        }
+        return '';
+      }
+
+      function buildStationFeatures(stationInfo, stationStatus) {
+        const statusMap = new Map();
+        const stations = Array.isArray(stationStatus?.data?.stations) ? stationStatus.data.stations : [];
+        for (const station of stations) {
+          if (!station || typeof station.station_id === 'undefined') continue;
+          statusMap.set(String(station.station_id), station);
+        }
+        const infoStations = Array.isArray(stationInfo?.data?.stations)
+          ? stationInfo.data.stations
+          : Array.isArray(stationInfo?.data?.stationsInformation)
+            ? stationInfo.data.stationsInformation
+            : [];
+        const features = [];
+        for (const info of infoStations) {
+          const lon = Number(info?.lon);
+          const lat = Number(info?.lat);
+          if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+            continue;
+          }
+          const stationId = info.station_id != null ? String(info.station_id) : '';
+          const status = statusMap.get(stationId);
+          const vehicleSummary = Array.isArray(status?.vehicle_types_available)
+            ? status.vehicle_types_available.map((item) => `${item.vehicle_type_id || 'unknown'}: ${item.count ?? '?'}`).join(', ')
+            : '';
+          const bikesAvailable = toCount(status?.num_bikes_available);
+          const docksAvailable = toCount(status?.num_docks_available);
+          const capacity = toCount(info.capacity);
+          const isRenting = toYesNo(status?.is_renting);
+          const isReturning = toYesNo(status?.is_returning);
+          const lastReportedValue = status?.last_reported;
+          let lastReportedText = '';
+          const lastReportedNumber = Number(lastReportedValue);
+          if (Number.isFinite(lastReportedNumber) && lastReportedNumber > 0) {
+            lastReportedText = new Date(lastReportedNumber * 1000).toLocaleString();
+          }
+          features.push({
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [lon, lat]
+            },
+            properties: {
+              station_id: stationId,
+              name: info.name || 'Unnamed station',
+              capacity,
+              address: info.address || '',
+              bikesAvailable,
+              docksAvailable,
+              isRenting,
+              isReturning,
+              lastReported: lastReportedText,
+              rentalAndroid: info?.rental_uris?.android || '',
+              rentalIos: info?.rental_uris?.ios || '',
+              vehicleSummary
+            }
+          });
+        }
+        return { type: 'FeatureCollection', features };
+      }
+
+      function updateMapData(stationGeoJSON, geofenceGeoJSON) {
+        if (!mapLoaded) {
+          pendingStationGeoJSON = stationGeoJSON;
+          pendingGeofenceGeoJSON = geofenceGeoJSON;
+          return;
+        }
+        if (stationGeoJSON) {
+          if (map.getSource('stations')) {
+            map.getSource('stations').setData(stationGeoJSON);
+          } else {
+            map.addSource('stations', { type: 'geojson', data: stationGeoJSON });
+            map.addLayer({
+              id: 'stations-layer',
+              type: 'circle',
+              source: 'stations',
+              paint: {
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 9],
+                'circle-color': '#2563eb',
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': 1.5,
+                'circle-opacity': 0.85
+              }
+            });
+            map.on('mouseenter', 'stations-layer', () => {
+              map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'stations-layer', () => {
+              map.getCanvas().style.cursor = '';
+            });
+          }
+        } else if (map.getSource('stations')) {
+          map.getSource('stations').setData({ type: 'FeatureCollection', features: [] });
+        }
+
+        if (geofenceGeoJSON && geofenceGeoJSON.type === 'FeatureCollection') {
+          if (map.getSource('geofencing')) {
+            map.getSource('geofencing').setData(geofenceGeoJSON);
+          } else {
+            map.addSource('geofencing', { type: 'geojson', data: geofenceGeoJSON });
+            map.addLayer({
+              id: 'geofencing-fill',
+              type: 'fill',
+              source: 'geofencing',
+              paint: {
+                'fill-color': '#3b82f6',
+                'fill-opacity': 0.12
+              }
+            });
+            map.addLayer({
+              id: 'geofencing-line',
+              type: 'line',
+              source: 'geofencing',
+              paint: {
+                'line-color': '#2563eb',
+                'line-width': 1.2,
+                'line-opacity': 0.7
+              }
+            });
+          }
+        } else if (map.getSource('geofencing')) {
+          map.getSource('geofencing').setData({ type: 'FeatureCollection', features: [] });
+        }
+
+        if (currentPopup) {
+          currentPopup.remove();
+          currentPopup = null;
+        }
+
+        if (map.getLayer('stations-layer')) {
+          map.off('click', 'stations-layer', handleStationClick);
+        }
+        if (stationGeoJSON && stationGeoJSON.features.length && map.getLayer('stations-layer')) {
+          map.on('click', 'stations-layer', handleStationClick);
+        }
+
+        const bounds = computeBounds(stationGeoJSON, geofenceGeoJSON);
+        if (bounds) {
+          map.fitBounds(bounds, { padding: 40, maxZoom: 15, duration: 1000 });
+        }
+
+        pendingStationGeoJSON = null;
+        pendingGeofenceGeoJSON = null;
+      }
+
+      function handleStationClick(event) {
+        const feature = event.features && event.features[0];
+        if (!feature) {
+          return;
+        }
+        const props = feature.properties || {};
+        const title = escapeHtml(props.name || 'Station');
+        const address = props.address ? `<div><span class="font-medium">Address:</span> ${escapeHtml(props.address)}</div>` : '';
+        const capacity = props.capacity ? `<div><span class="font-medium">Capacity:</span> ${escapeHtml(props.capacity)}</div>` : '';
+        const bikes = props.bikesAvailable !== '' ? `<div><span class="font-medium">Vehicles available:</span> ${escapeHtml(props.bikesAvailable)}</div>` : '';
+        const docks = props.docksAvailable !== '' ? `<div><span class="font-medium">Docks available:</span> ${escapeHtml(props.docksAvailable)}</div>` : '';
+        const renting = props.isRenting ? `<div><span class="font-medium">Renting:</span> ${escapeHtml(props.isRenting)}</div>` : '';
+        const returning = props.isReturning ? `<div><span class="font-medium">Returning:</span> ${escapeHtml(props.isReturning)}</div>` : '';
+        const updated = props.lastReported ? `<div><span class="font-medium">Last reported:</span> ${escapeHtml(props.lastReported)}</div>` : '';
+        const vehicles = props.vehicleSummary ? `<div><span class="font-medium">Vehicle mix:</span> ${escapeHtml(props.vehicleSummary)}</div>` : '';
+        const rentals = [
+          props.rentalAndroid ? `<a class="text-brand-600 hover:text-brand-500" target="_blank" rel="noopener" href="${escapeHtml(props.rentalAndroid)}">Android</a>` : '',
+          props.rentalIos ? `<a class="text-brand-600 hover:text-brand-500" target="_blank" rel="noopener" href="${escapeHtml(props.rentalIos)}">iOS</a>` : ''
+        ].filter(Boolean);
+        const rentalLinks = rentals.length ? `<div><span class="font-medium">Apps:</span> ${rentals.join(' · ')}</div>` : '';
+
+        const html = `
+          <div class="space-y-1 text-sm text-slate-800">
+            <div class="text-base font-semibold text-brand-700">${title}</div>
+            ${address}${capacity}${bikes}${docks}${renting}${returning}${vehicles}${updated}${rentalLinks}
+          </div>
+        `;
+
+        if (currentPopup) {
+          currentPopup.remove();
+        }
+
+        currentPopup = new maplibregl.Popup({ closeButton: true, closeOnMove: true, offset: 14 })
+          .setLngLat(event.lngLat)
+          .setHTML(html)
+          .addTo(map);
+      }
+
+      async function loadFeeds(autoDiscoveryUrl) {
+        if (!autoDiscoveryUrl) {
+          updateStatus('No auto-discovery URL available for this scheme.', 'error');
+          return;
+        }
+        const requestToken = ++currentRequestToken;
+        updateStatus('Fetching auto-discovery file…');
+        try {
+          const response = await fetch(autoDiscoveryUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const autoData = await response.json();
+          if (requestToken !== currentRequestToken) {
+            return;
+          }
+          const feeds = extractFeeds(autoData);
+          listFeeds(feeds);
+
+          const stationInfoUrl = getFeedUrl(autoData, 'station_information');
+          const stationStatusUrl = getFeedUrl(autoData, 'station_status');
+          const geofencingUrl = getFeedUrl(autoData, 'geofencing_zones');
+
+          const [stationInfo, stationStatus, geofencing] = await Promise.all([
+            stationInfoUrl ? fetch(stationInfoUrl).then((res) => res.ok ? res.json() : null).catch(() => null) : null,
+            stationStatusUrl ? fetch(stationStatusUrl).then((res) => res.ok ? res.json() : null).catch(() => null) : null,
+            geofencingUrl ? fetch(geofencingUrl).then((res) => res.ok ? res.json() : null).catch(() => null) : null
+          ]);
+
+          if (requestToken !== currentRequestToken) {
+            return;
+          }
+
+          const stationGeoJSON = stationInfo ? buildStationFeatures(stationInfo, stationStatus) : null;
+          const geofenceGeoJSON = geofencing?.data?.geofencing_zones?.features
+            ? geofencing.data.geofencing_zones
+            : geofencing?.data?.features
+              ? geofencing.data
+              : null;
+
+          updateMapData(stationGeoJSON, geofenceGeoJSON);
+
+          if (stationGeoJSON?.features?.length) {
+            updateStatus(`Loaded ${stationGeoJSON.features.length} station${stationGeoJSON.features.length === 1 ? '' : 's'}.`);
+          } else if (geofenceGeoJSON?.features?.length) {
+            updateStatus('Stations missing, showing available geofencing data.');
+          } else {
+            updateStatus('No station or geofencing data was published for this scheme.');
+          }
+        } catch (error) {
+          console.error(error);
+          if (requestToken === currentRequestToken) {
+            updateStatus('Unable to load the selected feed. Please check the URL and try again.', 'error');
+            listFeeds([], 'Feed list unavailable for this scheme.');
+            updateMapData(null, null);
+          }
+        }
+      }
+
+      async function loadCSV() {
+        updateStatus('Loading GBFS directory…');
+        try {
+          const response = await fetch(CSV_URL);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const csvText = await response.text();
+          schemes = parseCSV(csvText);
+          renderCountryOptions(schemes);
+        } catch (error) {
+          console.error(error);
+          updateStatus('Unable to load the GBFS directory. You can still paste a custom auto-discovery URL.', 'error');
+          countrySelect.innerHTML = '<option value="">Unavailable</option>';
+          countrySelect.disabled = true;
+          schemeSelect.innerHTML = '<option value="">Unavailable</option>';
+          schemeSelect.disabled = true;
+        }
+      }
+
+      countrySelect.addEventListener('change', (event) => {
+        currentRequestToken++;
+        renderSchemesForCountry(event.target.value);
+        listFeeds([], 'Choose a scheme to list its GBFS feeds.');
+        updateMapData(null, null);
+      });
+
+      schemeSelect.addEventListener('change', (event) => {
+        const url = event.target.value;
+        if (url) {
+          loadFeeds(url);
+        } else {
+          currentRequestToken++;
+          listFeeds([], 'Choose a scheme to list its GBFS feeds.');
+          updateMapData(null, null);
+          updateStatus('Select a scheme to load its feeds.');
+        }
+      });
+
+      customForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const url = customUrlInput.value.trim();
+        if (!url) {
+          updateStatus('Enter a GBFS auto-discovery URL first.', 'error');
+          return;
+        }
+        loadFeeds(url);
+      });
+
+      if (typeof maplibregl === 'undefined') {
+        updateStatus('Map library failed to load. Map features will be unavailable.', 'error');
+        loadCSV();
+        return;
+      }
+
+      map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [0, 20],
+        zoom: 2,
+        attributionControl: true,
+        cooperativeGestures: true
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+      map.on('load', () => {
+        mapLoaded = true;
+        if (pendingStationGeoJSON || pendingGeofenceGeoJSON) {
+          updateMapData(pendingStationGeoJSON, pendingGeofenceGeoJSON);
+          pendingStationGeoJSON = null;
+          pendingGeofenceGeoJSON = null;
+        }
+      });
+
+      loadCSV();
+
+    })();
+  </script>
+</body>
+</html>
