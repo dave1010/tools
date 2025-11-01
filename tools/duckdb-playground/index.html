@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DuckDB Playground</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">DuckDB Playground</h1>
+        <p class="text-gray-600">
+          Experiment with DuckDB-Wasm in the browser. Load files, run SQL queries, and inspect results instantly.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold text-gray-900">Database setup</h2>
+          <span id="status-badge" class="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-sm font-medium text-brand-700">
+            Loading DuckDB…
+          </span>
+        </div>
+        <p class="text-sm text-gray-600">
+          Use DuckDB-Wasm to create ad-hoc tables from uploads or sample data. Once loaded, query them below using standard SQL.
+        </p>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-3 rounded-xl border border-gray-200 bg-brand-50/60 p-3">
+            <h3 class="font-medium text-gray-900">Sample dataset</h3>
+            <p class="text-sm text-gray-600">
+              Create a <code class="rounded bg-white px-1 py-0.5">missions</code> table with crewed spaceflight data.
+            </p>
+            <button
+              id="load-sample"
+              type="button"
+              class="btn btn-primary w-full justify-center disabled:cursor-not-allowed"
+              disabled
+            >
+              Load sample data
+            </button>
+            <p class="text-xs text-gray-500">
+              Try running <code>SELECT * FROM missions LIMIT 5;</code> once it finishes.
+            </p>
+          </div>
+
+          <form id="upload-form" class="space-y-3 rounded-xl border border-gray-200 bg-brand-50/60 p-3">
+            <h3 class="font-medium text-gray-900">Import a file</h3>
+            <div class="space-y-1">
+              <label for="file-input" class="text-sm font-medium text-gray-700">Choose CSV, Parquet, or JSON</label>
+              <input
+                id="file-input"
+                type="file"
+                accept=".csv,.tsv,.txt,.parquet,.json,.ndjson"
+                class="block w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div class="space-y-1">
+              <label for="table-name" class="text-sm font-medium text-gray-700">Table name</label>
+              <input
+                id="table-name"
+                type="text"
+                placeholder="auto-filled from file"
+                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <button
+              id="import-file"
+              type="submit"
+              class="btn btn-secondary w-full justify-center disabled:cursor-not-allowed"
+              disabled
+            >
+              Load file into DuckDB
+            </button>
+            <p class="text-xs text-gray-500">
+              Files stay in your browser. The tool auto-detects formats and creates a table you can query.
+            </p>
+          </form>
+        </div>
+      </section>
+
+      <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold text-gray-900">Run SQL</h2>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            <span>Press <kbd class="rounded border border-gray-300 bg-gray-50 px-1">Ctrl</kbd> + <kbd class="rounded border border-gray-300 bg-gray-50 px-1">Enter</kbd> (or <kbd class="rounded border border-gray-300 bg-gray-50 px-1">⌘</kbd> + <kbd class="rounded border border-gray-300 bg-gray-50 px-1">Enter</kbd>) to run.</span>
+          </div>
+        </div>
+        <textarea
+          id="sql-input"
+          class="h-48 w-full rounded-xl border border-gray-300 bg-white p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+          spellcheck="false"
+          placeholder="Write a SQL query, e.g. SELECT * FROM missions LIMIT 5;"
+        ></textarea>
+        <div class="flex flex-wrap items-center gap-3">
+          <button id="run-query" type="button" class="btn btn-primary disabled:cursor-not-allowed" disabled>Run query</button>
+          <button id="clear-results" type="button" class="btn btn-secondary">Clear results</button>
+        </div>
+        <div class="space-y-2 text-sm text-gray-600">
+          <p>Need ideas?</p>
+          <ul class="list-inside list-disc space-y-1">
+            <li><code>SELECT mission, crew_size FROM missions ORDER BY launch_date LIMIT 10;</code></li>
+            <li><code>SELECT COUNT(*) FROM missions WHERE duration_days &gt; 5;</code></li>
+            <li><code>SELECT launch_vehicle, AVG(duration_days) AS avg_days FROM missions GROUP BY launch_vehicle;</code></li>
+          </ul>
+        </div>
+        <div id="message" class="hidden rounded-xl border px-3 py-2 text-sm" role="status" aria-live="polite"></div>
+        <div id="result-wrapper" class="hidden overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead>
+              <tr id="result-head" class="bg-brand-50 text-left text-gray-700"></tr>
+            </thead>
+            <tbody id="result-body" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/duckdb-playground" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script
+      type="module"
+      onerror="alert('Failed to load: ' + this.src)"
+    >
+      import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-esm.js";
+
+      const statusBadge = document.getElementById("status-badge");
+      const loadSampleButton = document.getElementById("load-sample");
+      const uploadForm = document.getElementById("upload-form");
+      const fileInput = document.getElementById("file-input");
+      const tableNameInput = document.getElementById("table-name");
+      const importButton = document.getElementById("import-file");
+      const sqlInput = document.getElementById("sql-input");
+      const runButton = document.getElementById("run-query");
+      const clearButton = document.getElementById("clear-results");
+      const messageEl = document.getElementById("message");
+      const resultWrapper = document.getElementById("result-wrapper");
+      const resultHead = document.getElementById("result-head");
+      const resultBody = document.getElementById("result-body");
+
+      let db;
+      let conn;
+      let loaded = false;
+      let fileCounter = 0;
+
+      const setStatus = (text, variant = "info") => {
+        statusBadge.textContent = text;
+        statusBadge.className = "inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium";
+        if (variant === "ready") {
+          statusBadge.classList.add("bg-green-100", "text-green-700");
+        } else if (variant === "error") {
+          statusBadge.classList.add("bg-red-100", "text-red-700");
+        } else {
+          statusBadge.classList.add("bg-brand-100", "text-brand-700");
+        }
+      };
+
+      const showMessage = (text, type = "info") => {
+        messageEl.textContent = text;
+        messageEl.classList.remove("hidden");
+        messageEl.className = "rounded-xl border px-3 py-2 text-sm";
+        if (type === "success") {
+          messageEl.classList.add("border-green-200", "bg-green-50", "text-green-700");
+        } else if (type === "error") {
+          messageEl.classList.add("border-red-200", "bg-red-50", "text-red-700");
+        } else {
+          messageEl.classList.add("border-brand-200", "bg-brand-50", "text-brand-700");
+        }
+      };
+
+      const hideMessage = () => {
+        messageEl.textContent = "";
+        messageEl.classList.add("hidden");
+      };
+
+      const clearResults = () => {
+        resultHead.innerHTML = "";
+        resultBody.innerHTML = "";
+        resultWrapper.classList.add("hidden");
+      };
+
+      const toIdentifier = (value) => {
+        let identifier = (value || "table").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+        identifier = identifier.replace(/_{2,}/g, "_").replace(/^_+/, "").replace(/_+$/, "");
+        if (!identifier) {
+          identifier = `table_${Date.now()}`;
+        }
+        if (/^\d/.test(identifier)) {
+          identifier = `t_${identifier}`;
+        }
+        return identifier;
+      };
+
+      const renderResults = (columns, rows) => {
+        clearResults();
+        const fragHead = document.createDocumentFragment();
+        columns.forEach((column) => {
+          const th = document.createElement("th");
+          th.scope = "col";
+          th.className = "px-3 py-2 font-semibold uppercase tracking-wide text-xs text-gray-600";
+          th.textContent = column;
+          fragHead.appendChild(th);
+        });
+        resultHead.appendChild(fragHead);
+
+        const fragBody = document.createDocumentFragment();
+        rows.forEach((row) => {
+          const tr = document.createElement("tr");
+          columns.forEach((column) => {
+            const td = document.createElement("td");
+            const value = row[column];
+            td.className = "whitespace-nowrap px-3 py-2 font-mono text-xs text-gray-800";
+            td.textContent = value === null || value === undefined ? "" : String(value);
+            tr.appendChild(td);
+          });
+          fragBody.appendChild(tr);
+        });
+        resultBody.appendChild(fragBody);
+        resultWrapper.classList.remove("hidden");
+      };
+
+      const readResultRows = (table) => {
+        const rows = [];
+        const fields = table.schema?.fields ?? [];
+        const columns = fields.map((field) => field.name);
+        const arrayRows = typeof table.toArray === "function" ? table.toArray() : [];
+        if (arrayRows.length) {
+          arrayRows.forEach((row) => {
+            if (row && typeof row.toJSON === "function") {
+              rows.push(row.toJSON());
+            } else {
+              rows.push(row);
+            }
+          });
+          return { columns, rows };
+        }
+
+        // Fallback: iterate record batches manually.
+        if (typeof table.batches === "object" && table.batches) {
+          for (const batch of table.batches) {
+            const batchRows = batch?.toArray?.() ?? [];
+            batchRows.forEach((row) => {
+              if (row && typeof row.toJSON === "function") {
+                rows.push(row.toJSON());
+              } else {
+                rows.push(row);
+              }
+            });
+          }
+        }
+        return { columns, rows };
+      };
+
+      const initializeDuckDB = async () => {
+        try {
+          setStatus("Fetching bundles…");
+          const bundles = duckdb.getJsDelivrBundles();
+          const bundle = await duckdb.selectBundle(bundles);
+
+          if (!bundle.mainWorker || !bundle.mainModule) {
+            throw new Error("No compatible DuckDB bundle found for this browser.");
+          }
+
+          setStatus("Starting worker…");
+          const worker = new Worker(bundle.mainWorker);
+          const logger = new duckdb.ConsoleLogger();
+          db = new duckdb.AsyncDuckDB(logger, worker);
+
+          setStatus("Instantiating DuckDB…");
+          await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+          conn = await db.connect();
+          loaded = true;
+
+          setStatus("DuckDB ready", "ready");
+          loadSampleButton.disabled = false;
+          importButton.disabled = false;
+          runButton.disabled = false;
+
+          sqlInput.value = "SELECT * FROM missions LIMIT 5;";
+        } catch (error) {
+          console.error(error);
+          setStatus("DuckDB failed to load", "error");
+          showMessage(error instanceof Error ? error.message : "Failed to initialize DuckDB.", "error");
+        }
+      };
+
+      const loadSampleData = async () => {
+        if (!loaded || !conn) {
+          return;
+        }
+        loadSampleButton.disabled = true;
+        setStatus("Loading sample data…");
+        try {
+          await conn.query(`
+            CREATE OR REPLACE TABLE missions AS
+            SELECT * FROM (
+              VALUES
+                (1, 'Mercury-Redstone 3', 'Mercury', 'Freedom 7', '1961-05-05', 0.26, 1),
+                (2, 'Gemini 4', 'Gemini', 'Gemini 4', '1965-06-03', 4.06, 2),
+                (3, 'Apollo 11', 'Saturn V', 'Columbia', '1969-07-16', 8.14, 3),
+                (4, 'Apollo 13', 'Saturn V', 'Odyssey', '1970-04-11', 5.91, 3),
+                (5, 'Skylab 2', 'Saturn IB', 'Skylab 2', '1973-05-25', 28.0, 3),
+                (6, 'STS-1', 'Space Shuttle', 'Columbia', '1981-04-12', 2.05, 2),
+                (7, 'STS-31', 'Space Shuttle', 'Discovery', '1990-04-24', 5.98, 5),
+                (8, 'Soyuz TM-31', 'Soyuz-U', 'Soyuz TM-31', '2000-10-31', 184.87, 3),
+                (9, 'Shenzhou 5', 'Long March 2F', 'Shenzhou 5', '2003-10-15', 0.92, 1),
+                (10, 'Crew-1', 'Falcon 9', 'Resilience', '2020-11-15', 167.0, 4)
+            ) AS t(
+              id,
+              mission,
+              launch_vehicle,
+              spacecraft,
+              launch_date,
+              duration_days,
+              crew_size
+            );
+          `);
+          showMessage('Sample data loaded as table "missions".', "success");
+        } catch (error) {
+          console.error(error);
+          showMessage(error instanceof Error ? error.message : "Failed to load sample data.", "error");
+        } finally {
+          setStatus("DuckDB ready", "ready");
+          loadSampleButton.disabled = false;
+        }
+      };
+
+      const loadFileIntoDuckDB = async (event) => {
+        event.preventDefault();
+        if (!loaded || !conn) {
+          return;
+        }
+        const file = fileInput.files?.[0];
+        if (!file) {
+          showMessage("Please choose a file to import.", "error");
+          return;
+        }
+
+        const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+        const supported = ["csv", "tsv", "txt", "parquet", "json", "ndjson"];
+        if (!supported.includes(extension)) {
+          showMessage("Unsupported file type. Use CSV, Parquet, or JSON.", "error");
+          return;
+        }
+
+        const identifier = toIdentifier(tableNameInput.value || file.name.replace(/\.[^.]+$/, ""));
+        const uniqueName = `upload_${++fileCounter}_${file.name}`;
+
+        importButton.disabled = true;
+        setStatus("Importing file…");
+        try {
+          await db.registerFileHandle(uniqueName, file);
+
+          let query;
+          if (["csv", "tsv", "txt"].includes(extension)) {
+            query = `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_csv_auto('${uniqueName}')`;
+          } else if (extension === "parquet") {
+            query = `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_parquet('${uniqueName}')`;
+          } else {
+            query = `CREATE OR REPLACE TABLE ${identifier} AS SELECT * FROM read_json_auto('${uniqueName}')`;
+          }
+
+          await conn.query(query);
+          showMessage(`Loaded file into table "${identifier}".`, "success");
+        } catch (error) {
+          console.error(error);
+          showMessage(error instanceof Error ? error.message : "Failed to import file.", "error");
+        } finally {
+          setStatus("DuckDB ready", "ready");
+          importButton.disabled = false;
+        }
+      };
+
+      const runQuery = async () => {
+        if (!loaded || !conn) {
+          return;
+        }
+        const sql = sqlInput.value.trim();
+        if (!sql) {
+          showMessage("Enter a SQL query to run.", "error");
+          return;
+        }
+
+        runButton.disabled = true;
+        setStatus("Running query…");
+        hideMessage();
+        clearResults();
+        const started = performance.now();
+        let result;
+
+        try {
+          result = await conn.query(sql);
+          const elapsed = performance.now() - started;
+          const { columns, rows } = readResultRows(result);
+          if (!rows.length) {
+            showMessage(`Query finished in ${elapsed.toFixed(2)} ms but returned no rows.`, "info");
+            return;
+          }
+
+          if (!columns.length && rows.length && typeof rows[0] === "object") {
+            const firstRow = rows[0];
+            const derivedColumns = Object.keys(firstRow);
+            renderResults(derivedColumns, rows);
+          } else {
+            renderResults(columns, rows);
+          }
+          showMessage(`Query finished in ${elapsed.toFixed(2)} ms with ${rows.length} row(s).`, "success");
+        } catch (error) {
+          console.error(error);
+          showMessage(error instanceof Error ? error.message : "Query failed.", "error");
+        } finally {
+          if (result && typeof result.release === "function") {
+            result.release();
+          }
+          runButton.disabled = false;
+          setStatus("DuckDB ready", "ready");
+        }
+      };
+
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files?.[0]) {
+          tableNameInput.value = toIdentifier(fileInput.files[0].name.replace(/\.[^.]+$/, ""));
+        }
+      });
+
+      loadSampleButton.addEventListener("click", loadSampleData);
+      uploadForm.addEventListener("submit", loadFileIntoDuckDB);
+      runButton.addEventListener("click", runQuery);
+      clearButton.addEventListener("click", () => {
+        hideMessage();
+        clearResults();
+      });
+      sqlInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          runQuery();
+        }
+      });
+
+      initializeDuckDB();
+    </script>
+  </body>
+</html>
