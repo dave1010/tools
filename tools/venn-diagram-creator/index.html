@@ -65,9 +65,37 @@
           <div class="space-y-2">
             <label class="flex flex-col gap-1 text-sm">
               <span class="font-medium text-slate-700">Title (optional)</span>
-              <input id="title-label" type="text" placeholder="e.g. Project Responsibilities" class="rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <textarea id="title-label" rows="2" placeholder="e.g. Project Responsibilities" class="rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
             </label>
           </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="flex flex-col gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm">
+              <div class="flex items-center justify-between text-sm font-medium text-slate-900">
+                <span>Font size</span>
+                <span id="font-size-value" class="text-xs font-semibold text-brand-700">18px</span>
+              </div>
+              <input id="font-size-range" type="range" min="12" max="48" value="18" class="accent-brand-600">
+            </label>
+            <label class="flex flex-col gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm">
+              <span class="font-medium text-slate-700">Typeface</span>
+              <select id="font-family-select" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <option value="inter" selected>Inter</option>
+                <option value="helvetica">Helvetica Neue</option>
+                <option value="georgia">Georgia</option>
+                <option value="times">Times New Roman</option>
+                <option value="courier">Courier New</option>
+                <option value="comic">Comic Sans MS</option>
+              </select>
+            </label>
+          </div>
+          <label class="flex flex-col gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm">
+            <div class="flex items-center justify-between text-sm font-medium text-slate-900">
+              <span>Label distance</span>
+              <span id="label-distance-value" class="text-xs font-semibold text-brand-700">40%</span>
+            </div>
+            <input id="label-distance-range" type="range" min="0" max="200" value="40" class="accent-brand-600">
+            <p class="text-xs text-slate-500">Adjust how far circle labels sit from the diagram centre.</p>
+          </label>
           <div>
             <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Circle labels</h3>
             <div id="circle-labels" class="mt-2 space-y-2"></div>
@@ -121,12 +149,24 @@
         borderColor: '#1e293b',
         borderWidth: 3,
         circleColors: ['#3b82f6', '#ef4444', '#22c55e'],
+        circleSizes: [],
+        fontSize: 18,
+        fontFamily: 'inter',
+        labelDistance: 0.4,
         labels: {
           title: ''
         }
       };
 
       const defaultPalette = ['#3b82f6', '#ef4444', '#22c55e', '#f97316'];
+      const fontStacks = {
+        inter: '"Inter", "Helvetica Neue", Arial, sans-serif',
+        helvetica: '"Helvetica Neue", Arial, sans-serif',
+        georgia: 'Georgia, "Times New Roman", serif',
+        times: '"Times New Roman", Times, serif',
+        courier: '"Courier New", Courier, monospace',
+        comic: '"Comic Sans MS", "Comic Sans", cursive'
+      };
 
       const circleCountSelect = document.getElementById('circle-count');
       const overlapRange = document.getElementById('overlap-range');
@@ -136,6 +176,11 @@
       const borderColorInput = document.getElementById('border-color');
       const borderWidthInput = document.getElementById('border-width');
       const titleInput = document.getElementById('title-label');
+      const fontSizeRange = document.getElementById('font-size-range');
+      const fontSizeValue = document.getElementById('font-size-value');
+      const fontFamilySelect = document.getElementById('font-family-select');
+      const labelDistanceRange = document.getElementById('label-distance-range');
+      const labelDistanceValue = document.getElementById('label-distance-value');
       const circleColorsContainer = document.getElementById('circle-colors');
       const circleLabelsContainer = document.getElementById('circle-labels');
       const overlapLabelsContainer = document.getElementById('overlap-labels');
@@ -151,11 +196,25 @@
         }
       }
 
+      function ensureCircleSizes(count) {
+        const baseRadius = radiusForCount(count);
+        if (state.circleSizes.length < count) {
+          for (let i = state.circleSizes.length; i < count; i += 1) {
+            state.circleSizes[i] = baseRadius;
+          }
+        } else if (state.circleSizes.length > count) {
+          state.circleSizes.length = count;
+        }
+      }
+
       function renderCircleColorInputs() {
         circleColorsContainer.innerHTML = '';
         state.circleColors.forEach((color, index) => {
-          const wrapper = document.createElement('label');
-          wrapper.className = 'flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm';
+          const wrapper = document.createElement('div');
+          wrapper.className = 'space-y-2 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm';
+
+          const header = document.createElement('div');
+          header.className = 'flex items-center justify-between gap-3';
 
           const text = document.createElement('span');
           text.className = 'text-slate-700';
@@ -170,7 +229,33 @@
             drawDiagram();
           });
 
-          wrapper.append(text, input);
+          header.append(text, input);
+          wrapper.appendChild(header);
+
+          const sizeInfo = document.createElement('div');
+          sizeInfo.className = 'flex items-center justify-between text-xs font-medium text-slate-600';
+          const sizeLabel = document.createElement('span');
+          sizeLabel.textContent = 'Size';
+          const sizeValue = document.createElement('span');
+          const radius = state.circleSizes[index] || radiusForCount(state.circleCount);
+          state.circleSizes[index] = radius;
+          sizeValue.textContent = `${Math.round(radius)}px`;
+          sizeInfo.append(sizeLabel, sizeValue);
+
+          const sizeInput = document.createElement('input');
+          sizeInput.type = 'range';
+          sizeInput.min = '60';
+          sizeInput.max = '260';
+          sizeInput.value = radius.toString();
+          sizeInput.className = 'w-full accent-brand-600';
+          sizeInput.addEventListener('input', (event) => {
+            const value = Number.parseInt(event.target.value, 10);
+            state.circleSizes[index] = value;
+            sizeValue.textContent = `${value}px`;
+            drawDiagram();
+          });
+
+          wrapper.append(sizeInfo, sizeInput);
           circleColorsContainer.appendChild(wrapper);
         });
       }
@@ -223,14 +308,14 @@
         circleLabelsContainer.innerHTML = '';
         for (let i = 0; i < state.circleCount; i += 1) {
           const label = document.createElement('label');
-          label.className = 'flex flex-col gap-1 text-sm';
+          label.className = 'flex flex-col gap-2 text-sm';
 
           const span = document.createElement('span');
           span.className = 'font-medium text-slate-700';
           span.textContent = `Circle ${i + 1}`;
 
-          const input = document.createElement('input');
-          input.type = 'text';
+          const input = document.createElement('textarea');
+          input.rows = 2;
           input.placeholder = `Label for circle ${i + 1}`;
           input.value = state.labels[keyForCircle(i)] || '';
           input.className = 'rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200';
@@ -263,14 +348,14 @@
 
         combos.forEach((combo) => {
           const label = document.createElement('label');
-          label.className = 'flex flex-col gap-1 text-sm';
+          label.className = 'flex flex-col gap-2 text-sm';
 
           const span = document.createElement('span');
           span.className = 'font-medium text-slate-700';
           span.textContent = combo.map((index) => `Circle ${index + 1}`).join(' ∩ ');
 
-          const input = document.createElement('input');
-          input.type = 'text';
+          const input = document.createElement('textarea');
+          input.rows = 2;
           input.placeholder = `Label for ${span.textContent}`;
           const key = keyForCombo(combo);
           input.value = state.labels[key] || '';
@@ -292,10 +377,20 @@
 
       function updateFormUI() {
         ensureCircleColors(state.circleCount);
+        ensureCircleSizes(state.circleCount);
         pruneLabels();
         renderCircleColorInputs();
         renderCircleLabelInputs();
         renderOverlapLabelInputs();
+        if (!fontStacks[state.fontFamily]) {
+          state.fontFamily = 'inter';
+        }
+        fontSizeRange.value = state.fontSize;
+        fontSizeValue.textContent = `${state.fontSize}px`;
+        fontFamilySelect.value = state.fontFamily;
+        const distanceValue = Math.round(state.labelDistance * 100);
+        labelDistanceRange.value = distanceValue;
+        labelDistanceValue.textContent = `${distanceValue}%`;
       }
 
       function radiusForCount(count) {
@@ -345,28 +440,35 @@
           x: centerX + pos.x * spacing * radius,
           y: centerY + pos.y * spacing * radius
         }));
-        return { positions, radius };
+        return { positions, baseRadius: radius, center: { x: centerX, y: centerY } };
       }
 
-      function drawText(text, x, y, fontSize, fontWeight = '500') {
+      function drawText(text, x, y, options = {}) {
         if (!text) return;
+        const { size = state.fontSize, weight = '500', lineHeight = 1.25 } = options;
+        const lines = String(text).split(/\r?\n/);
+        const fontStack = fontStacks[state.fontFamily] || fontStacks.inter;
         ctx.save();
-        ctx.font = `${fontWeight} ${fontSize}px "Inter", "Helvetica Neue", Arial, sans-serif`;
+        ctx.font = `${weight} ${size}px ${fontStack}`;
         ctx.fillStyle = state.textColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, y);
+        const totalHeight = size * lineHeight * (lines.length - 1);
+        lines.forEach((line, index) => {
+          ctx.fillText(line, x, y - totalHeight / 2 + index * size * lineHeight);
+        });
         ctx.restore();
       }
 
       function drawDiagram() {
-        const { positions, radius } = computePositions();
+        const { positions, baseRadius, center } = computePositions();
         ctx.save();
         ctx.clearRect(0, 0, baseWidth, baseHeight);
         ctx.fillStyle = state.backgroundColor;
         ctx.fillRect(0, 0, baseWidth, baseHeight);
 
         positions.forEach((position, index) => {
+          const radius = state.circleSizes[index] || baseRadius;
           ctx.save();
           ctx.beginPath();
           ctx.fillStyle = state.circleColors[index] || '#94a3b8';
@@ -387,7 +489,12 @@
 
           const circleLabel = state.labels[keyForCircle(index)];
           if (circleLabel) {
-            drawText(circleLabel, position.x, position.y - radius * 0.4, 18, '600');
+            const dirX = position.x - center.x;
+            const dirY = position.y - center.y;
+            const length = Math.hypot(dirX, dirY) || 1;
+            const offsetX = (dirX / length) * radius * state.labelDistance;
+            const offsetY = (dirY / length) * radius * state.labelDistance;
+            drawText(circleLabel, position.x + offsetX, position.y + offsetY, { size: state.fontSize, weight: '600' });
           }
         });
 
@@ -404,11 +511,11 @@
           const divisor = combo.length;
           const x = target.x / divisor;
           const y = target.y / divisor;
-          drawText(label, x, y, 16, '500');
+          drawText(label, x, y, { size: Math.max(state.fontSize - 2, 10), weight: '500' });
         });
 
         if (state.labels.title) {
-          drawText(state.labels.title, baseWidth / 2, 50, 26, '700');
+          drawText(state.labels.title, baseWidth / 2, 50, { size: state.fontSize + 8, weight: '700' });
         }
 
         ctx.restore();
@@ -446,6 +553,25 @@
 
       borderWidthInput.addEventListener('input', (event) => {
         state.borderWidth = Number.parseInt(event.target.value, 10);
+        drawDiagram();
+      });
+
+      fontSizeRange.addEventListener('input', (event) => {
+        const value = Number.parseInt(event.target.value, 10);
+        state.fontSize = value;
+        fontSizeValue.textContent = `${value}px`;
+        drawDiagram();
+      });
+
+      fontFamilySelect.addEventListener('change', (event) => {
+        state.fontFamily = event.target.value;
+        drawDiagram();
+      });
+
+      labelDistanceRange.addEventListener('input', (event) => {
+        const value = Number.parseInt(event.target.value, 10);
+        state.labelDistance = value / 100;
+        labelDistanceValue.textContent = `${value}%`;
         drawDiagram();
       });
 
