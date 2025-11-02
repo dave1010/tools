@@ -288,7 +288,18 @@
     const buildMatchValue = (item) =>
       `${item.dataset.toolTitle ?? ''} ${item.dataset.toolDescription ?? ''} ${item.dataset.toolCategory ?? ''}`
         .trim()
-        .toLowerCase();
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+    const tokenize = (value) => {
+      if (!value) return [];
+      const normalized = value
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '');
+      return normalized.split(/[^a-z0-9]+/).filter(Boolean);
+    };
 
     const matchCache = new WeakMap();
     const getMatchValue = (item) => {
@@ -300,34 +311,39 @@
 
     const totalTools = azItems.length;
 
-    const updateSearch = (rawQuery) => {
+    const updateSearch = (rawQuery, { shouldRedirect = false } = {}) => {
       const query = rawQuery.trim();
-      const normalizedQuery = query.toLowerCase();
+      const tokens = tokenize(query);
+      const hasTokens = tokens.length > 0;
       let visibleCount = 0;
+      const matchingAzItems = [];
 
-      const evaluateItem = (item, { trackVisible = false } = {}) => {
+      const evaluateItem = (item, { trackVisible = false, trackMatch = false } = {}) => {
         const matchValue = getMatchValue(item);
-        const isMatch = !normalizedQuery || matchValue.includes(normalizedQuery);
+        const isMatch = !hasTokens || tokens.every((token) => matchValue.includes(token));
         item.classList.toggle('hidden', !isMatch);
         item.setAttribute('aria-hidden', String(!isMatch));
         if (trackVisible && isMatch) {
           visibleCount += 1;
         }
+        if (trackMatch && isMatch) {
+          matchingAzItems.push(item);
+        }
         return isMatch;
       };
 
       featuredItems.forEach((item) => evaluateItem(item));
-      azItems.forEach((item) => evaluateItem(item, { trackVisible: true }));
+      azItems.forEach((item) => evaluateItem(item, { trackVisible: true, trackMatch: true }));
       categoryItems.forEach((item) => evaluateItem(item));
 
       categorySectionData.forEach(({ section, items, countEl, total }) => {
         const visibleInSection = items.filter((item) => !item.classList.contains('hidden')).length;
-        const shouldHide = normalizedQuery && visibleInSection === 0;
+        const shouldHide = hasTokens && visibleInSection === 0;
         section.classList.toggle('hidden', shouldHide);
         section.setAttribute('aria-hidden', String(shouldHide));
 
         if (!countEl) return;
-        if (!normalizedQuery) {
+        if (!hasTokens) {
           countEl.textContent = `${total} tool${total === 1 ? '' : 's'}`;
         } else if (visibleInSection === 0) {
           countEl.textContent = 'No matches';
@@ -336,7 +352,7 @@
         }
       });
 
-      const isSearching = Boolean(normalizedQuery);
+      const isSearching = hasTokens;
 
       if (tabList) {
         tabList.classList.toggle('hidden', isSearching);
@@ -351,7 +367,7 @@
       }
 
       if (searchSummary) {
-        if (!normalizedQuery) {
+        if (!hasTokens) {
           searchSummary.textContent = `Showing all ${totalTools} tools`;
         } else if (visibleCount === 0) {
           searchSummary.textContent = `No tools match “${query}”`;
@@ -361,16 +377,33 @@
       }
 
       if (emptyState) {
-        const showEmpty = Boolean(normalizedQuery && visibleCount === 0);
+        const showEmpty = Boolean(hasTokens && visibleCount === 0);
         emptyState.classList.toggle('hidden', !showEmpty);
       }
+
+      if (shouldRedirect && hasTokens && matchingAzItems.length === 1) {
+        const targetLink = matchingAzItems[0]?.querySelector('a[href]');
+        if (targetLink) {
+          window.location.assign(targetLink.href);
+        }
+      }
+
+      return matchingAzItems;
     };
 
     if (searchInput) {
       const handleSearchInput = () => updateSearch(searchInput.value);
       searchInput.addEventListener('input', handleSearchInput);
       searchInput.addEventListener('search', handleSearchInput);
-      updateSearch(searchInput.value);
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const initialSearch = searchParams.get('s');
+      if (initialSearch) {
+        searchInput.value = initialSearch;
+        updateSearch(initialSearch, { shouldRedirect: true });
+      } else {
+        updateSearch(searchInput.value);
+      }
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== '/' || event.altKey || event.ctrlKey || event.metaKey) return;
