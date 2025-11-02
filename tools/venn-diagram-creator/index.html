@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Venn Diagram Creator</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="mx-auto max-w-5xl space-y-6 p-4 font-sans md:p-6">
+    <header class="space-y-2">
+      <h1 class="text-3xl font-semibold text-slate-900">Venn Diagram Creator</h1>
+      <p class="text-sm text-slate-600">Design up to four-circle Venn diagrams, customise colours and labels, adjust overlaps, and download the result as a PNG.</p>
+    </header>
+
+    <section class="grid gap-6 lg:grid-cols-[minmax(0,340px)_1fr]">
+      <form id="controls-form" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="space-y-2">
+          <label for="circle-count" class="text-sm font-medium text-slate-900">Number of circles</label>
+          <select id="circle-count" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="2">2 circles</option>
+            <option value="3" selected>3 circles</option>
+            <option value="4">4 circles</option>
+          </select>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-sm font-medium text-slate-900">
+            <label for="overlap-range">Overlap amount</label>
+            <span id="overlap-value" class="text-xs font-semibold text-brand-700">50%</span>
+          </div>
+          <input id="overlap-range" type="range" min="0" max="100" value="50" class="w-full accent-brand-600">
+          <p class="text-xs text-slate-500">Drag to control how much the circles overlap. 0% keeps them separate, 100% fully overlaps them.</p>
+        </div>
+
+        <fieldset class="space-y-3">
+          <legend class="text-sm font-semibold text-slate-900">Circle colours</legend>
+          <div id="circle-colors" class="space-y-2"></div>
+        </fieldset>
+
+        <fieldset class="space-y-3">
+          <legend class="text-sm font-semibold text-slate-900">Canvas styling</legend>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm">
+              <span class="text-slate-700">Background</span>
+              <input id="background-color" type="color" value="#ffffff" class="h-8 w-12 cursor-pointer border border-slate-200 rounded">
+            </label>
+            <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm">
+              <span class="text-slate-700">Text</span>
+              <input id="text-color" type="color" value="#0f172a" class="h-8 w-12 cursor-pointer border border-slate-200 rounded">
+            </label>
+            <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm">
+              <span class="text-slate-700">Circle border</span>
+              <input id="border-color" type="color" value="#1e293b" class="h-8 w-12 cursor-pointer border border-slate-200 rounded">
+            </label>
+            <label class="flex flex-col gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm">
+              <span class="text-slate-700">Border thickness</span>
+              <input id="border-width" type="range" min="0" max="12" value="3" class="accent-brand-600">
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="space-y-3">
+          <legend class="text-sm font-semibold text-slate-900">Labels</legend>
+          <div class="space-y-2">
+            <label class="flex flex-col gap-1 text-sm">
+              <span class="font-medium text-slate-700">Title (optional)</span>
+              <input id="title-label" type="text" placeholder="e.g. Project Responsibilities" class="rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </label>
+          </div>
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Circle labels</h3>
+            <div id="circle-labels" class="mt-2 space-y-2"></div>
+          </div>
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Overlap labels</h3>
+            <p class="text-xs text-slate-500">Add text for overlapping regions (pair, trio, or quartet combinations).</p>
+            <div id="overlap-labels" class="mt-2 space-y-2"></div>
+          </div>
+        </fieldset>
+      </form>
+
+      <div class="flex flex-col gap-4">
+        <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="aspect-[9/7] w-full">
+            <canvas id="diagram-canvas" class="h-full w-full"></canvas>
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button id="download-button" type="button" class="btn btn-primary">Download PNG</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="py-6 text-center text-sm text-slate-500">
+      <div class="flex justify-center gap-4">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+        <a href="https://github.com/dave1010/tools/tree/main/tools/venn-diagram-creator" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById('diagram-canvas');
+      const ctx = canvas.getContext('2d');
+      const baseWidth = 900;
+      const baseHeight = 700;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = baseWidth * dpr;
+      canvas.height = baseHeight * dpr;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      ctx.scale(dpr, dpr);
+
+      const state = {
+        circleCount: 3,
+        overlap: 50,
+        backgroundColor: '#ffffff',
+        textColor: '#0f172a',
+        borderColor: '#1e293b',
+        borderWidth: 3,
+        circleColors: ['#3b82f6', '#ef4444', '#22c55e'],
+        labels: {
+          title: ''
+        }
+      };
+
+      const defaultPalette = ['#3b82f6', '#ef4444', '#22c55e', '#f97316'];
+
+      const circleCountSelect = document.getElementById('circle-count');
+      const overlapRange = document.getElementById('overlap-range');
+      const overlapValue = document.getElementById('overlap-value');
+      const backgroundColorInput = document.getElementById('background-color');
+      const textColorInput = document.getElementById('text-color');
+      const borderColorInput = document.getElementById('border-color');
+      const borderWidthInput = document.getElementById('border-width');
+      const titleInput = document.getElementById('title-label');
+      const circleColorsContainer = document.getElementById('circle-colors');
+      const circleLabelsContainer = document.getElementById('circle-labels');
+      const overlapLabelsContainer = document.getElementById('overlap-labels');
+      const downloadButton = document.getElementById('download-button');
+
+      function ensureCircleColors(count) {
+        if (state.circleColors.length < count) {
+          for (let i = state.circleColors.length; i < count; i += 1) {
+            state.circleColors[i] = defaultPalette[i % defaultPalette.length] || `hsl(${(i * 57) % 360} 85% 60%)`;
+          }
+        } else if (state.circleColors.length > count) {
+          state.circleColors.length = count;
+        }
+      }
+
+      function renderCircleColorInputs() {
+        circleColorsContainer.innerHTML = '';
+        state.circleColors.forEach((color, index) => {
+          const wrapper = document.createElement('label');
+          wrapper.className = 'flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm';
+
+          const text = document.createElement('span');
+          text.className = 'text-slate-700';
+          text.textContent = `Circle ${index + 1}`;
+
+          const input = document.createElement('input');
+          input.type = 'color';
+          input.value = color;
+          input.className = 'h-8 w-12 cursor-pointer rounded border border-slate-200';
+          input.addEventListener('input', (event) => {
+            state.circleColors[index] = event.target.value;
+            drawDiagram();
+          });
+
+          wrapper.append(text, input);
+          circleColorsContainer.appendChild(wrapper);
+        });
+      }
+
+      function generateOverlapCombos(count) {
+        const combos = [];
+        const indexes = Array.from({ length: count }, (_, i) => i);
+
+        function helper(start, combo) {
+          if (combo.length >= 2) {
+            combos.push([...combo]);
+          }
+          for (let i = start; i < indexes.length; i += 1) {
+            combo.push(indexes[i]);
+            helper(i + 1, combo);
+            combo.pop();
+          }
+        }
+
+        helper(0, []);
+        return combos;
+      }
+
+      function keyForCircle(index) {
+        return `circle-${index}`;
+      }
+
+      function keyForCombo(combo) {
+        return combo.join('-');
+      }
+
+      function pruneLabels() {
+        const validKeys = new Set();
+        validKeys.add('title');
+        for (let i = 0; i < state.circleCount; i += 1) {
+          validKeys.add(keyForCircle(i));
+        }
+        generateOverlapCombos(state.circleCount).forEach((combo) => {
+          validKeys.add(keyForCombo(combo));
+        });
+
+        Object.keys(state.labels).forEach((key) => {
+          if (!validKeys.has(key)) {
+            delete state.labels[key];
+          }
+        });
+      }
+
+      function renderCircleLabelInputs() {
+        circleLabelsContainer.innerHTML = '';
+        for (let i = 0; i < state.circleCount; i += 1) {
+          const label = document.createElement('label');
+          label.className = 'flex flex-col gap-1 text-sm';
+
+          const span = document.createElement('span');
+          span.className = 'font-medium text-slate-700';
+          span.textContent = `Circle ${i + 1}`;
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = `Label for circle ${i + 1}`;
+          input.value = state.labels[keyForCircle(i)] || '';
+          input.className = 'rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200';
+          input.addEventListener('input', (event) => {
+            const value = event.target.value;
+            if (value) {
+              state.labels[keyForCircle(i)] = value;
+            } else {
+              delete state.labels[keyForCircle(i)];
+            }
+            drawDiagram();
+          });
+
+          label.append(span, input);
+          circleLabelsContainer.appendChild(label);
+        }
+      }
+
+      function renderOverlapLabelInputs() {
+        overlapLabelsContainer.innerHTML = '';
+        const combos = generateOverlapCombos(state.circleCount);
+
+        if (combos.length === 0) {
+          const emptyMessage = document.createElement('p');
+          emptyMessage.className = 'text-xs text-slate-500';
+          emptyMessage.textContent = 'Add another circle to unlock overlap labels.';
+          overlapLabelsContainer.appendChild(emptyMessage);
+          return;
+        }
+
+        combos.forEach((combo) => {
+          const label = document.createElement('label');
+          label.className = 'flex flex-col gap-1 text-sm';
+
+          const span = document.createElement('span');
+          span.className = 'font-medium text-slate-700';
+          span.textContent = combo.map((index) => `Circle ${index + 1}`).join(' ∩ ');
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = `Label for ${span.textContent}`;
+          const key = keyForCombo(combo);
+          input.value = state.labels[key] || '';
+          input.className = 'rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200';
+          input.addEventListener('input', (event) => {
+            const value = event.target.value;
+            if (value) {
+              state.labels[key] = value;
+            } else {
+              delete state.labels[key];
+            }
+            drawDiagram();
+          });
+
+          label.append(span, input);
+          overlapLabelsContainer.appendChild(label);
+        });
+      }
+
+      function updateFormUI() {
+        ensureCircleColors(state.circleCount);
+        pruneLabels();
+        renderCircleColorInputs();
+        renderCircleLabelInputs();
+        renderOverlapLabelInputs();
+      }
+
+      function radiusForCount(count) {
+        if (count === 2) return 150;
+        if (count === 3) return 135;
+        return 120;
+      }
+
+      function maxSpacingForCount(count) {
+        if (count === 2) return 1.8;
+        if (count === 3) return 1.5;
+        return 1.25;
+      }
+
+      function basePositions(count) {
+        if (count === 2) {
+          return [
+            { x: -1, y: 0 },
+            { x: 1, y: 0 }
+          ];
+        }
+        if (count === 3) {
+          const halfRootThree = Math.sqrt(3) / 2;
+          return [
+            { x: 0, y: -1 },
+            { x: -halfRootThree, y: 0.5 },
+            { x: halfRootThree, y: 0.5 }
+          ];
+        }
+        return [
+          { x: -1, y: 0 },
+          { x: 1, y: 0 },
+          { x: 0, y: -1 },
+          { x: 0, y: 1 }
+        ];
+      }
+
+      function computePositions() {
+        const count = state.circleCount;
+        const radius = radiusForCount(count);
+        const maxSpacing = maxSpacingForCount(count);
+        const overlapFactor = state.overlap / 100;
+        const spacing = maxSpacing * (1 - overlapFactor);
+        const centerX = baseWidth / 2;
+        const centerY = baseHeight / 2 + (count === 3 ? 10 : 0);
+        const positions = basePositions(count).map((pos) => ({
+          x: centerX + pos.x * spacing * radius,
+          y: centerY + pos.y * spacing * radius
+        }));
+        return { positions, radius };
+      }
+
+      function drawText(text, x, y, fontSize, fontWeight = '500') {
+        if (!text) return;
+        ctx.save();
+        ctx.font = `${fontWeight} ${fontSize}px "Inter", "Helvetica Neue", Arial, sans-serif`;
+        ctx.fillStyle = state.textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+        ctx.restore();
+      }
+
+      function drawDiagram() {
+        const { positions, radius } = computePositions();
+        ctx.save();
+        ctx.clearRect(0, 0, baseWidth, baseHeight);
+        ctx.fillStyle = state.backgroundColor;
+        ctx.fillRect(0, 0, baseWidth, baseHeight);
+
+        positions.forEach((position, index) => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.fillStyle = state.circleColors[index] || '#94a3b8';
+          ctx.globalAlpha = 0.6;
+          ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          if (state.borderWidth > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.lineWidth = state.borderWidth;
+            ctx.strokeStyle = state.borderColor;
+            ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          const circleLabel = state.labels[keyForCircle(index)];
+          if (circleLabel) {
+            drawText(circleLabel, position.x, position.y - radius * 0.4, 18, '600');
+          }
+        });
+
+        const combos = generateOverlapCombos(state.circleCount);
+        combos.forEach((combo) => {
+          const key = keyForCombo(combo);
+          const label = state.labels[key];
+          if (!label) return;
+          const target = combo.reduce((acc, index) => {
+            acc.x += positions[index].x;
+            acc.y += positions[index].y;
+            return acc;
+          }, { x: 0, y: 0 });
+          const divisor = combo.length;
+          const x = target.x / divisor;
+          const y = target.y / divisor;
+          drawText(label, x, y, 16, '500');
+        });
+
+        if (state.labels.title) {
+          drawText(state.labels.title, baseWidth / 2, 50, 26, '700');
+        }
+
+        ctx.restore();
+      }
+
+      circleCountSelect.addEventListener('change', (event) => {
+        const newCount = Number.parseInt(event.target.value, 10);
+        state.circleCount = newCount;
+        ensureCircleColors(newCount);
+        updateFormUI();
+        drawDiagram();
+      });
+
+      overlapRange.addEventListener('input', (event) => {
+        const value = Number.parseInt(event.target.value, 10);
+        state.overlap = value;
+        overlapValue.textContent = `${value}%`;
+        drawDiagram();
+      });
+
+      backgroundColorInput.addEventListener('input', (event) => {
+        state.backgroundColor = event.target.value;
+        drawDiagram();
+      });
+
+      textColorInput.addEventListener('input', (event) => {
+        state.textColor = event.target.value;
+        drawDiagram();
+      });
+
+      borderColorInput.addEventListener('input', (event) => {
+        state.borderColor = event.target.value;
+        drawDiagram();
+      });
+
+      borderWidthInput.addEventListener('input', (event) => {
+        state.borderWidth = Number.parseInt(event.target.value, 10);
+        drawDiagram();
+      });
+
+      titleInput.addEventListener('input', (event) => {
+        const value = event.target.value;
+        if (value) {
+          state.labels.title = value;
+        } else {
+          delete state.labels.title;
+        }
+        drawDiagram();
+      });
+
+      downloadButton.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = 'venn-diagram.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+
+      // Initial render
+      updateFormUI();
+      drawDiagram();
+    })();
+  </script>
+</body>
+</html>
