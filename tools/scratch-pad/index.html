@@ -90,6 +90,34 @@
       const saveGistButton = document.getElementById('saveGistButton');
       const downloadButton = document.getElementById('downloadButton');
 
+      const MIME_TYPES_BY_EXTENSION = {
+        txt: 'text/plain;charset=utf-8',
+        text: 'text/plain;charset=utf-8',
+        md: 'text/markdown;charset=utf-8',
+        markdown: 'text/markdown;charset=utf-8',
+        json: 'application/json;charset=utf-8',
+        csv: 'text/csv;charset=utf-8',
+        tsv: 'text/tab-separated-values;charset=utf-8',
+        html: 'text/html;charset=utf-8',
+        htm: 'text/html;charset=utf-8',
+        js: 'application/javascript;charset=utf-8',
+        ts: 'text/typescript;charset=utf-8',
+        css: 'text/css;charset=utf-8',
+        xml: 'application/xml;charset=utf-8',
+        yml: 'application/x-yaml;charset=utf-8',
+        yaml: 'application/x-yaml;charset=utf-8',
+      };
+
+      function getMimeTypeForFileName(fileName) {
+        const extensionMatch = fileName.match(/\.([^.]+)$/);
+        if (!extensionMatch || !extensionMatch[1]) {
+          return MIME_TYPES_BY_EXTENSION.txt;
+        }
+
+        const extension = extensionMatch[1].toLowerCase();
+        return MIME_TYPES_BY_EXTENSION[extension] || 'application/octet-stream';
+      }
+
       function updateActionButtonState() {
         const hasContent = textarea.value.trim().length > 0;
         if (saveGistButton) {
@@ -200,7 +228,8 @@
         }
 
         const fileName = inputName.trim() || defaultFileName;
-        const blob = new Blob([textarea.value], { type: 'text/plain;charset=utf-8' });
+        const mimeType = getMimeTypeForFileName(fileName);
+        const blob = new Blob([textarea.value], { type: mimeType });
         const url = URL.createObjectURL(blob);
 
         const link = document.createElement('a');
