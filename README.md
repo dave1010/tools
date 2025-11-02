@@ -69,5 +69,6 @@ Tools live in the [`./tools`](./tools) directory.
 - [Map Explorer](https://tools.dave.engineer/tools/map-explorer) — Full screen map with geolocation button
 - [Pendulum Studio](https://tools.dave.engineer/tools/pendulum-visualizer) — Interactive single, double, and triple pendulum playground.
 - [Perspective Grid Designer](https://tools.dave.engineer/tools/perspective-grid-designer) — Interactive vanishing-point grid generator
+- [Venn Diagram Creator](https://tools.dave.engineer/tools/venn-diagram-creator) — Build customizable Venn diagrams with adjustable overlaps and styling.
 
 <!-- TOOLS-LIST:END -->
