@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Counter</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+</head>
+<body>
+  <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+    <header class="space-y-2 text-center">
+      <h1 class="text-3xl font-semibold text-gray-900">Counter</h1>
+      <p class="text-gray-600">A shared counter backed by Cloudflare KV. Press the button to add one.</p>
+    </header>
+
+    <section class="card space-y-6 p-8 text-center">
+      <div class="space-y-2">
+        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Current Count</span>
+        <p id="count" class="text-7xl font-bold tabular-nums text-gray-900">0</p>
+      </div>
+      <p id="status" class="min-h-[1.5rem] text-sm text-gray-500"></p>
+      <button
+        id="increment"
+        type="button"
+        class="btn btn-primary inline-flex w-full items-center justify-center gap-2 rounded-xl px-8 py-5 text-2xl font-semibold md:w-auto"
+      >
+        Increment
+      </button>
+    </section>
+
+    <footer class="py-6 text-center text-sm text-gray-500">
+      <div class="flex justify-center gap-4">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+        <a href="https://github.com/dave1010/tools/tree/main/tools/counter" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const countEl = document.getElementById("count");
+    const statusEl = document.getElementById("status");
+    const incrementButton = document.getElementById("increment");
+    const ENDPOINT = "/counter";
+
+    const formatNumber = (value) => {
+      try {
+        return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+      } catch (error) {
+        return String(value);
+      }
+    };
+
+    const setStatus = (message, isError = false) => {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("text-red-600", isError);
+      statusEl.classList.toggle("text-gray-500", !isError);
+    };
+
+    const updateCount = (value) => {
+      countEl.textContent = formatNumber(value);
+    };
+
+    const fetchCount = async () => {
+      setStatus("Loading latest count...");
+      try {
+        const response = await fetch(ENDPOINT, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Failed to load count");
+        }
+        const data = await response.json();
+        updateCount(data.count ?? 0);
+        setStatus("Up to date");
+      } catch (error) {
+        console.error("Failed to fetch count", error);
+        setStatus("Couldn't load the counter. Please try again.", true);
+      }
+    };
+
+    const handleIncrement = async () => {
+      incrementButton.disabled = true;
+      incrementButton.setAttribute("aria-busy", "true");
+      setStatus("Adding one...");
+      try {
+        const response = await fetch(ENDPOINT, { method: "POST" });
+        if (!response.ok) {
+          throw new Error("Increment failed");
+        }
+        const data = await response.json();
+        updateCount(data.count ?? 0);
+        setStatus("Incremented");
+      } catch (error) {
+        console.error("Failed to increment counter", error);
+        setStatus("Couldn't increment right now. Please try again.", true);
+      } finally {
+        incrementButton.disabled = false;
+        incrementButton.removeAttribute("aria-busy");
+      }
+    };
+
+    incrementButton.addEventListener("click", handleIncrement);
+    fetchCount();
+  </script>
+</body>
+</html>
