@@ -46,6 +46,12 @@ If the developer reports that JS is completely broken then surface all errors. E
 
 <skills>
 
+## Saving and exporting text files
+
+If it might be helpful to edit or export text data then add a "Save to scratchpad" button.
+A text string can be written using `window.localStorage.setItem('scratch-pad-content', contents)`,
+then add a link to `/tools/scratch-pad/`.
+
 ## Skills
 
 You have new skills. If any skill might be relevant then you MUST read it.
