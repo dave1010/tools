@@ -56,14 +56,38 @@
     const ENDPOINT = "/counter";
 
     const serialize = (value) => {
+      if (value instanceof Error) {
+        const details = [value.name || "Error", value.message].filter(Boolean).join(": ");
+        if (value.stack) {
+          return `${details}\n${value.stack}`;
+        }
+        return details || "Error";
+      }
+
       if (typeof value === "string") {
         return value;
       }
 
-      try {
-        return JSON.stringify(value);
-      } catch (error) {
+      if (value === undefined) {
+        return "undefined";
+      }
+
+      if (value === null) {
+        return "null";
+      }
+
+      if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
         return String(value);
+      }
+
+      if (typeof Response !== "undefined" && value instanceof Response) {
+        return `Response { status: ${value.status}, statusText: "${value.statusText}" }`;
+      }
+
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch (error) {
+        return Object.prototype.toString.call(value);
       }
     };
 
@@ -128,18 +152,39 @@
       countEl.textContent = formatNumber(value);
     };
 
+    const readJson = async (response, context = "Response") => {
+      const text = await response.text();
+      if (!text) {
+        return {};
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        console.error(`${context} body was not valid JSON`, text);
+        throw error;
+      }
+    };
+
     const fetchCount = async () => {
       setStatus("Loading latest count...");
       try {
         const response = await fetch(ENDPOINT, { cache: "no-store" });
         if (!response.ok) {
-          throw new Error("Failed to load count");
+          const errorBody = await response.text();
+          console.error("Count fetch failed", {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody,
+          });
+          throw new Error(`Failed to load count (${response.status})`);
         }
-        const data = await response.json();
+
+        const data = await readJson(response, "Counter fetch");
         updateCount(data.count ?? 0);
         setStatus("Up to date");
       } catch (error) {
-        console.error("Failed to fetch count", error);
+        console.error("Failed to fetch count", error instanceof Error ? `${error.name}: ${error.message}` : error, error);
         setStatus("Couldn't load the counter. Please try again.", true);
       }
     };
@@ -151,13 +196,23 @@
       try {
         const response = await fetch(ENDPOINT, { method: "POST" });
         if (!response.ok) {
-          throw new Error("Increment failed");
+          const errorBody = await response.text();
+          console.error("Increment request failed", {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody,
+          });
+          throw new Error(`Increment failed (${response.status})`);
         }
-        const data = await response.json();
+        const data = await readJson(response, "Increment response");
         updateCount(data.count ?? 0);
         setStatus("Incremented");
       } catch (error) {
-        console.error("Failed to increment counter", error);
+        console.error(
+          "Failed to increment counter",
+          error instanceof Error ? `${error.name}: ${error.message}` : error,
+          error,
+        );
         setStatus("Couldn't increment right now. Please try again.", true);
       } finally {
         incrementButton.disabled = false;
