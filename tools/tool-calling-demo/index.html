@@ -40,21 +40,14 @@
 
         <div>
           <h2 class="text-base font-semibold text-gray-900">Conversation</h2>
-          <div id="conversation" class="mt-2 h-60 overflow-y-auto rounded-xl bg-gray-50 p-4 text-sm text-gray-900">
+          <p class="mt-1 text-xs text-gray-500">
+            Tool requests and responses appear inline so you can follow how the assistant reasons.
+          </p>
+          <div id="conversation" class="mt-2 h-72 overflow-y-auto rounded-xl bg-gray-50 p-4 text-sm text-gray-900">
             <p id="emptyConversation" class="mt-6 text-center text-gray-500">
               The assistant replies will appear here.
             </p>
           </div>
-        </div>
-      </section>
-
-      <section class="space-y-3 rounded-2xl bg-white p-6 shadow">
-        <h2 class="text-base font-semibold text-gray-900">Tool activity</h2>
-        <p class="text-sm text-gray-600">
-          Every tool request and response is shown so you can see how the assistant reasons with data returned from the JavaScript tool.
-        </p>
-        <div id="toolLog" class="h-56 overflow-y-auto rounded-xl bg-gray-50 p-4 text-xs text-gray-900">
-          <p id="emptyToolLog" class="mt-6 text-center text-gray-500">No tool calls yet.</p>
         </div>
       </section>
 
@@ -115,15 +108,12 @@ Explain the answer to the user clearly once you have the tool results.`;
       ];
 
       const conversationLog = [];
-      const toolLog = [];
 
       const userInput = document.getElementById("userInput");
       const sendButton = document.getElementById("sendButton");
       const statusEl = document.getElementById("status");
       const conversationEl = document.getElementById("conversation");
       const emptyConversationEl = document.getElementById("emptyConversation");
-      const toolLogEl = document.getElementById("toolLog");
-      const emptyToolLogEl = document.getElementById("emptyToolLog");
 
       function setStatus(message) {
         if (message) {
@@ -151,13 +141,28 @@ Explain the answer to the user clearly once you have the tool results.`;
 
           const label = document.createElement("p");
           label.className = "text-xs font-semibold uppercase tracking-wide text-gray-500";
-          label.textContent = entry.role === "user" ? "User" : entry.role === "assistant" ? "Assistant" : entry.role;
 
           const bubble = document.createElement("pre");
-          bubble.className = `whitespace-pre-wrap rounded-lg px-3 py-2 font-sans text-sm ${
-            entry.role === "user" ? "bg-brand-100/70" : "bg-white"
-          }`;
           bubble.textContent = entry.content;
+
+          if (entry.type === "message") {
+            label.textContent = entry.role === "user" ? "User" : entry.role === "assistant" ? "Assistant" : entry.role;
+            bubble.className = `whitespace-pre-wrap rounded-lg px-3 py-2 font-sans text-sm ${
+              entry.role === "user" ? "bg-brand-100/70" : "bg-white"
+            }`;
+          } else if (entry.type === "tool-request") {
+            label.textContent = `Tool request • ${entry.name}`;
+            bubble.className =
+              "whitespace-pre-wrap rounded-lg border border-brand-200 bg-brand-50/80 px-3 py-2 font-mono text-xs leading-snug text-gray-900";
+          } else if (entry.type === "tool-response") {
+            label.textContent = `Tool response • ${entry.name}${entry.error ? " (error)" : ""}`;
+            bubble.className = entry.error
+              ? "whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs leading-snug text-red-700"
+              : "whitespace-pre-wrap rounded-lg border border-brand-200 bg-white px-3 py-2 font-mono text-xs leading-snug text-gray-900";
+          } else {
+            label.textContent = entry.type ?? "Event";
+            bubble.className = "whitespace-pre-wrap rounded-lg px-3 py-2 font-sans text-sm bg-white";
+          }
 
           wrapper.appendChild(label);
           wrapper.appendChild(bubble);
@@ -166,37 +171,6 @@ Explain the answer to the user clearly once you have the tool results.`;
 
         conversationEl.appendChild(fragment);
         conversationEl.scrollTop = conversationEl.scrollHeight;
-      }
-
-      function renderToolLog() {
-        toolLogEl.replaceChildren();
-        if (toolLog.length === 0) {
-          emptyToolLogEl.classList.remove("hidden");
-          toolLogEl.appendChild(emptyToolLogEl);
-          return;
-        }
-        emptyToolLogEl.classList.add("hidden");
-
-        const fragment = document.createDocumentFragment();
-        for (const item of toolLog) {
-          const wrapper = document.createElement("div");
-          wrapper.className = "space-y-1 rounded-lg bg-white/80 p-3 shadow-sm";
-
-          const title = document.createElement("p");
-          title.className = "text-xs font-semibold uppercase tracking-wide text-gray-500";
-          title.textContent = item.type;
-
-          const body = document.createElement("pre");
-          body.className = "whitespace-pre-wrap font-mono text-[11px] leading-snug text-gray-900";
-          body.textContent = item.content;
-
-          wrapper.appendChild(title);
-          wrapper.appendChild(body);
-          fragment.appendChild(wrapper);
-        }
-
-        toolLogEl.appendChild(fragment);
-        toolLogEl.scrollTop = toolLogEl.scrollHeight;
       }
 
       function safeStringify(value, spacing) {
@@ -241,14 +215,17 @@ Explain the answer to the user clearly once you have the tool results.`;
         return await fn(...keys.map((key) => sandbox[key]));
       }
 
-      function addConversation(role, content) {
-        conversationLog.push({ role, content: String(content ?? "") });
+      function addConversationEntry(entry) {
+        conversationLog.push(entry);
         renderConversation();
       }
 
-      function addToolLog(type, content) {
-        toolLog.push({ type, content });
-        renderToolLog();
+      function addMessage(role, content) {
+        addConversationEntry({ type: "message", role, content: String(content ?? "") });
+      }
+
+      function addToolEvent(kind, name, content, extras = {}) {
+        addConversationEntry({ type: kind, name, content: String(content ?? ""), ...extras });
       }
 
       async function sendMessage() {
@@ -260,7 +237,7 @@ Explain the answer to the user clearly once you have the tool results.`;
         userInput.value = "";
         setStatus("");
         sendButton.disabled = true;
-        addConversation("user", text);
+        addMessage("user", text);
         messages.push({ role: "user", content: text });
 
         try {
@@ -299,7 +276,7 @@ Explain the answer to the user clearly once you have the tool results.`;
             if (choice.tool_calls && choice.tool_calls.length > 0) {
               const interimText = choice.content?.trim();
               if (interimText) {
-                addConversation("assistant", interimText);
+                addMessage("assistant", interimText);
               }
               choice.tool_calls.forEach((call) => {
                 let parsedArguments;
@@ -308,15 +285,17 @@ Explain the answer to the user clearly once you have the tool results.`;
                 } catch (err) {
                   parsedArguments = call.function.arguments;
                 }
-                addToolLog(
-                  `Request • ${call.function.name}`,
+                addToolEvent(
+                  "tool-request",
+                  call.function.name,
                   safeStringify(
                     {
                       tool_call_id: call.id,
                       arguments: parsedArguments
                     },
                     2
-                  )
+                  ),
+                  { toolCallId: call.id }
                 );
               });
 
@@ -337,9 +316,11 @@ Explain the answer to the user clearly once you have the tool results.`;
                   };
                 }
 
-                addToolLog(
-                  `Response • ${call.function.name}${success ? "" : " (error)"}`,
-                  safeStringify(toolResult, 2)
+                addToolEvent(
+                  "tool-response",
+                  call.function.name,
+                  safeStringify(toolResult, 2),
+                  { error: !success, toolCallId: call.id }
                 );
 
                 messages.push({
@@ -354,7 +335,7 @@ Explain the answer to the user clearly once you have the tool results.`;
 
             const finalText = choice.content?.trim();
             if (finalText) {
-              addConversation("assistant", finalText);
+              addMessage("assistant", finalText);
             }
             delivered = true;
             break;
