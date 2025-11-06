@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color Name Lab</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Color Name Lab</h1>
+        <p class="text-sm text-gray-600">
+          Inspect a color, compare it with familiar shades, and let two AI passes suggest fitting names and matching hex codes.
+        </p>
+      </header>
+
+      <section class="rounded-2xl bg-white p-6 shadow space-y-6">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <label class="space-y-2">
+            <span class="block text-sm font-medium text-gray-700">Pick a color</span>
+            <input
+              id="colorPicker"
+              type="color"
+              class="h-16 w-32 cursor-pointer rounded-lg border border-gray-300 bg-gray-50 p-1 shadow-inner"
+              value="#5B4DFF"
+              aria-describedby="colorSummary"
+            />
+          </label>
+          <div class="flex flex-1 items-center justify-around gap-4 text-sm text-gray-700">
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-xs uppercase tracking-wide text-gray-500">Hex</span>
+              <span id="hexValue" class="font-mono text-lg text-gray-900">#5B4DFF</span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-xs uppercase tracking-wide text-gray-500">RGB</span>
+              <span id="rgbValue" class="font-mono text-lg text-gray-900">91, 77, 255</span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-xs uppercase tracking-wide text-gray-500">HSL</span>
+              <span id="hslValue" class="font-mono text-lg text-gray-900">245°, 100%, 65%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h2 class="text-base font-semibold text-gray-900">Color analysis</h2>
+          <p id="colorSummary" class="text-sm text-gray-600">
+            Choose a color to see luminance, Lab coordinates, and nearby named shades.
+          </p>
+          <dl class="grid gap-4 rounded-xl border border-gray-200 p-4 text-sm text-gray-700 md:grid-cols-2" id="metadataList">
+            <!-- Populated by script -->
+          </dl>
+        </div>
+
+        <div class="space-y-3">
+          <h2 class="text-base font-semibold text-gray-900">Closest CSS named colors</h2>
+          <ul id="nearestColors" class="grid gap-3 md:grid-cols-3"></ul>
+        </div>
+      </section>
+
+      <section class="rounded-2xl bg-white p-6 shadow space-y-4">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <h2 class="text-base font-semibold text-gray-900">Ask the models</h2>
+          <button
+            id="generateButton"
+            type="button"
+            class="btn btn-primary"
+          >
+            Generate color names
+          </button>
+        </div>
+        <p id="statusMessage" class="text-sm text-gray-600"></p>
+        <div class="grid gap-6 md:grid-cols-2">
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">AI name suggestions</h3>
+            <div
+              id="nameSuggestions"
+              class="mt-2 min-h-[6rem] rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-800"
+            ></div>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">LLM supplied hex codes</h3>
+            <div id="hexResults" class="mt-2 grid gap-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/color-name-lab" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const COLOR_DATA = [
+        { name: "AliceBlue", hex: "#F0F8FF" },
+        { name: "AntiqueWhite", hex: "#FAEBD7" },
+        { name: "Aqua", hex: "#00FFFF" },
+        { name: "Aquamarine", hex: "#7FFFD4" },
+        { name: "Azure", hex: "#F0FFFF" },
+        { name: "Beige", hex: "#F5F5DC" },
+        { name: "Bisque", hex: "#FFE4C4" },
+        { name: "Black", hex: "#000000" },
+        { name: "BlanchedAlmond", hex: "#FFEBCD" },
+        { name: "Blue", hex: "#0000FF" },
+        { name: "BlueViolet", hex: "#8A2BE2" },
+        { name: "Brown", hex: "#A52A2A" },
+        { name: "BurlyWood", hex: "#DEB887" },
+        { name: "CadetBlue", hex: "#5F9EA0" },
+        { name: "Chartreuse", hex: "#7FFF00" },
+        { name: "Chocolate", hex: "#D2691E" },
+        { name: "Coral", hex: "#FF7F50" },
+        { name: "CornflowerBlue", hex: "#6495ED" },
+        { name: "Cornsilk", hex: "#FFF8DC" },
+        { name: "Crimson", hex: "#DC143C" },
+        { name: "Cyan", hex: "#00FFFF" },
+        { name: "DarkBlue", hex: "#00008B" },
+        { name: "DarkCyan", hex: "#008B8B" },
+        { name: "DarkGoldenRod", hex: "#B8860B" },
+        { name: "DarkGray", hex: "#A9A9A9" },
+        { name: "DarkGreen", hex: "#006400" },
+        { name: "DarkGrey", hex: "#A9A9A9" },
+        { name: "DarkKhaki", hex: "#BDB76B" },
+        { name: "DarkMagenta", hex: "#8B008B" },
+        { name: "DarkOliveGreen", hex: "#556B2F" },
+        { name: "DarkOrange", hex: "#FF8C00" },
+        { name: "DarkOrchid", hex: "#9932CC" },
+        { name: "DarkRed", hex: "#8B0000" },
+        { name: "DarkSalmon", hex: "#E9967A" },
+        { name: "DarkSeaGreen", hex: "#8FBC8F" },
+        { name: "DarkSlateBlue", hex: "#483D8B" },
+        { name: "DarkSlateGray", hex: "#2F4F4F" },
+        { name: "DarkSlateGrey", hex: "#2F4F4F" },
+        { name: "DarkTurquoise", hex: "#00CED1" },
+        { name: "DarkViolet", hex: "#9400D3" },
+        { name: "DeepPink", hex: "#FF1493" },
+        { name: "DeepSkyBlue", hex: "#00BFFF" },
+        { name: "DimGray", hex: "#696969" },
+        { name: "DimGrey", hex: "#696969" },
+        { name: "DodgerBlue", hex: "#1E90FF" },
+        { name: "FireBrick", hex: "#B22222" },
+        { name: "FloralWhite", hex: "#FFFAF0" },
+        { name: "ForestGreen", hex: "#228B22" },
+        { name: "Fuchsia", hex: "#FF00FF" },
+        { name: "Gainsboro", hex: "#DCDCDC" },
+        { name: "GhostWhite", hex: "#F8F8FF" },
+        { name: "Gold", hex: "#FFD700" },
+        { name: "GoldenRod", hex: "#DAA520" },
+        { name: "Gray", hex: "#808080" },
+        { name: "Green", hex: "#008000" },
+        { name: "GreenYellow", hex: "#ADFF2F" },
+        { name: "HoneyDew", hex: "#F0FFF0" },
+        { name: "HotPink", hex: "#FF69B4" },
+        { name: "IndianRed", hex: "#CD5C5C" },
+        { name: "Indigo", hex: "#4B0082" },
+        { name: "Ivory", hex: "#FFFFF0" },
+        { name: "Khaki", hex: "#F0E68C" },
+        { name: "Lavender", hex: "#E6E6FA" },
+        { name: "LavenderBlush", hex: "#FFF0F5" },
+        { name: "LawnGreen", hex: "#7CFC00" },
+        { name: "LemonChiffon", hex: "#FFFACD" },
+        { name: "LightBlue", hex: "#ADD8E6" },
+        { name: "LightCoral", hex: "#F08080" },
+        { name: "LightCyan", hex: "#E0FFFF" },
+        { name: "LightGoldenRodYellow", hex: "#FAFAD2" },
+        { name: "LightGray", hex: "#D3D3D3" },
+        { name: "LightGreen", hex: "#90EE90" },
+        { name: "LightGrey", hex: "#D3D3D3" },
+        { name: "LightPink", hex: "#FFB6C1" },
+        { name: "LightSalmon", hex: "#FFA07A" },
+        { name: "LightSeaGreen", hex: "#20B2AA" },
+        { name: "LightSkyBlue", hex: "#87CEFA" },
+        { name: "LightSlateGray", hex: "#778899" },
+        { name: "LightSlateGrey", hex: "#778899" },
+        { name: "LightSteelBlue", hex: "#B0C4DE" },
+        { name: "LightYellow", hex: "#FFFFE0" },
+        { name: "Lime", hex: "#00FF00" },
+        { name: "LimeGreen", hex: "#32CD32" },
+        { name: "Linen", hex: "#FAF0E6" },
+        { name: "Magenta", hex: "#FF00FF" },
+        { name: "Maroon", hex: "#800000" },
+        { name: "MediumAquaMarine", hex: "#66CDAA" },
+        { name: "MediumBlue", hex: "#0000CD" },
+        { name: "MediumOrchid", hex: "#BA55D3" },
+        { name: "MediumPurple", hex: "#9370DB" },
+        { name: "MediumSeaGreen", hex: "#3CB371" },
+        { name: "MediumSlateBlue", hex: "#7B68EE" },
+        { name: "MediumSpringGreen", hex: "#00FA9A" },
+        { name: "MediumTurquoise", hex: "#48D1CC" },
+        { name: "MediumVioletRed", hex: "#C71585" },
+        { name: "MidnightBlue", hex: "#191970" },
+        { name: "MintCream", hex: "#F5FFFA" },
+        { name: "MistyRose", hex: "#FFE4E1" },
+        { name: "Moccasin", hex: "#FFE4B5" },
+        { name: "NavajoWhite", hex: "#FFDEAD" },
+        { name: "Navy", hex: "#000080" },
+        { name: "OldLace", hex: "#FDF5E6" },
+        { name: "Olive", hex: "#808000" },
+        { name: "OliveDrab", hex: "#6B8E23" },
+        { name: "Orange", hex: "#FFA500" },
+        { name: "OrangeRed", hex: "#FF4500" },
+        { name: "Orchid", hex: "#DA70D6" },
+        { name: "PaleGoldenRod", hex: "#EEE8AA" },
+        { name: "PaleGreen", hex: "#98FB98" },
+        { name: "PaleTurquoise", hex: "#AFEEEE" },
+        { name: "PaleVioletRed", hex: "#DB7093" },
+        { name: "PapayaWhip", hex: "#FFEFD5" },
+        { name: "PeachPuff", hex: "#FFDAB9" },
+        { name: "Peru", hex: "#CD853F" },
+        { name: "Pink", hex: "#FFC0CB" },
+        { name: "Plum", hex: "#DDA0DD" },
+        { name: "PowderBlue", hex: "#B0E0E6" },
+        { name: "Purple", hex: "#800080" },
+        { name: "RebeccaPurple", hex: "#663399" },
+        { name: "Red", hex: "#FF0000" },
+        { name: "RosyBrown", hex: "#BC8F8F" },
+        { name: "RoyalBlue", hex: "#4169E1" },
+        { name: "SaddleBrown", hex: "#8B4513" },
+        { name: "Salmon", hex: "#FA8072" },
+        { name: "SandyBrown", hex: "#F4A460" },
+        { name: "SeaGreen", hex: "#2E8B57" },
+        { name: "SeaShell", hex: "#FFF5EE" },
+        { name: "Sienna", hex: "#A0522D" },
+        { name: "Silver", hex: "#C0C0C0" },
+        { name: "SkyBlue", hex: "#87CEEB" },
+        { name: "SlateBlue", hex: "#6A5ACD" },
+        { name: "SlateGray", hex: "#708090" },
+        { name: "SlateGrey", hex: "#708090" },
+        { name: "Snow", hex: "#FFFAFA" },
+        { name: "SpringGreen", hex: "#00FF7F" },
+        { name: "SteelBlue", hex: "#4682B4" },
+        { name: "Tan", hex: "#D2B48C" },
+        { name: "Teal", hex: "#008080" },
+        { name: "Thistle", hex: "#D8BFD8" },
+        { name: "Tomato", hex: "#FF6347" },
+        { name: "Turquoise", hex: "#40E0D0" },
+        { name: "Violet", hex: "#EE82EE" },
+        { name: "Wheat", hex: "#F5DEB3" },
+        { name: "White", hex: "#FFFFFF" },
+        { name: "WhiteSmoke", hex: "#F5F5F5" },
+        { name: "Yellow", hex: "#FFFF00" },
+        { name: "YellowGreen", hex: "#9ACD32" }
+      ];
+
+      const colorInput = document.getElementById("colorPicker");
+      const hexValue = document.getElementById("hexValue");
+      const rgbValue = document.getElementById("rgbValue");
+      const hslValue = document.getElementById("hslValue");
+      const metadataList = document.getElementById("metadataList");
+      const nearestColorsList = document.getElementById("nearestColors");
+      const summaryEl = document.getElementById("colorSummary");
+      const generateButton = document.getElementById("generateButton");
+      const statusMessage = document.getElementById("statusMessage");
+      const nameSuggestions = document.getElementById("nameSuggestions");
+      const hexResults = document.getElementById("hexResults");
+
+      const NAMED_COLORS = COLOR_DATA.map((color) => {
+        const rgb = hexToRgb(color.hex);
+        const lab = rgbToLab(rgb);
+        return { ...color, rgb, lab };
+      });
+
+      let currentMetadata = null;
+      let isGenerating = false;
+
+      function hexToRgb(hex) {
+        const normalized = hex.replace(/[^0-9a-fA-F]/g, "");
+        if (normalized.length !== 6) {
+          return { r: 0, g: 0, b: 0 };
+        }
+        const value = parseInt(normalized, 16);
+        return {
+          r: (value >> 16) & 0xff,
+          g: (value >> 8) & 0xff,
+          b: value & 0xff,
+        };
+      }
+
+      function rgbToHsl({ r, g, b }) {
+        const rNorm = r / 255;
+        const gNorm = g / 255;
+        const bNorm = b / 255;
+        const max = Math.max(rNorm, gNorm, bNorm);
+        const min = Math.min(rNorm, gNorm, bNorm);
+        let h = 0;
+        let s = 0;
+        const l = (max + min) / 2;
+
+        if (max !== min) {
+          const d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          switch (max) {
+            case rNorm:
+              h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0);
+              break;
+            case gNorm:
+              h = (bNorm - rNorm) / d + 2;
+              break;
+            case bNorm:
+              h = (rNorm - gNorm) / d + 4;
+              break;
+          }
+          h /= 6;
+        }
+
+        return {
+          h: (h * 360 + 360) % 360,
+          s,
+          l,
+        };
+      }
+
+      function rgbToLab(rgb) {
+        const { r, g, b } = rgb;
+        const toLinear = (value) => {
+          const v = value / 255;
+          return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        };
+
+        const rLin = toLinear(r);
+        const gLin = toLinear(g);
+        const bLin = toLinear(b);
+
+        const x = rLin * 0.4124564 + gLin * 0.3575761 + bLin * 0.1804375;
+        const y = rLin * 0.2126729 + gLin * 0.7151522 + bLin * 0.0721750;
+        const z = rLin * 0.0193339 + gLin * 0.1191920 + bLin * 0.9503041;
+
+        const refX = 0.95047;
+        const refY = 1.0;
+        const refZ = 1.08883;
+
+        const fx = xyzToLabComponent(x / refX);
+        const fy = xyzToLabComponent(y / refY);
+        const fz = xyzToLabComponent(z / refZ);
+
+        return {
+          l: 116 * fy - 16,
+          a: 500 * (fx - fy),
+          b: 200 * (fy - fz),
+        };
+      }
+
+      function xyzToLabComponent(value) {
+        return value > 0.008856 ? Math.cbrt(value) : 7.787 * value + 16 / 116;
+      }
+
+      function deltaE(lab1, lab2) {
+        const dl = lab1.l - lab2.l;
+        const da = lab1.a - lab2.a;
+        const db = lab1.b - lab2.b;
+        return Math.sqrt(dl * dl + da * da + db * db);
+      }
+
+      function relativeLuminance({ r, g, b }) {
+        const toLinear = (value) => {
+          const v = value / 255;
+          return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        };
+
+        const rLin = toLinear(r);
+        const gLin = toLinear(g);
+        const bLin = toLinear(b);
+        return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+      }
+
+      function describeColor(hsl) {
+        const { h, s, l } = hsl;
+        let hueLabel = "neutral";
+        if (s < 0.05) {
+          hueLabel = "neutral";
+        } else if (h < 15 || h >= 345) {
+          hueLabel = "red";
+        } else if (h < 45) {
+          hueLabel = "orange";
+        } else if (h < 75) {
+          hueLabel = "yellow";
+        } else if (h < 105) {
+          hueLabel = "chartreuse";
+        } else if (h < 135) {
+          hueLabel = "green";
+        } else if (h < 165) {
+          hueLabel = "seafoam";
+        } else if (h < 195) {
+          hueLabel = "cyan";
+        } else if (h < 225) {
+          hueLabel = "sky";
+        } else if (h < 255) {
+          hueLabel = "blue";
+        } else if (h < 285) {
+          hueLabel = "violet";
+        } else if (h < 315) {
+          hueLabel = "purple";
+        } else {
+          hueLabel = "magenta";
+        }
+
+        const saturationLabel =
+          s < 0.1 ? "muted" : s < 0.35 ? "soft" : s < 0.65 ? "balanced" : "vibrant";
+        const lightnessLabel =
+          l < 0.2 ? "very dark" : l < 0.35 ? "dark" : l < 0.6 ? "medium" : l < 0.8 ? "light" : "very light";
+
+        return `${lightnessLabel}, ${saturationLabel} ${hueLabel}`;
+      }
+
+      function formatPercent(value) {
+        return `${Math.round(value * 100)}%`;
+      }
+
+      function formatNumber(value, precision = 2) {
+        return Number(value).toFixed(precision);
+      }
+
+      function updateMetadata(hex) {
+        const rgb = hexToRgb(hex);
+        const hsl = rgbToHsl(rgb);
+        const lab = rgbToLab(rgb);
+        const luminance = relativeLuminance(rgb);
+        const sortedNeighbors = [...NAMED_COLORS]
+          .map((color) => ({ ...color, distance: deltaE(lab, color.lab) }))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 3);
+
+        const summaryText = `A ${describeColor(hsl)} color with relative luminance ${formatNumber(
+          luminance,
+          3
+        )}. It is closest to ${sortedNeighbors
+          .slice(0, 2)
+          .map((c) => c.name)
+          .join(" and ")}.`;
+
+        summaryEl.textContent = summaryText;
+        hexValue.textContent = hex.toUpperCase();
+        rgbValue.textContent = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+        hslValue.textContent = `${Math.round(hsl.h)}°, ${formatPercent(hsl.s)}, ${formatPercent(hsl.l)}`;
+
+        metadataList.innerHTML = `
+          <div>
+            <dt class="font-semibold text-gray-900">CIELAB</dt>
+            <dd class="font-mono text-gray-700">L* ${formatNumber(lab.l)}, a* ${formatNumber(lab.a)}, b* ${formatNumber(
+          lab.b
+        )}</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-gray-900">Relative luminance</dt>
+            <dd class="font-mono text-gray-700">${formatNumber(luminance, 3)}</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-gray-900">Perceived vibe</dt>
+            <dd class="text-gray-700">${describeColor(hsl)}</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-gray-900">Hue &gamma; span</dt>
+            <dd class="text-gray-700">${Math.round(hsl.h)}° hue, ${formatPercent(hsl.s)} saturation</dd>
+          </div>
+        `;
+
+        nearestColorsList.innerHTML = sortedNeighbors
+          .map(
+            (color) => `
+            <li class="rounded-xl border border-gray-200 p-3 text-sm text-gray-700 shadow-sm">
+              <div class="flex items-center gap-3">
+                <span class="h-10 w-10 rounded-full border border-gray-200" style="background:${color.hex}"></span>
+                <div class="flex-1">
+                  <p class="font-semibold text-gray-900">${color.name}</p>
+                  <p class="font-mono text-xs text-gray-500">${color.hex.toUpperCase()}</p>
+                  <p class="text-xs text-gray-500">ΔE ${formatNumber(color.distance, 2)}</p>
+                </div>
+              </div>
+            </li>
+          `
+          )
+          .join("");
+
+        currentMetadata = {
+          hex: hex.toUpperCase(),
+          rgb,
+          hsl,
+          lab,
+          luminance,
+          nearest: sortedNeighbors.map((color) => ({
+            name: color.name,
+            hex: color.hex.toUpperCase(),
+            deltaE: color.distance,
+          })),
+          description: describeColor(hsl),
+        };
+      }
+
+      async function callLLM(messages) {
+        const response = await fetch("/cerebras-chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-oss-120b",
+            messages,
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          let errorDetail = `Request failed (${response.status})`;
+          try {
+            const data = await response.json();
+            errorDetail = data?.error || data?.message || errorDetail;
+          } catch (error) {
+            errorDetail = await response.text();
+          }
+          throw new Error(errorDetail);
+        }
+
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (typeof content !== "string" || !content.trim()) {
+          throw new Error("The model returned an empty response.");
+        }
+        return content.trim();
+      }
+
+      function buildMetadataPrompt(metadata) {
+        const nearestDetails = metadata.nearest
+          .map(
+            (color, index) =>
+              `${index + 1}. ${color.name} (${color.hex}) with a ΔE of ${formatNumber(color.deltaE, 2)}`
+          )
+          .join("\n");
+
+        return `Color analysis
+Hex: ${metadata.hex}
+RGB: ${metadata.rgb.r}, ${metadata.rgb.g}, ${metadata.rgb.b}
+HSL: ${Math.round(metadata.hsl.h)}°, ${formatPercent(metadata.hsl.s)}, ${formatPercent(metadata.hsl.l)}
+CIELAB: L* ${formatNumber(metadata.lab.l)}, a* ${formatNumber(metadata.lab.a)}, b* ${formatNumber(metadata.lab.b)}
+Relative luminance: ${formatNumber(metadata.luminance, 3)}
+Perceived vibe: ${metadata.description}
+Closest CSS named colors:\n${nearestDetails}`;
+      }
+
+      function parseLines(text) {
+        return text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function renderNameSuggestions(names) {
+        nameSuggestions.textContent = names.join("\n");
+      }
+
+      function renderHexResults(pairs) {
+        hexResults.innerHTML = pairs
+          .map((pair) => {
+            const distance = currentMetadata ? deltaE(currentMetadata.lab, pair.lab) : null;
+            return `
+            <div class="flex items-center gap-3 rounded-lg border border-gray-200 p-3 shadow-sm">
+              <span class="h-10 w-10 rounded-lg border border-gray-200" style="background:${pair.hex}"></span>
+              <div class="flex-1">
+                <p class="font-semibold text-gray-900">${pair.name}</p>
+                <p class="font-mono text-xs text-gray-500">${pair.hex}</p>
+                ${
+                  distance !== null
+                    ? `<p class="text-xs text-gray-500">ΔE from pick: ${formatNumber(distance, 2)}</p>`
+                    : ""
+                }
+              </div>
+            </div>
+          `;
+          })
+          .join("");
+      }
+
+      function setStatus(message, isError = false) {
+        statusMessage.textContent = message;
+        statusMessage.classList.toggle("text-red-600", isError);
+        statusMessage.classList.toggle("text-gray-600", !isError);
+      }
+
+      function setLoading(loading) {
+        isGenerating = loading;
+        generateButton.disabled = loading;
+        generateButton.textContent = loading ? "Working…" : "Generate color names";
+      }
+
+      async function generateColorNames() {
+        if (!currentMetadata || isGenerating) {
+          return;
+        }
+
+        setLoading(true);
+        setStatus("Sending color analysis to the naming model…");
+        nameSuggestions.textContent = "";
+        hexResults.innerHTML = "";
+
+        try {
+          const metadataPrompt = buildMetadataPrompt(currentMetadata);
+          const namesText = await callLLM([
+            {
+              role: "system",
+              content:
+                "You craft concise, evocative paint color names. When asked, respond with exactly five distinct name ideas, one per line, with no numbering or punctuation besides letters, spaces, hyphens, or apostrophes.",
+            },
+            {
+              role: "user",
+              content: `${metadataPrompt}\n\nProvide five fresh name ideas as instructed.`,
+            },
+          ]);
+
+          const nameLines = parseLines(namesText);
+          if (nameLines.length < 5) {
+            throw new Error("Expected five names, but received fewer.");
+          }
+
+          renderNameSuggestions(nameLines.slice(0, 5));
+          setStatus("Requesting hex codes for the suggested names…");
+
+          const hexResponse = await callLLM([
+            {
+              role: "system",
+              content:
+                "You map color names to precise sRGB hex codes. Given names, answer with one line per name in the format `Name #RRGGBB`. Use full six-digit uppercase hex. Provide no other text.",
+            },
+            {
+              role: "user",
+              content: `Names:\n${nameLines
+                .slice(0, 5)
+                .map((name, index) => `${index + 1}. ${name}`)
+                .join("\n")}\n\nReturn the hex codes in the specified format, preserving the name spelling exactly.`,
+            },
+          ]);
+
+          const hexLines = parseLines(hexResponse);
+          if (hexLines.length < 5) {
+            throw new Error("Expected five hex responses, but received fewer.");
+          }
+
+          const pairs = hexLines.slice(0, 5).map((line) => {
+            const match = line.match(/^(.*)\s+#([0-9A-Fa-f]{6})$/);
+            if (!match) {
+              throw new Error("Unexpected hex format from the model.");
+            }
+            const name = match[1].trim();
+            const hex = `#${match[2].toUpperCase()}`;
+            const rgb = hexToRgb(hex);
+            return { name, hex, lab: rgbToLab(rgb) };
+          });
+
+          renderHexResults(pairs);
+          setStatus("All set! Compare the AI names and shades.");
+        } catch (error) {
+          console.error("Failed to generate color names", error);
+          setStatus(error?.message || "Unexpected error while contacting the models.", true);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      colorInput.addEventListener("input", (event) => {
+        const value = event.target.value || "#000000";
+        updateMetadata(value.toUpperCase());
+      });
+
+      generateButton.addEventListener("click", generateColorNames);
+
+      updateMetadata(colorInput.value.toUpperCase());
+    </script>
+  </body>
+</html>
