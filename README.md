@@ -64,6 +64,7 @@ Tools live in the [`./tools`](./tools) directory.
 ### Visualization
 
 - [3D Game of Life](https://tools.dave.engineer/tools/3d-game-of-life) — Explore animated voxel life simulation
+- [Color Name Lab](https://tools.dave.engineer/tools/color-name-lab) — Generate fresh names for colors
 - [Fractal Playground](https://tools.dave.engineer/tools/fractal-playground) — Interactive Mandelbrot and Julia explorer
 - [GBFS Explorer](https://tools.dave.engineer/tools/gbfs-explorer) — Browse shared mobility feeds on an interactive map
 - [Map Explorer](https://tools.dave.engineer/tools/map-explorer) — Full screen map with geolocation button
