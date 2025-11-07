@@ -50,6 +50,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Bubble Level](https://tools.dave.engineer/tools/bubble-level) — Simple digital bubble level
 - [Compass](https://tools.dave.engineer/tools/compass) — Heading indicator with magnetometer data
 - [Counter](https://tools.dave.engineer/tools/counter) — Shared counter with a Cloudflare KV-backed increment button.
+- [Interval Timer](https://tools.dave.engineer/tools/interval-timer) — Customisable HIIT-style session timer
 
 ### Text
 
