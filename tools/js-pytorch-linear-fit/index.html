@@ -3,20 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JS PyTorch Linear Fit Lab</title>
+    <title>TensorFlow.js Linear Fit Lab</title>
     <link rel="stylesheet" href="/assets/tw.css" />
     <script
-      id="js-pytorch-script"
-      src="https://cdnjs.cloudflare.com/ajax/libs/js-pytorch/0.7.2/js-pytorch-browser.min.js"
+      id="tfjs-script"
+      src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"
       onerror="alert('Failed to load: ' + this.src)"
     ></script>
   </head>
   <body class="bg-gradient-to-b from-brand-50/60 to-white">
     <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
       <header class="space-y-2 text-center">
-        <h1 class="text-3xl font-semibold text-gray-900">JS PyTorch Linear Fit Lab</h1>
+        <h1 class="text-3xl font-semibold text-gray-900">TensorFlow.js Linear Fit Lab</h1>
         <p class="text-gray-600">
-          Generate a noisy line, then watch js-pytorch learn its slope and intercept entirely in your browser.
+          Generate a noisy line, then watch TensorFlow.js learn its slope and intercept entirely in your browser.
         </p>
       </header>
 
@@ -102,7 +102,7 @@
             <ul class="space-y-2 list-disc pl-4">
               <li>Start with low noise to see the loss approach zero.</li>
               <li>Increase noise and epochs to watch the optimizer settle.</li>
-              <li>Training runs entirely in the main thread via js-pytorch.</li>
+              <li>Training runs entirely in the main thread via TensorFlow.js.</li>
             </ul>
           </div>
         </div>
@@ -217,14 +217,6 @@
         finalLoss.textContent = "—";
       }
 
-      function flattenToNumber(value) {
-        let current = value;
-        while (Array.isArray(current) && current.length === 1) {
-          current = current[0];
-        }
-        return typeof current === "number" ? current : Number.NaN;
-      }
-
       function updateScatter() {
         scatterChart.setAttribute("viewBox", `0 0 ${chartWidth} ${chartHeight}`);
         scatterChart.innerHTML = "";
@@ -300,18 +292,13 @@
         updateScatter();
       }
 
-      function isTorchAvailable() {
-        return Boolean(window.torch && window.torch.nn && window.torch.optim);
+      function isTfAvailable() {
+        return Boolean(window.tf && typeof window.tf.ready === "function" && typeof window.tf.tensor2d === "function");
       }
 
-      function waitForTorch(timeoutMs = 10000) {
+      function waitForTf(timeoutMs = 10000) {
         return new Promise((resolve, reject) => {
-          if (isTorchAvailable()) {
-            resolve();
-            return;
-          }
-
-          const script = document.getElementById("js-pytorch-script");
+          const script = document.getElementById("tfjs-script");
           let settled = false;
           let pollId = null;
           let timeoutId = null;
@@ -325,21 +312,44 @@
             }
           };
 
+          const attemptReady = () => {
+            if (!isTfAvailable()) {
+              return false;
+            }
+            window.tf
+              .ready()
+              .then(() => {
+                settle(resolve);
+              })
+              .catch((error) => {
+                const reason =
+                  error instanceof Error && error.message
+                    ? error
+                    : new Error("TensorFlow.js reported an initialization error.");
+                settle(reject, reason);
+              });
+            return true;
+          };
+
+          if (attemptReady()) {
+            return;
+          }
+
           pollId = setInterval(() => {
-            if (isTorchAvailable()) {
-              settle(resolve);
+            if (attemptReady()) {
+              clearInterval(pollId);
             }
           }, 75);
 
           timeoutId = setTimeout(() => {
-            settle(reject, new Error("Timed out waiting for js-pytorch to load."));
+            settle(reject, new Error("Timed out waiting for TensorFlow.js to load."));
           }, timeoutMs);
 
           if (script) {
             script.addEventListener(
               "error",
               () => {
-                settle(reject, new Error("Could not fetch js-pytorch from the CDN."));
+                settle(reject, new Error("Could not fetch TensorFlow.js from the CDN."));
               },
               { once: true }
             );
@@ -347,24 +357,24 @@
         });
       }
 
-      const torchReady = waitForTorch();
+      const tfReady = waitForTf();
 
-      async function ensureTorch() {
+      async function ensureTf() {
         try {
-          await torchReady;
+          await tfReady;
           return true;
         } catch (error) {
           const message =
             error instanceof Error && error.message
-              ? `js-pytorch failed to load. ${error.message}`
-              : "js-pytorch failed to load. Please refresh and ensure the CDN is reachable.";
+              ? `TensorFlow.js failed to load. ${error.message}`
+              : "TensorFlow.js failed to load. Please refresh and ensure the CDN is reachable.";
           setStatus("error", message);
           return false;
         }
       }
 
       async function trainModel() {
-        if (!(await ensureTorch())) {
+        if (!(await ensureTf())) {
           return;
         }
         if (dataset.length === 0) {
@@ -373,17 +383,15 @@
 
         const epochs = Math.max(1, Number.parseInt(epochsInput.value, 10) || 200);
         const learningRate = Math.max(1e-5, Number.parseFloat(lrInput.value) || 0.1);
-
-        const xTensor = window.torch.tensor(dataset.map((point) => [point.x]));
-        const yTensor = window.torch.tensor(dataset.map((point) => [point.y]));
-        const model = new window.torch.nn.Linear(1, 1);
-        const optimizer = new window.torch.optim.Adam(model.parameters(), learningRate);
-        const lossFn = new window.torch.nn.MSELoss();
+        const tf = window.tf;
+        let xs = null;
+        let ys = null;
+        let model = null;
 
         generateBtn.disabled = true;
         trainBtn.disabled = true;
         logList.innerHTML = "";
-        setStatus("info", "Training… gradients are flowing through js-pytorch tensors.");
+        setStatus("info", "Training… gradients are flowing through TensorFlow.js tensors.");
 
         let finalLossValue = Number.NaN;
         const logEvery = Math.max(1, Math.floor(epochs / 6));
@@ -392,33 +400,49 @@
         finalLoss.textContent = "—";
 
         try {
-          for (let epoch = 1; epoch <= epochs; epoch += 1) {
-            optimizer.zero_grad();
-            const predictions = model.forward(xTensor);
-            const loss = lossFn.forward(predictions, yTensor);
-            loss.backward();
-            optimizer.step();
+          xs = tf.tensor2d(dataset.map((point) => [point.x]));
+          ys = tf.tensor2d(dataset.map((point) => [point.y]));
 
-            if (epoch === epochs) {
-              finalLossValue = flattenToNumber(loss.data ?? loss);
-            }
+          model = tf.sequential({
+            layers: [tf.layers.dense({ units: 1, inputShape: [1], useBias: true })],
+          });
 
-            if (epoch === 1 || epoch === epochs || epoch % logEvery === 0) {
-              const lossValue = flattenToNumber(loss.data ?? loss);
-              const logEntry = document.createElement("li");
-              if (Number.isFinite(lossValue)) {
-                logEntry.textContent = `Epoch ${epoch}: loss ${lossValue.toFixed(5)}`;
-              } else {
-                logEntry.textContent = `Epoch ${epoch}: loss ${lossValue}`;
-              }
-              logList.appendChild(logEntry);
-              await new Promise((resolve) => requestAnimationFrame(resolve));
-            }
-          }
+          model.compile({
+            optimizer: tf.train.adam(learningRate),
+            loss: "meanSquaredError",
+          });
+
+          await model.fit(xs, ys, {
+            epochs,
+            shuffle: true,
+            callbacks: {
+              onEpochEnd: async (epoch, logs) => {
+                const epochNumber = epoch + 1;
+                const lossValue = logs && typeof logs.loss === "number" ? logs.loss : Number.NaN;
+                if (epochNumber === epochs) {
+                  finalLossValue = lossValue;
+                }
+                if (epochNumber === 1 || epochNumber === epochs || epochNumber % logEvery === 0) {
+                  const logEntry = document.createElement("li");
+                  if (Number.isFinite(lossValue)) {
+                    logEntry.textContent = `Epoch ${epochNumber}: loss ${lossValue.toFixed(5)}`;
+                  } else {
+                    logEntry.textContent = `Epoch ${epochNumber}: loss ${lossValue}`;
+                  }
+                  logList.appendChild(logEntry);
+                  await new Promise((resolve) => requestAnimationFrame(resolve));
+                }
+              },
+            },
+          });
+
+          const weights = model.getWeights();
+          const slopeValue = weights[0].dataSync()[0];
+          const interceptValue = weights[1].dataSync()[0];
 
           learnedLine = {
-            slope: flattenToNumber(model.W.data ?? model.W),
-            intercept: flattenToNumber(model.b.data ?? model.b),
+            slope: slopeValue,
+            intercept: interceptValue,
           };
 
           if (Number.isFinite(learnedLine.slope)) {
@@ -442,6 +466,15 @@
           updateScatter();
           setStatus("error", `Training failed: ${error instanceof Error ? error.message : error}`);
         } finally {
+          if (xs) {
+            xs.dispose();
+          }
+          if (ys) {
+            ys.dispose();
+          }
+          if (model) {
+            model.dispose();
+          }
           generateBtn.disabled = false;
           trainBtn.disabled = false;
         }
@@ -458,7 +491,7 @@
       });
 
       document.addEventListener("DOMContentLoaded", async () => {
-        if (!(await ensureTorch())) {
+        if (!(await ensureTf())) {
           return;
         }
         generateDataset();
