@@ -122,8 +122,10 @@
             <div id="up-next" class="text-gray-500"></div>
           </div>
           <div class="mt-6 flex flex-wrap justify-center gap-3 text-sm">
+            <button id="previous-step" type="button" class="btn btn-secondary" disabled>Previous</button>
             <button id="pause-session" type="button" class="btn btn-secondary">Pause</button>
             <button id="resume-session" type="button" class="btn btn-primary hidden">Resume</button>
+            <button id="next-step" type="button" class="btn btn-secondary" disabled>Next</button>
             <button id="stop-session" type="button" class="btn btn-secondary">Stop</button>
           </div>
         </div>
@@ -166,6 +168,8 @@
       const pauseButton = document.getElementById("pause-session");
       const resumeButton = document.getElementById("resume-session");
       const stopButton = document.getElementById("stop-session");
+      const previousButton = document.getElementById("previous-step");
+      const nextButton = document.getElementById("next-step");
       const sessionCompleteEl = document.getElementById("session-complete");
 
       const STORAGE_VERSION = 1;
@@ -484,16 +488,22 @@
         beginStep(0, performance.now());
       }
 
-      function beginStep(stepIndex, now) {
+      function beginStep(stepIndex, now, { silent = false } = {}) {
         if (!activeSession) return;
         const current = activeSession.sequence[stepIndex];
         activeSession.index = stepIndex;
         activeSession.stepStartedAt = now;
         activeSession.stepEndsAt = now + current.duration * 1000;
-        triggerFlash();
-        playBuzzer();
+        if (!silent) {
+          triggerFlash();
+          playBuzzer();
+        }
         updateSessionUi(current, current.duration);
-        scheduleFrame();
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+        if (!activeSession.isPaused) {
+          scheduleFrame();
+        }
       }
 
       function updateSessionUi(currentStep, secondsRemaining) {
@@ -511,6 +521,12 @@
           : "Final interval";
         timerCard.classList.toggle("bg-brand-50/70", currentStep.type === "work");
         timerCard.classList.toggle("bg-white", currentStep.type !== "work");
+        if (previousButton && activeSession) {
+          previousButton.disabled = activeSession.index === 0;
+        }
+        if (nextButton && activeSession) {
+          nextButton.disabled = activeSession.index >= activeSession.sequence.length - 1;
+        }
       }
 
       function tick(now) {
@@ -547,6 +563,12 @@
         cancelAnimationFrame(animationFrame);
         animationFrame = null;
         if (!activeSession) return;
+        if (previousButton) {
+          previousButton.disabled = true;
+        }
+        if (nextButton) {
+          nextButton.disabled = true;
+        }
         activeSession = null;
         timeRemainingEl.textContent = "00:00";
         progressBarEl.style.width = "100%";
@@ -569,6 +591,12 @@
         sessionCompleteEl.classList.add("hidden");
         pauseButton.classList.remove("hidden");
         resumeButton.classList.add("hidden");
+        if (previousButton) {
+          previousButton.disabled = true;
+        }
+        if (nextButton) {
+          nextButton.disabled = true;
+        }
         planForm.classList.remove("opacity-60");
         planForm.querySelectorAll("input, button, select").forEach((el) => {
           el.disabled = false;
@@ -595,6 +623,27 @@
         pauseButton.classList.remove("hidden");
         resumeButton.classList.add("hidden");
         scheduleFrame();
+      }
+
+      function skipStep(direction) {
+        if (!activeSession) return;
+        const targetIndex = activeSession.index + direction;
+        if (targetIndex < 0) {
+          return;
+        }
+        if (targetIndex >= activeSession.sequence.length) {
+          finishSession();
+          return;
+        }
+        const wasPaused = activeSession.isPaused;
+        activeSession.accumulatedSeconds = activeSession.sequence
+          .slice(0, targetIndex)
+          .reduce((total, step) => total + step.duration, 0);
+        const now = performance.now();
+        if (wasPaused) {
+          activeSession.pauseTimestamp = now;
+        }
+        beginStep(targetIndex, now, { silent: wasPaused });
       }
 
       function triggerFlash() {
@@ -666,6 +715,8 @@
       stopButton.addEventListener("click", stopSession);
       pauseButton.addEventListener("click", pauseSession);
       resumeButton.addEventListener("click", resumeSession);
+      previousButton.addEventListener("click", () => skipStep(-1));
+      nextButton.addEventListener("click", () => skipStep(1));
 
       window.addEventListener("hashchange", () => {
         plan = loadPlanFromHash();
