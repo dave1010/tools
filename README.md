@@ -21,6 +21,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [2D Size Comparator](https://tools.dave.engineer/tools/area-size-comparator) — Visualize and compare rectangular dimensions with overlays.
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
 - [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw) — Estimate projector throw from lux readings
+- [OpenSCAD to STL](https://tools.dave.engineer/tools/openscad-to-stl) — Compile OpenSCAD designs into STL files.
 - [Running Pace Planner](https://tools.dave.engineer/tools/running-pace-planner) — Plan running pace, splits, and finish time
 - [Speed Unit Converter](https://tools.dave.engineer/tools/speed-unit-converter) — Convert speed units instantly
 
