@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JS PyTorch Linear Fit Lab</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/js-pytorch/0.7.2/js-pytorch-browser.min.js"
+      defer
+      onerror="alert('Failed to load: ' + this.src)"
+    ></script>
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">JS PyTorch Linear Fit Lab</h1>
+        <p class="text-gray-600">
+          Generate a noisy line, then watch js-pytorch learn its slope and intercept entirely in your browser.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="space-y-4 lg:w-2/3">
+            <h2 class="text-lg font-semibold text-gray-900">Synthetic data controls</h2>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label class="space-y-1 text-sm font-medium text-gray-700">
+                Slope
+                <input
+                  id="slope-input"
+                  type="number"
+                  step="0.1"
+                  value="2"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+              <label class="space-y-1 text-sm font-medium text-gray-700">
+                Intercept
+                <input
+                  id="intercept-input"
+                  type="number"
+                  step="0.1"
+                  value="-0.5"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+              <label class="space-y-1 text-sm font-medium text-gray-700">
+                Noise σ
+                <input
+                  id="noise-input"
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  value="0.2"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+              <label class="space-y-1 text-sm font-medium text-gray-700">
+                Samples
+                <input
+                  id="samples-input"
+                  type="number"
+                  min="10"
+                  max="400"
+                  step="5"
+                  value="60"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+              <label class="space-y-1 text-sm font-medium text-gray-700">
+                Epochs
+                <input
+                  id="epochs-input"
+                  type="number"
+                  min="10"
+                  max="1000"
+                  step="10"
+                  value="200"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+              <label class="space-y-1 text-sm font-medium text-gray-700">
+                Learning rate
+                <input
+                  id="lr-input"
+                  type="number"
+                  min="0.0001"
+                  step="0.01"
+                  value="0.1"
+                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <button id="generate-btn" class="btn btn-secondary">Generate data</button>
+              <button id="train-btn" class="btn btn-primary">Train model</button>
+            </div>
+          </div>
+          <div class="w-full space-y-3 rounded-xl border border-dashed border-brand-200 bg-brand-50/60 p-4 text-sm text-brand-800 lg:w-1/3">
+            <h3 class="font-semibold">Quick tips</h3>
+            <ul class="space-y-2 list-disc pl-4">
+              <li>Start with low noise to see the loss approach zero.</li>
+              <li>Increase noise and epochs to watch the optimizer settle.</li>
+              <li>Training runs entirely in the main thread via js-pytorch.</li>
+            </ul>
+          </div>
+        </div>
+        <p id="status" class="hidden rounded-xl border px-3 py-2 text-sm"></p>
+        <p id="dataset-summary" class="text-sm text-gray-600"></p>
+      </section>
+
+      <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <h2 class="text-lg font-semibold text-gray-900">Data &amp; fit preview</h2>
+        <svg
+          id="scatter-chart"
+          class="h-72 w-full rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-brand-50"
+          role="img"
+          aria-label="Scatter plot of samples and fitted line"
+        ></svg>
+      </section>
+
+      <section class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+          <h2 class="text-lg font-semibold text-gray-900">Parameters</h2>
+          <div class="space-y-2 text-sm text-gray-600">
+            <p>Ground truth slope: <span id="truth-slope" class="font-semibold text-gray-900">—</span></p>
+            <p>Ground truth intercept: <span id="truth-intercept" class="font-semibold text-gray-900">—</span></p>
+            <p>Learned slope: <span id="learned-slope" class="font-semibold text-brand-700">—</span></p>
+            <p>Learned intercept: <span id="learned-intercept" class="font-semibold text-brand-700">—</span></p>
+            <p class="text-sm text-gray-600">Final loss: <span id="final-loss" class="font-semibold text-brand-600">—</span></p>
+          </div>
+        </div>
+        <div class="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+          <h2 class="text-lg font-semibold text-gray-900">Training log</h2>
+          <ol id="log-list" class="space-y-1 text-sm text-gray-700" aria-live="polite"></ol>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/js-pytorch-linear-fit" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const slopeInput = document.getElementById("slope-input");
+      const interceptInput = document.getElementById("intercept-input");
+      const noiseInput = document.getElementById("noise-input");
+      const samplesInput = document.getElementById("samples-input");
+      const epochsInput = document.getElementById("epochs-input");
+      const lrInput = document.getElementById("lr-input");
+      const generateBtn = document.getElementById("generate-btn");
+      const trainBtn = document.getElementById("train-btn");
+      const statusBox = document.getElementById("status");
+      const datasetSummary = document.getElementById("dataset-summary");
+      const scatterChart = document.getElementById("scatter-chart");
+      const truthSlope = document.getElementById("truth-slope");
+      const truthIntercept = document.getElementById("truth-intercept");
+      const learnedSlope = document.getElementById("learned-slope");
+      const learnedIntercept = document.getElementById("learned-intercept");
+      const finalLoss = document.getElementById("final-loss");
+      const logList = document.getElementById("log-list");
+
+      const chartWidth = 360;
+      const chartHeight = 260;
+      const chartMargin = 28;
+
+      let dataset = [];
+      let learnedLine = null;
+
+      const gaussian = (() => {
+        let spare = null;
+        return () => {
+          if (spare !== null) {
+            const value = spare;
+            spare = null;
+            return value;
+          }
+          let u = 0;
+          let v = 0;
+          while (u === 0) u = Math.random();
+          while (v === 0) v = Math.random();
+          const mag = Math.sqrt(-2.0 * Math.log(u));
+          const z0 = mag * Math.cos(2.0 * Math.PI * v);
+          spare = mag * Math.sin(2.0 * Math.PI * v);
+          return z0;
+        };
+      })();
+
+      function setStatus(kind, message) {
+        if (!message) {
+          statusBox.classList.add("hidden");
+          statusBox.textContent = "";
+          return;
+        }
+        const baseClasses = "rounded-xl border px-3 py-2 text-sm";
+        let toneClasses = "bg-brand-50 text-brand-700 border-brand-200";
+        if (kind === "error") {
+          toneClasses = "bg-red-50 text-red-700 border-red-200";
+        } else if (kind === "success") {
+          toneClasses = "bg-emerald-50 text-emerald-700 border-emerald-200";
+        }
+        statusBox.className = `${baseClasses} ${toneClasses}`;
+        statusBox.textContent = message;
+        statusBox.classList.remove("hidden");
+      }
+
+      function summarizeDataset(slope, intercept, noise, samples) {
+        datasetSummary.textContent = `Generated ${samples} samples with slope ${slope.toFixed(2)}, intercept ${intercept.toFixed(2)}, and noise σ ≈ ${noise.toFixed(2)}.`;
+        truthSlope.textContent = slope.toFixed(3);
+        truthIntercept.textContent = intercept.toFixed(3);
+        learnedSlope.textContent = "—";
+        learnedIntercept.textContent = "—";
+        finalLoss.textContent = "—";
+      }
+
+      function flattenToNumber(value) {
+        let current = value;
+        while (Array.isArray(current) && current.length === 1) {
+          current = current[0];
+        }
+        return typeof current === "number" ? current : Number.NaN;
+      }
+
+      function updateScatter() {
+        scatterChart.setAttribute("viewBox", `0 0 ${chartWidth} ${chartHeight}`);
+        scatterChart.innerHTML = "";
+        if (dataset.length === 0) {
+          return;
+        }
+
+        const xValues = dataset.map((point) => point.x);
+        const yValues = dataset.map((point) => point.y);
+        const minX = Math.min(...xValues);
+        const maxX = Math.max(...xValues);
+        const minY = Math.min(...yValues);
+        const maxY = Math.max(...yValues);
+        const xRange = maxX - minX || 1;
+        const yRange = maxY - minY || 1;
+
+        const scaleX = (x) => chartMargin + ((x - minX) / xRange) * (chartWidth - chartMargin * 2);
+        const scaleY = (y) => chartHeight - chartMargin - ((y - minY) / yRange) * (chartHeight - chartMargin * 2);
+
+        const axes = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        axes.innerHTML = `
+          <line x1="${chartMargin}" y1="${chartHeight - chartMargin}" x2="${chartWidth - chartMargin}" y2="${chartHeight - chartMargin}" stroke="#d1d5db" stroke-width="1" />
+          <line x1="${chartMargin}" y1="${chartMargin}" x2="${chartMargin}" y2="${chartHeight - chartMargin}" stroke="#d1d5db" stroke-width="1" />
+        `;
+        scatterChart.appendChild(axes);
+
+        if (learnedLine) {
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          let startX = minX;
+          let endX = maxX;
+          if (startX === endX) {
+            startX -= 1;
+            endX += 1;
+          }
+          const startY = learnedLine.slope * startX + learnedLine.intercept;
+          const endY = learnedLine.slope * endX + learnedLine.intercept;
+          line.setAttribute("x1", scaleX(startX));
+          line.setAttribute("y1", scaleY(startY));
+          line.setAttribute("x2", scaleX(endX));
+          line.setAttribute("y2", scaleY(endY));
+          line.setAttribute("stroke", "#2563eb");
+          line.setAttribute("stroke-width", "2");
+          scatterChart.appendChild(line);
+        }
+
+        for (const point of dataset) {
+          const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          dot.setAttribute("cx", scaleX(point.x));
+          dot.setAttribute("cy", scaleY(point.y));
+          dot.setAttribute("r", 4);
+          dot.setAttribute("fill", "#3b82f6");
+          dot.setAttribute("fill-opacity", "0.75");
+          scatterChart.appendChild(dot);
+        }
+      }
+
+      function generateDataset() {
+        const slope = Number.parseFloat(slopeInput.value);
+        const intercept = Number.parseFloat(interceptInput.value);
+        const noise = Math.max(0, Number.parseFloat(noiseInput.value));
+        const samples = Math.max(2, Number.parseInt(samplesInput.value, 10));
+
+        dataset = Array.from({ length: samples }, () => {
+          const x = Math.random() * 2 - 1;
+          const y = slope * x + intercept + gaussian() * noise;
+          return { x, y };
+        });
+
+        learnedLine = null;
+        logList.innerHTML = "";
+        summarizeDataset(slope, intercept, noise, samples);
+        setStatus("info", "Dataset refreshed. Train the model to fit the new line.");
+        updateScatter();
+      }
+
+      function ensureTorch() {
+        if (window.torch && window.torch.nn && window.torch.optim) {
+          return true;
+        }
+        setStatus("error", "js-pytorch failed to load. Please refresh and ensure the CDN is reachable.");
+        return false;
+      }
+
+      async function trainModel() {
+        if (!ensureTorch()) {
+          return;
+        }
+        if (dataset.length === 0) {
+          generateDataset();
+        }
+
+        const epochs = Math.max(1, Number.parseInt(epochsInput.value, 10) || 200);
+        const learningRate = Math.max(1e-5, Number.parseFloat(lrInput.value) || 0.1);
+
+        const xTensor = window.torch.tensor(dataset.map((point) => [point.x]));
+        const yTensor = window.torch.tensor(dataset.map((point) => [point.y]));
+        const model = new window.torch.nn.Linear(1, 1);
+        const optimizer = new window.torch.optim.Adam(model.parameters(), learningRate);
+        const lossFn = new window.torch.nn.MSELoss();
+
+        generateBtn.disabled = true;
+        trainBtn.disabled = true;
+        logList.innerHTML = "";
+        setStatus("info", "Training… gradients are flowing through js-pytorch tensors.");
+
+        let finalLossValue = Number.NaN;
+        const logEvery = Math.max(1, Math.floor(epochs / 6));
+        learnedSlope.textContent = "—";
+        learnedIntercept.textContent = "—";
+        finalLoss.textContent = "—";
+
+        try {
+          for (let epoch = 1; epoch <= epochs; epoch += 1) {
+            optimizer.zero_grad();
+            const predictions = model.forward(xTensor);
+            const loss = lossFn.forward(predictions, yTensor);
+            loss.backward();
+            optimizer.step();
+
+            if (epoch === epochs) {
+              finalLossValue = flattenToNumber(loss.data ?? loss);
+            }
+
+            if (epoch === 1 || epoch === epochs || epoch % logEvery === 0) {
+              const lossValue = flattenToNumber(loss.data ?? loss);
+              const logEntry = document.createElement("li");
+              if (Number.isFinite(lossValue)) {
+                logEntry.textContent = `Epoch ${epoch}: loss ${lossValue.toFixed(5)}`;
+              } else {
+                logEntry.textContent = `Epoch ${epoch}: loss ${lossValue}`;
+              }
+              logList.appendChild(logEntry);
+              await new Promise((resolve) => requestAnimationFrame(resolve));
+            }
+          }
+
+          learnedLine = {
+            slope: flattenToNumber(model.W.data ?? model.W),
+            intercept: flattenToNumber(model.b.data ?? model.b),
+          };
+
+          if (Number.isFinite(learnedLine.slope)) {
+            learnedSlope.textContent = learnedLine.slope.toFixed(3);
+          }
+          if (Number.isFinite(learnedLine.intercept)) {
+            learnedIntercept.textContent = learnedLine.intercept.toFixed(3);
+          }
+          if (Number.isFinite(finalLossValue)) {
+            finalLoss.textContent = finalLossValue.toFixed(5);
+          }
+
+          updateScatter();
+          setStatus("success", "Training complete. Compare the learned weights with the ground truth.");
+        } catch (error) {
+          console.error(error);
+          learnedLine = null;
+          learnedSlope.textContent = "—";
+          learnedIntercept.textContent = "—";
+          finalLoss.textContent = "—";
+          updateScatter();
+          setStatus("error", `Training failed: ${error instanceof Error ? error.message : error}`);
+        } finally {
+          generateBtn.disabled = false;
+          trainBtn.disabled = false;
+        }
+      }
+
+      generateBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        generateDataset();
+      });
+
+      trainBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        trainModel();
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        if (!ensureTorch()) {
+          return;
+        }
+        generateDataset();
+      });
+    </script>
+  </body>
+</html>
