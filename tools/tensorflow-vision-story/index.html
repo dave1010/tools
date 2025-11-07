@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vision Story Studio</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/70 to-white min-h-screen">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <p class="text-sm font-semibold uppercase tracking-wide text-brand-600">TensorFlow × LLM mashup</p>
+        <h1 class="text-3xl font-semibold text-gray-900">Vision Story Studio</h1>
+        <p class="text-gray-600">
+          Classify an image in the browser with TensorFlow.js, then let a large language model turn the findings into polished words.
+        </p>
+      </header>
+
+      <section class="rounded-2xl bg-white p-6 shadow">
+        <h2 class="text-lg font-semibold text-gray-900">1. Pick an image</h2>
+        <p class="mt-2 text-sm text-gray-600">The photo stays on your device — MobileNet runs entirely in the browser.</p>
+        <label
+          for="imageInput"
+          class="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/60 p-6 text-center transition hover:border-brand-300 hover:bg-brand-50"
+        >
+          <svg class="h-12 w-12 text-brand-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 16.5V3m0 0l-3.75 3.75M12 3l3.75 3.75M6 10.5v7.125A2.375 2.375 0 008.375 20h7.25A2.375 2.375 0 0018 17.625V10.5"
+            />
+          </svg>
+          <span class="mt-3 text-sm font-medium text-brand-700">Click to choose an image</span>
+          <span class="mt-1 text-xs text-gray-500">PNG, JPG, or WebP (under 5 MB recommended)</span>
+          <input id="imageInput" type="file" accept="image/*" class="sr-only" />
+        </label>
+        <div id="previewContainer" class="mt-4 hidden overflow-hidden rounded-xl border border-brand-100 bg-white">
+          <img id="previewImage" src="" alt="Selected preview" class="max-h-80 w-full object-contain bg-gray-50" />
+        </div>
+      </section>
+
+      <section class="rounded-2xl bg-white p-6 shadow space-y-4">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">2. Generate insights</h2>
+            <p class="text-sm text-gray-600">TensorFlow produces labels, the LLM writes the story.</p>
+          </div>
+          <button
+            id="analyzeButton"
+            type="button"
+            class="btn btn-primary px-4 py-2 text-sm font-medium"
+          >
+            Analyze image
+          </button>
+        </div>
+        <p id="status" class="text-sm text-brand-700"></p>
+        <div class="grid gap-6 md:grid-cols-2">
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">TensorFlow labels</h3>
+            <ul id="labelsList" class="mt-3 space-y-2 text-sm text-gray-800"></ul>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">LLM narrative</h3>
+            <div id="narrative" class="mt-3 rounded-xl border border-brand-100 bg-brand-50/60 p-4 text-sm text-gray-800 whitespace-pre-wrap"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/tensorflow-vision-story" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js" onerror="alert('Failed to load: ' + this.src)"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0" onerror="alert('Failed to load: ' + this.src)"></script>
+    <script>
+      const imageInput = document.getElementById("imageInput");
+      const previewContainer = document.getElementById("previewContainer");
+      const previewImage = document.getElementById("previewImage");
+      const analyzeButton = document.getElementById("analyzeButton");
+      const statusEl = document.getElementById("status");
+      const labelsList = document.getElementById("labelsList");
+      const narrativeEl = document.getElementById("narrative");
+
+      let mobilenetModel = null;
+      let latestFileURL = null;
+
+      function setStatus(message, tone = "info") {
+        statusEl.textContent = message;
+        statusEl.classList.remove("text-red-600", "text-brand-700");
+        if (!message) {
+          statusEl.textContent = "";
+          return;
+        }
+        if (tone === "error") {
+          statusEl.classList.add("text-red-600");
+        } else {
+          statusEl.classList.add("text-brand-700");
+        }
+      }
+
+      function clearResults() {
+        labelsList.innerHTML = "";
+        narrativeEl.textContent = "";
+      }
+
+      function waitForImageLoad(img) {
+        return new Promise((resolve, reject) => {
+          if (img.complete && img.naturalWidth > 0) {
+            resolve();
+            return;
+          }
+          const onLoad = () => {
+            cleanup();
+            resolve();
+          };
+          const onError = () => {
+            cleanup();
+            reject(new Error("Failed to load image preview"));
+          };
+          const cleanup = () => {
+            img.removeEventListener("load", onLoad);
+            img.removeEventListener("error", onError);
+          };
+          img.addEventListener("load", onLoad);
+          img.addEventListener("error", onError);
+        });
+      }
+
+      async function ensureModelLoaded() {
+        if (mobilenetModel) {
+          return mobilenetModel;
+        }
+        setStatus("Loading MobileNet model…");
+        mobilenetModel = await mobilenet.load({ version: 2, alpha: 1.0 });
+        setStatus("Model ready.");
+        return mobilenetModel;
+      }
+
+      async function classifyImage() {
+        await ensureModelLoaded();
+        await waitForImageLoad(previewImage);
+        const predictions = await mobilenetModel.classify(previewImage, 5);
+        return predictions.slice(0, 3);
+      }
+
+      function renderLabels(predictions) {
+        labelsList.innerHTML = "";
+        if (!predictions.length) {
+          const emptyItem = document.createElement("li");
+          emptyItem.textContent = "No labels detected.";
+          labelsList.appendChild(emptyItem);
+          return;
+        }
+        predictions.forEach(({ className, probability }) => {
+          const item = document.createElement("li");
+          const score = Math.round(probability * 1000) / 10;
+          item.className = "rounded-lg border border-brand-100 bg-white px-3 py-2 shadow-sm";
+          item.innerHTML = `<span class="font-medium text-gray-900">${className}</span><span class="ml-2 text-xs text-gray-500">${score}%</span>`;
+          labelsList.appendChild(item);
+        });
+      }
+
+      async function requestNarrative(predictions) {
+        if (!predictions.length) {
+          narrativeEl.textContent = "No confident predictions to describe.";
+          return;
+        }
+        narrativeEl.textContent = "Crafting narrative with the LLM…";
+        const cues = predictions
+          .map(({ className, probability }) => {
+            const score = Math.round(probability * 1000) / 10;
+            return `- ${className} (${score}%)`;
+          })
+          .join("\n");
+
+        const payload = {
+          model: "gpt-oss-120b",
+          stream: false,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are Vision Story Studio, an assistant that writes vivid yet concise descriptions and practical suggestions based on image classifier hints. Respond in markdown with a short paragraph followed by a bulleted list of 2-3 actionable ideas.",
+            },
+            {
+              role: "user",
+              content: `Image classifier cues:\n${cues}\n\nWrite a grounded description (avoid inventing unseen objects) and suggest next steps or creative directions.`,
+            },
+          ],
+        };
+
+        try {
+          const response = await fetch("/cerebras-chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || `LLM request failed (${response.status})`);
+          }
+
+          const contentType = response.headers.get("content-type") || "";
+          let message = "";
+
+          if (contentType.includes("application/json")) {
+            const data = await response.json();
+            message = data?.choices?.[0]?.message?.content?.trim() || "";
+          } else {
+            const rawText = (await response.text()).trim();
+            if (contentType.includes("text/event-stream")) {
+              const lines = rawText
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(Boolean);
+              const lastData = [...lines].reverse().find((line) => line.startsWith("data:"));
+              if (lastData) {
+                try {
+                  const parsed = JSON.parse(lastData.slice(5).trim());
+                  message = parsed?.choices?.[0]?.delta?.content || "";
+                } catch (streamError) {
+                  console.warn("Failed to parse SSE payload", streamError);
+                }
+              }
+            }
+            if (!message) {
+              message = rawText;
+            }
+          }
+
+          if (message) {
+            narrativeEl.textContent = message;
+          } else {
+            narrativeEl.textContent = "The LLM returned an empty response.";
+          }
+        } catch (error) {
+          console.error("Failed to generate narrative", error);
+          narrativeEl.textContent = "Unable to generate narrative. Try again.";
+          setStatus(error.message || "LLM request failed.", "error");
+        }
+      }
+
+      imageInput.addEventListener("change", () => {
+        setStatus("");
+        clearResults();
+        if (!imageInput.files || !imageInput.files[0]) {
+          previewContainer.classList.add("hidden");
+          previewImage.removeAttribute("src");
+          if (latestFileURL) {
+            URL.revokeObjectURL(latestFileURL);
+            latestFileURL = null;
+          }
+          return;
+        }
+        const file = imageInput.files[0];
+        if (latestFileURL) {
+          URL.revokeObjectURL(latestFileURL);
+        }
+        latestFileURL = URL.createObjectURL(file);
+        previewImage.src = latestFileURL;
+        previewContainer.classList.remove("hidden");
+      });
+
+      analyzeButton.addEventListener("click", async () => {
+        if (!imageInput.files || !imageInput.files[0]) {
+          setStatus("Choose an image first.", "error");
+          return;
+        }
+        analyzeButton.disabled = true;
+        analyzeButton.textContent = "Analyzing…";
+        setStatus("Running TensorFlow classification…");
+        clearResults();
+        try {
+          const predictions = await classifyImage();
+          renderLabels(predictions);
+          setStatus("Labels ready. Asking the LLM for a narrative…");
+          await requestNarrative(predictions);
+          if (!statusEl.classList.contains("text-red-600")) {
+            setStatus("All set! Adjust the image or rerun anytime.");
+          }
+        } catch (error) {
+          console.error("Failed to analyze image", error);
+          setStatus(error.message || "Failed to analyze image.", "error");
+        } finally {
+          analyzeButton.disabled = false;
+          analyzeButton.textContent = "Analyze image";
+        }
+      });
+    </script>
+  </body>
+</html>
