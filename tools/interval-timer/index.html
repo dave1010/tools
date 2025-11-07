@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interval Timer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <style>
+      @keyframes flash-burst {
+        0% {
+          background-color: #3b82f6;
+          color: #ffffff;
+          box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+        }
+        70% {
+          background-color: #dbeafe;
+          color: #0f172a;
+          box-shadow: 0 0 0 2rem rgba(59, 130, 246, 0);
+        }
+        100% {
+          background-color: #ffffff;
+          color: inherit;
+          box-shadow: none;
+        }
+      }
+
+      .flash-active {
+        animation: flash-burst 0.8s ease-out;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .flash-active {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Interval Timer</h1>
+        <p class="text-base text-gray-600">
+          Build repeatable work and rest blocks, then run them with audible cues, colour changes, and progress tracking.
+        </p>
+      </header>
+
+      <section class="space-y-4">
+        <div class="rounded-2xl border border-brand-100 bg-white p-6 shadow-soft">
+          <h2 class="text-xl font-semibold text-gray-900">Session planner</h2>
+          <p class="text-sm text-gray-500">
+            Plans update the URL automatically — bookmark it to reuse your favourite mix.
+          </p>
+
+          <form id="plan-form" class="mt-4 space-y-6" autocomplete="off">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <label class="flex flex-col text-sm font-medium text-gray-700 sm:max-w-[12rem]">
+                Rounds
+                <input
+                  id="rounds-input"
+                  type="number"
+                  min="1"
+                  value="3"
+                  class="mt-1 rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                  required
+                />
+              </label>
+              <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input id="buzzer-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
+                Play buzzer at each changeover
+              </label>
+              <div class="text-sm text-gray-500">
+                Total duration:
+                <span id="total-duration" class="font-semibold text-gray-900">--:--</span>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Steps per round</h3>
+                <button
+                  id="add-step"
+                  type="button"
+                  class="btn btn-secondary flex items-center gap-2"
+                >
+                  <span aria-hidden="true">＋</span>
+                  Add step
+                </button>
+              </div>
+              <div id="steps-container" class="space-y-3"></div>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <button id="start-session" type="button" class="btn btn-primary">Start session</button>
+              <button id="reset-plan" type="button" class="btn btn-secondary">Reset to default</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="rounded-2xl border border-brand-100 bg-white p-6 shadow-soft">
+          <h2 class="text-xl font-semibold text-gray-900">Preview</h2>
+          <ul id="preview-list" class="mt-3 space-y-2 text-sm text-gray-700"></ul>
+        </div>
+      </section>
+
+      <section id="session-runner" class="hidden">
+        <div id="timer-card" class="rounded-2xl border border-brand-200 bg-white p-6 text-center shadow-soft">
+          <div id="session-status" class="text-sm font-medium uppercase tracking-wide text-brand-700"></div>
+          <div id="current-label" class="mt-3 text-3xl font-semibold text-gray-900"></div>
+          <div
+            id="time-remaining"
+            role="timer"
+            aria-live="assertive"
+            class="mt-6 text-6xl font-bold tabular-nums text-gray-900"
+          >
+            00:00
+          </div>
+          <div class="mt-4 flex flex-col items-center gap-2 text-sm text-gray-600">
+            <div class="flex h-3 w-full overflow-hidden rounded-full bg-brand-100">
+              <div id="progress-bar" class="h-full bg-brand-500 transition-[width] duration-200 ease-out" style="width: 0%"></div>
+            </div>
+            <div id="overall-progress" class="font-medium text-gray-700"></div>
+            <div id="up-next" class="text-gray-500"></div>
+          </div>
+          <div class="mt-6 flex flex-wrap justify-center gap-3 text-sm">
+            <button id="pause-session" type="button" class="btn btn-secondary">Pause</button>
+            <button id="resume-session" type="button" class="btn btn-primary hidden">Resume</button>
+            <button id="stop-session" type="button" class="btn btn-secondary">Stop</button>
+          </div>
+        </div>
+        <p id="session-complete" class="mt-4 hidden text-center text-lg font-medium text-gray-700">
+          Session complete! Tap start to run it again.
+        </p>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/interval-timer"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <script type="module">
+      const planForm = document.getElementById("plan-form");
+      const stepsContainer = document.getElementById("steps-container");
+      const addStepButton = document.getElementById("add-step");
+      const roundsInput = document.getElementById("rounds-input");
+      const buzzerToggle = document.getElementById("buzzer-toggle");
+      const totalDurationEl = document.getElementById("total-duration");
+      const previewList = document.getElementById("preview-list");
+      const startButton = document.getElementById("start-session");
+      const resetPlanButton = document.getElementById("reset-plan");
+
+      const sessionRunner = document.getElementById("session-runner");
+      const timerCard = document.getElementById("timer-card");
+      const sessionStatusEl = document.getElementById("session-status");
+      const currentLabelEl = document.getElementById("current-label");
+      const timeRemainingEl = document.getElementById("time-remaining");
+      const progressBarEl = document.getElementById("progress-bar");
+      const overallProgressEl = document.getElementById("overall-progress");
+      const upNextEl = document.getElementById("up-next");
+      const pauseButton = document.getElementById("pause-session");
+      const resumeButton = document.getElementById("resume-session");
+      const stopButton = document.getElementById("stop-session");
+      const sessionCompleteEl = document.getElementById("session-complete");
+
+      const STORAGE_VERSION = 1;
+      let stepIdCounter = 0;
+      let animationFrame = null;
+      let activeSession = null;
+      let audioContext = null;
+
+      const defaultPlan = {
+        version: STORAGE_VERSION,
+        rounds: 3,
+        buzzer: false,
+        steps: [
+          createStep("Work", 40, "work"),
+          createStep("Rest", 20, "rest"),
+        ],
+      };
+
+      function createStep(label = "Work", duration = 30, type = "work") {
+        return {
+          id: `step-${stepIdCounter++}`,
+          label,
+          duration: Math.max(1, Math.round(duration)),
+          type: type === "rest" ? "rest" : "work",
+        };
+      }
+
+      function loadPlanFromHash() {
+        if (!window.location.hash) {
+          return clonePlan(defaultPlan);
+        }
+        try {
+          const decoded = decodeURIComponent(window.location.hash.slice(1));
+          const parsed = JSON.parse(decoded);
+          if (!parsed || typeof parsed !== "object") {
+            return clonePlan(defaultPlan);
+          }
+          const plan = {
+            version: STORAGE_VERSION,
+            rounds: Math.max(1, Math.round(Number(parsed.rounds) || defaultPlan.rounds)),
+            buzzer: Boolean(parsed.buzzer),
+            steps: Array.isArray(parsed.steps) && parsed.steps.length
+              ? parsed.steps
+                  .map((step) => createStep(step.label, step.duration, step.type))
+              : clonePlan(defaultPlan.steps),
+          };
+          return plan;
+        } catch (error) {
+          console.warn("Failed to parse plan from hash", error);
+          return clonePlan(defaultPlan);
+        }
+      }
+
+      let plan = loadPlanFromHash();
+
+      function updateHash() {
+        const payload = {
+          rounds: plan.rounds,
+          buzzer: plan.buzzer,
+          steps: plan.steps.map(({ label, duration, type }) => ({ label, duration, type })),
+        };
+        const encoded = encodeURIComponent(JSON.stringify(payload));
+        if (encoded.length < 2000) {
+          history.replaceState(null, "", `#${encoded}`);
+        } else {
+          console.warn("Plan too long for URL hash");
+        }
+      }
+
+      function formatSeconds(totalSeconds) {
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      }
+
+      function calculateTotalDuration(planToUse = plan) {
+        const perRound = planToUse.steps.reduce((acc, step) => acc + step.duration, 0);
+        return perRound * planToUse.rounds;
+      }
+
+      function renderPlanControls() {
+        roundsInput.value = plan.rounds;
+        buzzerToggle.checked = plan.buzzer;
+        renderSteps();
+        renderSummary();
+      }
+
+      function renderSummary() {
+        totalDurationEl.textContent = formatSeconds(calculateTotalDuration());
+        renderPreview();
+      }
+
+      function escapeHtml(value = "") {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function clonePlan(value) {
+        if (typeof structuredClone === "function") {
+          return structuredClone(value);
+        }
+        return JSON.parse(JSON.stringify(value));
+      }
+
+      function renderSteps() {
+        stepsContainer.innerHTML = "";
+        plan.steps.forEach((step, index) => {
+          const stepCard = document.createElement("div");
+          stepCard.className = `rounded-xl border ${step.type === "work" ? "border-brand-200 bg-brand-50/60" : "border-gray-200 bg-white"} p-4 transition-colors`;
+          stepCard.innerHTML = `
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div class="space-y-1">
+                <div class="text-sm font-medium uppercase tracking-wide text-gray-500">Step ${index + 1}</div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <label class="flex flex-col text-sm font-medium text-gray-700">
+                    Label
+                    <input
+                      type="text"
+                      value="${escapeHtml(step.label)}"
+                      data-action="update-label"
+                      data-step="${step.id}"
+                      class="mt-1 w-36 rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                    />
+                  </label>
+                  <label class="flex flex-col text-sm font-medium text-gray-700">
+                    Duration (seconds)
+                    <input
+                      type="number"
+                      min="1"
+                      value="${step.duration}"
+                      data-action="update-duration"
+                      data-step="${step.id}"
+                      class="mt-1 w-32 rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                    />
+                  </label>
+                  <label class="flex flex-col text-sm font-medium text-gray-700">
+                    Type
+                    <select
+                      data-action="update-type"
+                      data-step="${step.id}"
+                      class="mt-1 w-32 rounded-lg border border-gray-300 px-3 py-2 text-base text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                    >
+                      <option value="work" ${step.type === "work" ? "selected" : ""}>Work</option>
+                      <option value="rest" ${step.type === "rest" ? "selected" : ""}>Rest</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-action="move-up"
+                  data-step="${step.id}"
+                  ${index === 0 ? "disabled" : ""}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-action="move-down"
+                  data-step="${step.id}"
+                  ${index === plan.steps.length - 1 ? "disabled" : ""}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-action="duplicate"
+                  data-step="${step.id}"
+                >
+                  Duplicate
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-action="delete"
+                  data-step="${step.id}"
+                  ${plan.steps.length <= 1 ? "disabled" : ""}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          `;
+          stepsContainer.appendChild(stepCard);
+        });
+      }
+
+      function renderPreview() {
+        const items = buildSequence(plan);
+        previewList.innerHTML = "";
+        if (!items.length) {
+          previewList.innerHTML = '<li class="text-gray-500">Add at least one step to begin.</li>';
+          return;
+        }
+        let elapsed = 0;
+        items.forEach((item, index) => {
+          elapsed += item.duration;
+          const li = document.createElement("li");
+          li.className = "flex items-center justify-between rounded-lg bg-brand-50/40 px-3 py-2";
+          li.innerHTML = `
+            <span class="font-medium text-gray-800">${index + 1}. Round ${item.round} — ${item.label}</span>
+            <span class="text-gray-600">${formatSeconds(item.duration)} (T+${formatSeconds(elapsed)})</span>
+          `;
+          previewList.appendChild(li);
+        });
+      }
+
+      function buildSequence(planToUse) {
+        const sanitizedSteps = planToUse.steps
+          .map((step) => ({
+            label: step.label?.trim() || (step.type === "rest" ? "Rest" : "Work"),
+            duration: Math.max(1, Math.round(Number(step.duration) || 0)),
+            type: step.type === "rest" ? "rest" : "work",
+          }))
+          .filter((step) => step.duration > 0);
+        const sequence = [];
+        for (let round = 1; round <= planToUse.rounds; round += 1) {
+          sanitizedSteps.forEach((step) => {
+            sequence.push({ ...step, round });
+          });
+        }
+        return sequence;
+      }
+
+      function handleStepsContainerClick(event) {
+        const button = event.target.closest("button[data-action]");
+        if (!button) return;
+        const { action } = button.dataset;
+        const stepId = button.dataset.step;
+        const index = plan.steps.findIndex((step) => step.id === stepId);
+        if (index === -1) return;
+        if (action === "delete" && plan.steps.length > 1) {
+          plan.steps.splice(index, 1);
+        } else if (action === "duplicate") {
+          const stepToCopy = plan.steps[index];
+          plan.steps.splice(index + 1, 0, createStep(`${stepToCopy.label}`, stepToCopy.duration, stepToCopy.type));
+        } else if (action === "move-up" && index > 0) {
+          const [step] = plan.steps.splice(index, 1);
+          plan.steps.splice(index - 1, 0, step);
+        } else if (action === "move-down" && index < plan.steps.length - 1) {
+          const [step] = plan.steps.splice(index, 1);
+          plan.steps.splice(index + 1, 0, step);
+        }
+        updateHash();
+        renderPlanControls();
+      }
+
+      function handleStepsContainerInput(event) {
+        const target = event.target;
+        if (!target.dataset || !target.dataset.action) return;
+        const stepId = target.dataset.step;
+        const step = plan.steps.find((item) => item.id === stepId);
+        if (!step) return;
+        if (target.dataset.action === "update-label") {
+          step.label = target.value.slice(0, 40);
+          updateHash();
+          renderSummary();
+          return;
+        } else if (target.dataset.action === "update-duration") {
+          const value = Math.max(1, Math.round(Number(target.value) || 0));
+          step.duration = value;
+          target.value = value;
+          updateHash();
+          renderSummary();
+          return;
+        } else if (target.dataset.action === "update-type") {
+          step.type = target.value === "rest" ? "rest" : "work";
+        }
+        updateHash();
+        renderPlanControls();
+      }
+
+      function resetPlan() {
+        plan = clonePlan(defaultPlan);
+        updateHash();
+        renderPlanControls();
+      }
+
+      function startSession() {
+        if (activeSession) {
+          stopSession();
+        }
+        const sequence = buildSequence(plan);
+        if (!sequence.length) {
+          alert("Add at least one step with a positive duration.");
+          return;
+        }
+        const totalDuration = calculateTotalDuration(plan);
+        activeSession = {
+          sequence,
+          totalDuration,
+          elapsedWholeSeconds: 0,
+          accumulatedSeconds: 0,
+          index: 0,
+          isPaused: false,
+          pauseTimestamp: null,
+          stepStartedAt: performance.now(),
+          stepEndsAt: 0,
+        };
+        sessionCompleteEl.classList.add("hidden");
+        sessionRunner.classList.remove("hidden");
+        pauseButton.classList.remove("hidden");
+        resumeButton.classList.add("hidden");
+        planForm.classList.add("opacity-60");
+        planForm.querySelectorAll("input, button, select").forEach((el) => {
+          el.disabled = true;
+        });
+        beginStep(0, performance.now());
+      }
+
+      function beginStep(stepIndex, now) {
+        if (!activeSession) return;
+        const current = activeSession.sequence[stepIndex];
+        activeSession.index = stepIndex;
+        activeSession.stepStartedAt = now;
+        activeSession.stepEndsAt = now + current.duration * 1000;
+        triggerFlash();
+        playBuzzer();
+        updateSessionUi(current, current.duration);
+        scheduleFrame();
+      }
+
+      function updateSessionUi(currentStep, secondsRemaining) {
+        sessionStatusEl.textContent = `Round ${currentStep.round} of ${plan.rounds}`;
+        currentLabelEl.textContent = currentStep.label;
+        timeRemainingEl.textContent = formatSeconds(secondsRemaining);
+        const elapsed = activeSession.accumulatedSeconds + (currentStep.duration - secondsRemaining);
+        const percentage = Math.min(100, Math.max(0, (elapsed / activeSession.totalDuration) * 100));
+        progressBarEl.style.width = `${percentage}%`;
+        const remainingTotal = Math.max(0, Math.ceil(activeSession.totalDuration - elapsed));
+        overallProgressEl.textContent = `${Math.round(percentage)}% complete (${formatSeconds(remainingTotal)} remaining)`;
+        const nextStep = activeSession.sequence[activeSession.index + 1];
+        upNextEl.textContent = nextStep
+          ? `Next: Round ${nextStep.round} — ${nextStep.label} (${formatSeconds(nextStep.duration)})`
+          : "Final interval";
+        timerCard.classList.toggle("bg-brand-50/70", currentStep.type === "work");
+        timerCard.classList.toggle("bg-white", currentStep.type !== "work");
+      }
+
+      function tick(now) {
+        if (!activeSession || activeSession.isPaused) return;
+        const currentStep = activeSession.sequence[activeSession.index];
+        const remainingMs = Math.max(0, activeSession.stepEndsAt - now);
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        updateSessionUi(currentStep, remainingSeconds);
+        if (remainingMs <= 0.01) {
+          completeCurrentStep(now);
+        } else {
+          scheduleFrame();
+        }
+      }
+
+      function scheduleFrame() {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = requestAnimationFrame(tick);
+      }
+
+      function completeCurrentStep(now) {
+        if (!activeSession) return;
+        const current = activeSession.sequence[activeSession.index];
+        activeSession.accumulatedSeconds += current.duration;
+        const nextIndex = activeSession.index + 1;
+        if (nextIndex >= activeSession.sequence.length) {
+          finishSession();
+          return;
+        }
+        beginStep(nextIndex, now);
+      }
+
+      function finishSession() {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+        if (!activeSession) return;
+        activeSession = null;
+        timeRemainingEl.textContent = "00:00";
+        progressBarEl.style.width = "100%";
+        overallProgressEl.textContent = "100% complete";
+        upNextEl.textContent = "Session done";
+        pauseButton.classList.remove("hidden");
+        resumeButton.classList.add("hidden");
+        sessionCompleteEl.classList.remove("hidden");
+        planForm.classList.remove("opacity-60");
+        planForm.querySelectorAll("input, button, select").forEach((el) => {
+          el.disabled = false;
+        });
+      }
+
+      function stopSession() {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+        activeSession = null;
+        sessionRunner.classList.add("hidden");
+        sessionCompleteEl.classList.add("hidden");
+        pauseButton.classList.remove("hidden");
+        resumeButton.classList.add("hidden");
+        planForm.classList.remove("opacity-60");
+        planForm.querySelectorAll("input, button, select").forEach((el) => {
+          el.disabled = false;
+        });
+      }
+
+      function pauseSession() {
+        if (!activeSession || activeSession.isPaused) return;
+        activeSession.isPaused = true;
+        activeSession.pauseTimestamp = performance.now();
+        cancelAnimationFrame(animationFrame);
+        pauseButton.classList.add("hidden");
+        resumeButton.classList.remove("hidden");
+      }
+
+      function resumeSession() {
+        if (!activeSession || !activeSession.isPaused) return;
+        const now = performance.now();
+        const pausedDuration = now - activeSession.pauseTimestamp;
+        activeSession.stepStartedAt += pausedDuration;
+        activeSession.stepEndsAt += pausedDuration;
+        activeSession.isPaused = false;
+        activeSession.pauseTimestamp = null;
+        pauseButton.classList.remove("hidden");
+        resumeButton.classList.add("hidden");
+        scheduleFrame();
+      }
+
+      function triggerFlash() {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          return;
+        }
+        timerCard.classList.remove("flash-active");
+        // Force reflow so the animation can run again.
+        void timerCard.offsetWidth; // eslint-disable-line no-void
+        timerCard.classList.add("flash-active");
+      }
+
+      function playBuzzer() {
+        if (!plan.buzzer) return;
+        try {
+          if (!audioContext) {
+            audioContext = new AudioContext();
+          }
+          if (audioContext.state === "suspended") {
+            audioContext.resume().catch((error) => {
+              console.warn("Unable to resume audio context", error);
+            });
+          }
+          const duration = 0.2;
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          oscillator.type = "triangle";
+          oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+          gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + duration);
+        } catch (error) {
+          console.warn("Unable to play buzzer", error);
+        }
+      }
+
+      addStepButton.addEventListener("click", () => {
+        const lastType = plan.steps.at(-1)?.type === "work" ? "work" : "rest";
+        const nextType = lastType === "work" ? "rest" : "work";
+        const suggestedDuration = nextType === "work" ? 40 : 20;
+        const label = nextType === "work" ? "Work" : "Rest";
+        plan.steps.push(createStep(label, suggestedDuration, nextType));
+        updateHash();
+        renderPlanControls();
+      });
+
+      stepsContainer.addEventListener("click", handleStepsContainerClick);
+      stepsContainer.addEventListener("input", handleStepsContainerInput);
+
+      roundsInput.addEventListener("input", () => {
+        const value = Math.max(1, Math.round(Number(roundsInput.value) || 1));
+        plan.rounds = value;
+        roundsInput.value = value;
+        updateHash();
+        renderSummary();
+      });
+
+      buzzerToggle.addEventListener("change", () => {
+        plan.buzzer = buzzerToggle.checked;
+        updateHash();
+      });
+
+      resetPlanButton.addEventListener("click", resetPlan);
+      startButton.addEventListener("click", startSession);
+      stopButton.addEventListener("click", stopSession);
+      pauseButton.addEventListener("click", pauseSession);
+      resumeButton.addEventListener("click", resumeSession);
+
+      window.addEventListener("hashchange", () => {
+        plan = loadPlanFromHash();
+        renderPlanControls();
+      });
+
+      renderPlanControls();
+    </script>
+  </body>
+</html>
