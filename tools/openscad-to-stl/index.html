@@ -55,7 +55,7 @@
       type="module"
       onerror="alert('Failed to load: ' + this.src)"
     >
-      import OpenSCAD from "https://cdn.jsdelivr.net/npm/openscad-wasm@0.0.4/+esm";
+      import { createOpenSCAD } from "https://cdn.jsdelivr.net/npm/openscad-wasm@0.0.4/openscad.js";
 
       const openscadInput = document.getElementById("openscad-input");
       const fileInput = document.getElementById("openscad-file");
@@ -91,7 +91,9 @@
         return formatIsoFilename();
       };
 
-      const openScadInstancePromise = OpenSCAD({ noInitialRun: true });
+      const openScadInstancePromise = createOpenSCAD({ noInitialRun: true }).then((wrapper) =>
+        wrapper.getInstance(),
+      );
 
       openScadInstancePromise
         .then(() => {
