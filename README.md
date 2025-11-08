@@ -75,6 +75,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Fractal Playground](https://tools.dave.engineer/tools/fractal-playground) — Interactive Mandelbrot and Julia explorer
 - [GBFS Explorer](https://tools.dave.engineer/tools/gbfs-explorer) — Browse shared mobility feeds on an interactive map
 - [Map Explorer](https://tools.dave.engineer/tools/map-explorer) — Full screen map with geolocation button
+- [Map Overlay Aligner](https://tools.dave.engineer/tools/map-overlay-aligner) — Align custom map images with basemap
 - [Pendulum Studio](https://tools.dave.engineer/tools/pendulum-visualizer) — Interactive single, double, and triple pendulum playground.
 - [Perspective Grid Designer](https://tools.dave.engineer/tools/perspective-grid-designer) — Interactive vanishing-point grid generator
 - [Venn Diagram Creator](https://tools.dave.engineer/tools/venn-diagram-creator) — Build customizable Venn diagrams with adjustable overlaps and styling.
