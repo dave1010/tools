@@ -74,41 +74,44 @@
         </div>
       </div>
       <div class="pointer-events-none absolute inset-0 flex items-start justify-start p-4">
-        <div class="pointer-events-auto w-full max-w-xs space-y-3 rounded-xl bg-slate-900/85 p-4 shadow-xl backdrop-blur">
-          <label class="block text-sm font-medium text-slate-100">
-            Overlay image
-            <input id="file-input" type="file" accept="image/*" class="mt-1 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-slate-100 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500" />
-          </label>
-          <div class="flex items-center gap-2">
-            <button id="lock-toggle" class="flex-1 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-700" aria-pressed="false" disabled>Lock overlay</button>
-            <button id="geolocate" class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-800/60">Geolocate</button>
+        <div class="pointer-events-auto w-full max-w-xs rounded-xl bg-slate-900/85 p-4 shadow-xl backdrop-blur">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <p class="text-sm font-medium text-slate-100">Overlay controls</p>
+            <button id="controls-toggle" class="rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-slate-200 transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500" aria-expanded="true" aria-controls="controls-body">Hide</button>
           </div>
-          <label class="block text-sm text-slate-100">
-            Opacity
-            <input id="opacity-slider" type="range" min="0" max="100" value="60" class="mt-1 w-full" disabled>
-          </label>
-          <div id="edit-controls" class="space-y-2 rounded-lg bg-slate-800/60 p-3 text-xs text-slate-200 hidden">
-            <label class="block">
-              Scale
-              <input id="scale-slider" type="range" min="20" max="200" value="100" class="mt-1 w-full" disabled>
+          <div id="controls-body" class="space-y-3">
+            <label class="block text-sm font-medium text-slate-100">
+              Overlay image
+              <input id="file-input" type="file" accept="image/*" class="mt-1 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-slate-100 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </label>
-            <label class="block">
-              Rotation
-              <input id="rotation-slider" type="range" min="-180" max="180" value="0" class="mt-1 w-full" disabled>
+            <div class="flex items-center gap-2">
+              <button id="lock-toggle" class="flex-1 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-700" aria-pressed="false" disabled>Lock overlay</button>
+              <button id="geolocate" class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-800/60">Geolocate</button>
+            </div>
+            <label class="block text-sm text-slate-100">
+              Opacity
+              <input id="opacity-slider" type="range" min="0" max="100" value="60" class="mt-1 w-full" disabled>
             </label>
-            <p class="leading-relaxed">Drag the overlay to move it while unlocked.</p>
+            <div id="edit-controls" class="space-y-2 rounded-lg bg-slate-800/60 p-3 text-xs text-slate-200 hidden">
+              <label class="block">
+                Scale
+                <input id="scale-slider" type="range" min="20" max="200" value="100" class="mt-1 w-full" disabled>
+              </label>
+              <label class="block">
+                Rotation
+                <input id="rotation-slider" type="range" min="-180" max="180" value="0" class="mt-1 w-full" disabled>
+              </label>
+              <p class="leading-relaxed">Drag the overlay to move it while unlocked.</p>
+            </div>
+            <p id="status" class="text-xs text-slate-300" aria-live="polite">Choose an image to get started.</p>
+            <div class="flex justify-center gap-3 border-t border-slate-800 pt-3 text-[0.7rem] text-slate-300">
+              <a href="/" class="font-medium text-brand-300 hover:text-brand-200">&larr; Back to tools.dave.engineer</a>
+              <a href="https://github.com/dave1010/tools/tree/main/tools/map-overlay-aligner" class="font-medium text-brand-300 hover:text-brand-200">About</a>
+            </div>
           </div>
-          <p id="status" class="text-xs text-slate-300" aria-live="polite">Choose an image to get started.</p>
         </div>
       </div>
     </section>
-
-    <footer class="bg-slate-900/70 py-3 text-center text-xs text-slate-300">
-      <div class="flex justify-center gap-4">
-        <a href="/" class="font-medium text-brand-300 hover:text-brand-200">&larr; Back to tools.dave.engineer</a>
-        <a href="https://github.com/dave1010/tools/tree/main/tools/map-overlay-aligner" class="font-medium text-brand-300 hover:text-brand-200">About</a>
-      </div>
-    </footer>
   </main>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
@@ -125,6 +128,8 @@
       const editControls = document.getElementById('edit-controls');
       const statusEl = document.getElementById('status');
       const geolocateButton = document.getElementById('geolocate');
+      const controlsToggle = document.getElementById('controls-toggle');
+      const controlsBody = document.getElementById('controls-body');
       const overlay = document.getElementById('overlay');
       const overlayImage = document.getElementById('overlay-image');
 
@@ -167,11 +172,19 @@
         zoom: 2,
         bearing: 0,
         pitch: 0,
-        attributionControl: true,
-        cooperativeGestures: true
+        attributionControl: true
       });
 
       map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
+
+      let controlsVisible = true;
+
+      controlsToggle.addEventListener('click', () => {
+        controlsVisible = !controlsVisible;
+        controlsBody.classList.toggle('hidden', !controlsVisible);
+        controlsToggle.textContent = controlsVisible ? 'Hide' : 'Show';
+        controlsToggle.setAttribute('aria-expanded', String(controlsVisible));
+      });
 
       let mapReady = false;
       map.on('load', () => {
