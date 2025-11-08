@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Map Overlay Aligner</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      background-color: #0f172a;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    #overlay-wrapper {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      overflow: visible;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      --translate-x: 0px;
+      --translate-y: 0px;
+      --rotation: 0deg;
+      --scale: 1;
+      transform: translate(calc(-50% + var(--translate-x)), calc(-50% + var(--translate-y))) rotate(var(--rotation)) scale(var(--scale));
+      transform-origin: center center;
+      cursor: grab;
+      pointer-events: auto;
+      touch-action: none;
+      will-change: transform;
+    }
+
+    #overlay img {
+      display: block;
+      max-width: none;
+      user-select: none;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.6);
+    }
+
+    #overlay[data-hidden="true"] {
+      display: none;
+    }
+
+    #overlay[data-dragging="true"] {
+      cursor: grabbing;
+    }
+
+    input[type="range"] {
+      accent-color: #3b82f6;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-white">
+  <main class="relative flex min-h-screen flex-col font-sans">
+    <section class="relative flex-1">
+      <div id="map" role="presentation" aria-hidden="true"></div>
+      <div id="overlay-wrapper">
+        <div id="overlay" data-hidden="true">
+          <img id="overlay-image" alt="Uploaded map overlay" draggable="false">
+        </div>
+      </div>
+      <div class="pointer-events-none absolute inset-0 flex items-start justify-start p-4">
+        <div class="pointer-events-auto w-full max-w-xs space-y-3 rounded-xl bg-slate-900/85 p-4 shadow-xl backdrop-blur">
+          <label class="block text-sm font-medium text-slate-100">
+            Overlay image
+            <input id="file-input" type="file" accept="image/*" class="mt-1 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs text-slate-100 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          </label>
+          <div class="flex items-center gap-2">
+            <button id="lock-toggle" class="flex-1 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-700" aria-pressed="false" disabled>Lock overlay</button>
+            <button id="geolocate" class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-800/60">Geolocate</button>
+          </div>
+          <label class="block text-sm text-slate-100">
+            Opacity
+            <input id="opacity-slider" type="range" min="0" max="100" value="60" class="mt-1 w-full" disabled>
+          </label>
+          <div id="edit-controls" class="space-y-2 rounded-lg bg-slate-800/60 p-3 text-xs text-slate-200 hidden">
+            <label class="block">
+              Scale
+              <input id="scale-slider" type="range" min="20" max="200" value="100" class="mt-1 w-full" disabled>
+            </label>
+            <label class="block">
+              Rotation
+              <input id="rotation-slider" type="range" min="-180" max="180" value="0" class="mt-1 w-full" disabled>
+            </label>
+            <p class="leading-relaxed">Drag the overlay to move it while unlocked.</p>
+          </div>
+          <p id="status" class="text-xs text-slate-300" aria-live="polite">Choose an image to get started.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="bg-slate-900/70 py-3 text-center text-xs text-slate-300">
+      <div class="flex justify-center gap-4">
+        <a href="/" class="font-medium text-brand-300 hover:text-brand-200">&larr; Back to tools.dave.engineer</a>
+        <a href="https://github.com/dave1010/tools/tree/main/tools/map-overlay-aligner" class="font-medium text-brand-300 hover:text-brand-200">About</a>
+      </div>
+    </footer>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <script>
+    (function () {
+      const IMAGE_SOURCE_ID = 'uploaded-overlay-image';
+      const IMAGE_LAYER_ID = 'uploaded-overlay-layer';
+
+      const fileInput = document.getElementById('file-input');
+      const lockToggle = document.getElementById('lock-toggle');
+      const opacitySlider = document.getElementById('opacity-slider');
+      const scaleSlider = document.getElementById('scale-slider');
+      const rotationSlider = document.getElementById('rotation-slider');
+      const editControls = document.getElementById('edit-controls');
+      const statusEl = document.getElementById('status');
+      const geolocateButton = document.getElementById('geolocate');
+      const overlay = document.getElementById('overlay');
+      const overlayImage = document.getElementById('overlay-image');
+
+      const overlayState = {
+        imageUrl: '',
+        naturalWidth: 0,
+        naturalHeight: 0,
+        centerX: 0,
+        centerY: 0,
+        scale: 1,
+        rotation: 0,
+        opacity: 0.6,
+        locked: false,
+        coordinates: null
+      };
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function updateStatus(message, type = 'info') {
+        statusEl.textContent = message;
+        statusEl.className = type === 'error'
+          ? 'text-xs text-red-300'
+          : 'text-xs text-slate-300';
+      }
+
+      if (typeof maplibregl === 'undefined') {
+        updateStatus('Map could not load. Please try again later.', 'error');
+        fileInput.disabled = true;
+        lockToggle.disabled = true;
+        geolocateButton.disabled = true;
+        return;
+      }
+
+      const map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [0, 20],
+        zoom: 2,
+        bearing: 0,
+        pitch: 0,
+        attributionControl: true,
+        cooperativeGestures: true
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
+
+      let mapReady = false;
+      map.on('load', () => {
+        mapReady = true;
+      });
+
+      map.on('resize', () => {
+        if (!overlayState.imageUrl || overlayState.locked) {
+          return;
+        }
+        applyOverlayTransform();
+      });
+
+      function getMapSize() {
+        const rect = map.getContainer().getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      }
+
+      function applyOverlayTransform() {
+        if (!overlayState.imageUrl) {
+          return;
+        }
+        const { width, height } = getMapSize();
+        const translateX = overlayState.centerX - width / 2;
+        const translateY = overlayState.centerY - height / 2;
+        overlay.style.setProperty('--translate-x', `${translateX}px`);
+        overlay.style.setProperty('--translate-y', `${translateY}px`);
+        overlay.style.setProperty('--rotation', `${overlayState.rotation}deg`);
+        overlay.style.setProperty('--scale', overlayState.scale);
+        overlayImage.style.width = `${overlayState.naturalWidth}px`;
+        overlayImage.style.opacity = overlayState.opacity;
+        overlay.dataset.hidden = overlayState.locked ? 'true' : 'false';
+      }
+
+      function resetOverlay() {
+        const { width, height } = getMapSize();
+        overlayState.centerX = width / 2;
+        overlayState.centerY = height / 2;
+        overlayState.scale = 0.6;
+        overlayState.rotation = 0;
+        overlayState.opacity = 0.6;
+        overlayState.locked = false;
+        overlayState.coordinates = null;
+        opacitySlider.value = Math.round(overlayState.opacity * 100);
+        scaleSlider.value = Math.round(overlayState.scale * 100);
+        rotationSlider.value = 0;
+        opacitySlider.disabled = false;
+        lockToggle.disabled = false;
+        lockToggle.textContent = 'Lock overlay';
+        overlay.dataset.hidden = 'false';
+        applyOverlayTransform();
+        overlayImage.style.opacity = overlayState.opacity;
+        updateStatus('Overlay ready. Drag, scale, or rotate while unlocked.');
+      }
+
+      function clearMapLayer() {
+        if (map.getLayer(IMAGE_LAYER_ID)) {
+          map.removeLayer(IMAGE_LAYER_ID);
+        }
+        if (map.getSource(IMAGE_SOURCE_ID)) {
+          map.removeSource(IMAGE_SOURCE_ID);
+        }
+      }
+
+      function lockOverlay() {
+        if (!overlayState.imageUrl) {
+          return;
+        }
+        if (!mapReady) {
+          updateStatus('Please wait for the map to finish loading before locking the overlay.', 'error');
+          return;
+        }
+        const centerX = overlayState.centerX;
+        const centerY = overlayState.centerY;
+        const displayWidth = overlayState.naturalWidth * overlayState.scale;
+        const displayHeight = overlayState.naturalHeight * overlayState.scale;
+        const angle = overlayState.rotation * Math.PI / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const halfW = displayWidth / 2;
+        const halfH = displayHeight / 2;
+        const corners = [
+          [-halfW, -halfH],
+          [halfW, -halfH],
+          [halfW, halfH],
+          [-halfW, halfH]
+        ].map(([dx, dy]) => {
+          const rotatedX = dx * cos - dy * sin;
+          const rotatedY = dx * sin + dy * cos;
+          return {
+            x: centerX + rotatedX,
+            y: centerY + rotatedY
+          };
+        });
+
+        if (corners.some(corner => Number.isNaN(corner.x) || Number.isNaN(corner.y))) {
+          updateStatus('Could not compute overlay position.', 'error');
+          return;
+        }
+
+        clearMapLayer();
+        const coordinates = corners.map(({ x, y }) => {
+          const lngLat = map.unproject([x, y]);
+          return [lngLat.lng, lngLat.lat];
+        });
+
+        map.addSource(IMAGE_SOURCE_ID, {
+          type: 'image',
+          url: overlayState.imageUrl,
+          coordinates
+        });
+
+        map.addLayer({
+          id: IMAGE_LAYER_ID,
+          type: 'raster',
+          source: IMAGE_SOURCE_ID,
+          paint: {
+            'raster-opacity': overlayState.opacity
+          }
+        });
+
+        overlayState.locked = true;
+        overlayState.coordinates = coordinates.map(([lng, lat]) => ({ lng, lat }));
+        overlay.dataset.hidden = 'true';
+        lockToggle.textContent = 'Unlock overlay';
+        lockToggle.setAttribute('aria-pressed', 'true');
+        scaleSlider.disabled = true;
+        rotationSlider.disabled = true;
+        updateStatus('Overlay locked. Panning or zooming keeps it in place.');
+      }
+
+      function projectCoordinatesToState() {
+        if (!overlayState.coordinates) {
+          return;
+        }
+        const points = overlayState.coordinates.map(coord => map.project([coord.lng, coord.lat]));
+        const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+        const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+        const widthVector = {
+          x: points[1].x - points[0].x,
+          y: points[1].y - points[0].y
+        };
+        const heightVector = {
+          x: points[3].x - points[0].x,
+          y: points[3].y - points[0].y
+        };
+        const width = Math.hypot(widthVector.x, widthVector.y);
+        const height = Math.hypot(heightVector.x, heightVector.y);
+        const rotation = Math.atan2(widthVector.y, widthVector.x) * 180 / Math.PI;
+        const scaleX = width / overlayState.naturalWidth;
+        const scaleY = height / overlayState.naturalHeight;
+        overlayState.centerX = centerX;
+        overlayState.centerY = centerY;
+        overlayState.scale = clamp((scaleX + scaleY) / 2, 0.2, 2);
+        overlayState.rotation = rotation;
+      }
+
+      function unlockOverlay() {
+        clearMapLayer();
+        if (overlayState.coordinates) {
+          projectCoordinatesToState();
+        }
+        overlayState.locked = false;
+        overlayState.coordinates = null;
+        overlay.dataset.hidden = 'false';
+        scaleSlider.disabled = false;
+        rotationSlider.disabled = false;
+        lockToggle.textContent = 'Lock overlay';
+        lockToggle.setAttribute('aria-pressed', 'false');
+        applyOverlayTransform();
+        syncSliders();
+        updateStatus('Overlay unlocked. Drag, scale, or rotate to refine the fit.');
+      }
+
+      function syncSliders() {
+        opacitySlider.value = Math.round(clamp(overlayState.opacity, 0, 1) * 100);
+        overlayState.scale = clamp(overlayState.scale, 0.2, 2);
+        scaleSlider.value = Math.round(overlayState.scale * 100);
+        const rotation = ((overlayState.rotation % 360) + 540) % 360 - 180;
+        overlayState.rotation = rotation;
+        rotationSlider.value = Math.round(rotation);
+      }
+
+      function setOpacityFromSlider(value) {
+        overlayState.opacity = value / 100;
+        overlayImage.style.opacity = overlayState.opacity;
+        if (map.getLayer(IMAGE_LAYER_ID)) {
+          map.setPaintProperty(IMAGE_LAYER_ID, 'raster-opacity', overlayState.opacity);
+        }
+      }
+
+      let dragActive = false;
+      let dragPointerId = null;
+      let dragStart = { x: 0, y: 0 };
+      let dragOrigin = { x: 0, y: 0 };
+
+      overlay.addEventListener('pointerdown', (event) => {
+        if (overlayState.locked || !overlayState.imageUrl) {
+          return;
+        }
+        dragActive = true;
+        dragPointerId = event.pointerId;
+        dragStart = { x: event.clientX, y: event.clientY };
+        dragOrigin = { x: overlayState.centerX, y: overlayState.centerY };
+        overlay.setPointerCapture(dragPointerId);
+        overlay.dataset.dragging = 'true';
+      });
+
+      overlay.addEventListener('pointermove', (event) => {
+        if (!dragActive || event.pointerId !== dragPointerId) {
+          return;
+        }
+        const deltaX = event.clientX - dragStart.x;
+        const deltaY = event.clientY - dragStart.y;
+        overlayState.centerX = dragOrigin.x + deltaX;
+        overlayState.centerY = dragOrigin.y + deltaY;
+        applyOverlayTransform();
+      });
+
+      function endDrag(event) {
+        if (!dragActive || (event && event.pointerId !== dragPointerId)) {
+          return;
+        }
+        dragActive = false;
+        overlay.dataset.dragging = 'false';
+        if (dragPointerId !== null) {
+          overlay.releasePointerCapture(dragPointerId);
+        }
+        dragPointerId = null;
+      }
+
+      overlay.addEventListener('pointerup', endDrag);
+      overlay.addEventListener('pointercancel', endDrag);
+      overlay.addEventListener('lostpointercapture', endDrag);
+
+      opacitySlider.addEventListener('input', (event) => {
+        if (!overlayState.imageUrl) {
+          return;
+        }
+        setOpacityFromSlider(Number(event.target.value));
+      });
+
+      scaleSlider.addEventListener('input', (event) => {
+        if (!overlayState.imageUrl || overlayState.locked) {
+          return;
+        }
+        overlayState.scale = Number(event.target.value) / 100;
+        applyOverlayTransform();
+      });
+
+      rotationSlider.addEventListener('input', (event) => {
+        if (!overlayState.imageUrl || overlayState.locked) {
+          return;
+        }
+        overlayState.rotation = Number(event.target.value);
+        applyOverlayTransform();
+      });
+
+      lockToggle.addEventListener('click', () => {
+        if (!overlayState.imageUrl) {
+          return;
+        }
+        if (overlayState.locked) {
+          unlockOverlay();
+        } else {
+          lockOverlay();
+        }
+      });
+
+      function revokeOverlay() {
+        clearMapLayer();
+        overlayState.imageUrl = '';
+        overlayState.locked = false;
+        overlayState.coordinates = null;
+        overlay.dataset.hidden = 'true';
+        overlayImage.removeAttribute('src');
+        lockToggle.disabled = true;
+        lockToggle.textContent = 'Lock overlay';
+        lockToggle.setAttribute('aria-pressed', 'false');
+        opacitySlider.disabled = true;
+        scaleSlider.disabled = true;
+        rotationSlider.disabled = true;
+        opacitySlider.value = 60;
+        scaleSlider.value = 100;
+        rotationSlider.value = 0;
+        editControls.classList.add('hidden');
+        updateStatus('Overlay removed. Choose a new image to continue.');
+      }
+
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          revokeOverlay();
+          return;
+        }
+        if (!file.type.startsWith('image/')) {
+          updateStatus('Please choose an image file.', 'error');
+          return;
+        }
+        const reader = new FileReader();
+        reader.addEventListener('error', () => {
+          updateStatus('Could not read the selected file.', 'error');
+        });
+        reader.addEventListener('load', () => {
+          overlayImage.onload = () => {
+            overlayState.imageUrl = reader.result;
+            overlayState.naturalWidth = overlayImage.naturalWidth;
+            overlayState.naturalHeight = overlayImage.naturalHeight;
+            clearMapLayer();
+            resetOverlay();
+            setOpacityFromSlider(Number(opacitySlider.value));
+            scaleSlider.disabled = false;
+            rotationSlider.disabled = false;
+            opacitySlider.disabled = false;
+            lockToggle.disabled = false;
+            editControls.classList.remove('hidden');
+            overlay.dataset.hidden = 'false';
+          };
+          overlayImage.src = reader.result;
+        });
+        reader.readAsDataURL(file);
+      });
+
+      const locateStatus = {
+        locating: false,
+        marker: null
+      };
+
+      function resetLocateButton() {
+        locateStatus.locating = false;
+        geolocateButton.disabled = false;
+        geolocateButton.textContent = 'Geolocate';
+      }
+
+      geolocateButton.addEventListener('click', () => {
+        if (!('geolocation' in navigator)) {
+          updateStatus('Geolocation is not supported on this device.', 'error');
+          geolocateButton.disabled = true;
+          return;
+        }
+        if (locateStatus.locating) {
+          return;
+        }
+        locateStatus.locating = true;
+        geolocateButton.disabled = true;
+        geolocateButton.textContent = 'Locating…';
+        updateStatus('Locating…');
+
+        navigator.geolocation.getCurrentPosition((position) => {
+          resetLocateButton();
+          const { latitude, longitude, accuracy } = position.coords;
+          const lngLat = [longitude, latitude];
+          if (!locateStatus.marker) {
+            locateStatus.marker = new maplibregl.Marker({ color: '#3b82f6' });
+          }
+          locateStatus.marker.setLngLat(lngLat).addTo(map);
+          map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 14), duration: 1200 });
+          updateStatus(accuracy ? `Accuracy ±${Math.round(accuracy)} m` : 'Location updated.');
+        }, (error) => {
+          resetLocateButton();
+          let message = 'Unable to retrieve your location.';
+          if (error.code === error.PERMISSION_DENIED) {
+            message = 'Location access was denied.';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            message = 'Location information is unavailable.';
+          } else if (error.code === error.TIMEOUT) {
+            message = 'Timed out while trying to locate you.';
+          }
+          updateStatus(message, 'error');
+        }, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
