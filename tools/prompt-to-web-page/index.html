@@ -27,6 +27,23 @@
               placeholder="Example: Create a launch page for a productivity app with feature cards and a pricing table."
             ></textarea>
           </label>
+          <div class="flex flex-wrap gap-2 text-xs text-gray-600">
+            <span class="sr-only">Quick prompt additions</span>
+            <button
+              type="button"
+              class="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 font-medium text-brand-700 shadow-sm hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              data-snippet="[Mobile] - Make the page mobile friendly."
+            >
+              Mobile
+            </button>
+            <button
+              type="button"
+              class="rounded-full border border-brand-200 bg-brand-50 px-3 py-1 font-medium text-brand-700 shadow-sm hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              data-snippet="[Color] - Use vibrant colours."
+            >
+              Vibrant colours
+            </button>
+          </div>
           <p class="text-xs text-gray-500">
             After the first draft, send follow-up instructions to iteratively refine the page.
           </p>
@@ -142,6 +159,7 @@
       const downloadButton = document.getElementById("downloadButton");
       const saveGistButton = document.getElementById("saveGistButton");
       const viewHtmlButton = document.getElementById("viewHtmlButton");
+      const snippetButtons = document.querySelectorAll("[data-snippet]");
 
       const conversationHistory = [];
       let currentHtml = "";
@@ -180,6 +198,23 @@
         submitButton.textContent = isLoading ? "Generating…" : "Generate web page";
         promptInput.disabled = isLoading;
       }
+
+      function appendSnippet(snippet) {
+        if (typeof snippet !== "string" || !snippet.trim()) {
+          return;
+        }
+        const currentValue = promptInput.value;
+        const needsNewline = currentValue.length > 0 && !currentValue.endsWith("\n");
+        const updatedValue = `${currentValue}${needsNewline ? "\n" : ""}${snippet.trim()}`;
+        promptInput.value = updatedValue;
+        promptInput.focus();
+      }
+
+      snippetButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          appendSnippet(button.dataset.snippet || "");
+        });
+      });
 
       function extractHtmlFromResponse(content) {
         if (typeof content !== "string" || !content.trim()) {
