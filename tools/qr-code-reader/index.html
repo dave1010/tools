@@ -36,6 +36,30 @@
           </div>
         </section>
 
+        <section id="camera-section" class="space-y-3">
+          <div class="space-y-1">
+            <h2 class="text-xl font-semibold text-gray-900">Use your webcam</h2>
+            <p class="text-sm text-gray-500">Allow access to your camera to scan QR codes in real time.</p>
+          </div>
+          <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <label class="flex w-full flex-col gap-1 text-sm text-gray-700 md:max-w-xs">
+              Camera
+              <select id="camera-select" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <option value="">Loading cameras…</option>
+              </select>
+            </label>
+            <div class="flex items-center gap-3">
+              <button id="start-camera" type="button" class="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
+                Start scanning
+              </button>
+              <button id="stop-camera" type="button" class="btn btn-secondary text-sm" disabled>
+                Stop
+              </button>
+            </div>
+          </div>
+          <p id="camera-support-message" class="text-sm text-red-600 hidden">Camera access is not supported in this browser.</p>
+        </section>
+
         <section class="space-y-3">
           <div class="space-y-1">
             <h2 class="text-xl font-semibold text-gray-900">Result</h2>
@@ -67,8 +91,11 @@
         <section class="space-y-3">
           <h2 class="text-xl font-semibold text-gray-900">Preview</h2>
           <div class="flex min-h-[200px] items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
-            <img id="preview-image" alt="Uploaded QR code preview" class="max-h-64 w-auto rounded-lg shadow-sm hidden" />
-            <p id="preview-placeholder" class="text-sm text-gray-500">Your uploaded image preview will appear here.</p>
+            <video id="camera-preview" class="hidden max-h-64 w-auto rounded-lg shadow-sm" autoplay playsinline muted></video>
+            <img id="preview-image" alt="Uploaded QR code preview" class="hidden max-h-64 w-auto rounded-lg shadow-sm" />
+            <p id="preview-placeholder" class="text-sm text-gray-500 text-center">
+              Your uploaded image or live camera preview will appear here.
+            </p>
           </div>
         </section>
       </div>
@@ -89,10 +116,20 @@
       const copyButton = document.getElementById("copy-button");
       const copyFeedback = document.getElementById("copy-feedback");
       const previewImage = document.getElementById("preview-image");
+      const cameraPreview = document.getElementById("camera-preview");
       const previewPlaceholder = document.getElementById("preview-placeholder");
+      const startCameraButton = document.getElementById("start-camera");
+      const stopCameraButton = document.getElementById("stop-camera");
+      const cameraSelect = document.getElementById("camera-select");
+      const cameraSupportMessage = document.getElementById("camera-support-message");
 
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
+
+      let currentStream = null;
+      let animationFrameId = null;
+      let lastDecodedFromCamera = "";
+      const isCameraSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
       const resetResult = () => {
         resultField.value = "";
@@ -105,15 +142,225 @@
         statusText.className = "text-sm " + (tone === "error" ? "text-red-600" : tone === "success" ? "text-green-600" : "text-gray-500");
       };
 
-      const updatePreview = (url) => {
-        if (url) {
-          previewImage.src = url;
+      const updatePreview = ({ imageUrl = null, showVideo = false } = {}) => {
+        if (showVideo) {
+          cameraPreview.classList.remove("hidden");
+          previewImage.classList.add("hidden");
+          previewPlaceholder.classList.add("hidden");
+        } else if (imageUrl) {
+          previewImage.src = imageUrl;
           previewImage.classList.remove("hidden");
+          cameraPreview.classList.add("hidden");
           previewPlaceholder.classList.add("hidden");
         } else {
           previewImage.removeAttribute("src");
           previewImage.classList.add("hidden");
+          cameraPreview.classList.add("hidden");
           previewPlaceholder.classList.remove("hidden");
+        }
+      };
+
+      const stopCamera = (silent = false) => {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+          currentStream = null;
+        }
+
+        if (!cameraPreview.paused) {
+          cameraPreview.pause();
+        }
+
+        cameraPreview.srcObject = null;
+        lastDecodedFromCamera = "";
+        updatePreview();
+
+        if (startCameraButton) {
+          startCameraButton.disabled = false;
+        }
+        if (stopCameraButton) {
+          stopCameraButton.disabled = true;
+        }
+
+        if (!silent) {
+          setStatus("Camera stopped.", "info");
+        }
+      };
+
+      const scanVideoFrame = () => {
+        if (!currentStream) {
+          return;
+        }
+
+        if (cameraPreview.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+          canvas.width = cameraPreview.videoWidth;
+          canvas.height = cameraPreview.videoHeight;
+          context.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+
+          try {
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "attemptBoth",
+            });
+
+            if (code && code.data) {
+              if (code.data !== lastDecodedFromCamera) {
+                lastDecodedFromCamera = code.data;
+                resultField.value = code.data;
+                copyButton.disabled = false;
+                setStatus("QR code decoded successfully.", "success");
+              }
+            } else if (!resultField.value) {
+              setStatus("Scanning for QR codes…", "info");
+            }
+          } catch (error) {
+            console.error("Error decoding camera frame", error);
+          }
+        }
+
+        animationFrameId = requestAnimationFrame(scanVideoFrame);
+      };
+
+      const loadCameraDevices = async () => {
+        if (!isCameraSupported) {
+          return;
+        }
+
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter((device) => device.kind === "videoinput");
+          const previousSelection = cameraSelect.value;
+
+          cameraSelect.innerHTML = "";
+
+          if (videoDevices.length === 0) {
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "No cameras found";
+            cameraSelect.appendChild(option);
+            cameraSelect.disabled = true;
+            if (startCameraButton) {
+              startCameraButton.disabled = true;
+            }
+            if (stopCameraButton) {
+              stopCameraButton.disabled = true;
+            }
+            cameraSupportMessage.textContent = "No cameras detected. Connect a camera and try again.";
+            cameraSupportMessage.classList.remove("hidden");
+            return;
+          }
+
+          videoDevices.forEach((device, index) => {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.textContent = device.label || `Camera ${index + 1}`;
+            cameraSelect.appendChild(option);
+          });
+
+          if (videoDevices.some((device) => device.deviceId === previousSelection)) {
+            cameraSelect.value = previousSelection;
+          }
+
+          if (!cameraSelect.value && videoDevices[0]) {
+            cameraSelect.value = videoDevices[0].deviceId;
+          }
+
+          cameraSelect.disabled = false;
+          if (startCameraButton && !currentStream) {
+            startCameraButton.disabled = false;
+          }
+          cameraSupportMessage.classList.add("hidden");
+        } catch (error) {
+          console.error("Unable to load camera devices", error);
+          cameraSelect.innerHTML = "";
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "Unable to access cameras";
+          cameraSelect.appendChild(option);
+          cameraSelect.disabled = true;
+          if (startCameraButton) {
+            startCameraButton.disabled = true;
+          }
+          cameraSupportMessage.textContent = "Unable to access cameras. Check browser permissions and try again.";
+          cameraSupportMessage.classList.remove("hidden");
+        }
+      };
+
+      const startCamera = async () => {
+        if (!isCameraSupported) {
+          cameraSupportMessage.classList.remove("hidden");
+          setStatus("Camera access is not supported in this browser.", "error");
+          return;
+        }
+
+        stopCamera(true);
+        setStatus("Requesting camera access…", "info");
+        if (startCameraButton) {
+          startCameraButton.disabled = true;
+        }
+        if (stopCameraButton) {
+          stopCameraButton.disabled = true;
+        }
+
+        try {
+          const selectedDeviceId = cameraSelect.value;
+          const constraints = selectedDeviceId
+            ? { video: { deviceId: { exact: selectedDeviceId } } }
+            : { video: { facingMode: "environment" } };
+
+          currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+          cameraPreview.srcObject = currentStream;
+          await cameraPreview.play().catch(() => {});
+
+          updatePreview({ showVideo: true });
+          if (stopCameraButton) {
+            stopCameraButton.disabled = false;
+          }
+          lastDecodedFromCamera = resultField.value;
+          setStatus("Scanning for QR codes…", "info");
+          cameraSupportMessage.classList.add("hidden");
+          await loadCameraDevices();
+          animationFrameId = requestAnimationFrame(scanVideoFrame);
+        } catch (error) {
+          console.error("Unable to start camera", error);
+          stopCamera(true);
+          setStatus("Unable to access the selected camera.", "error");
+
+          if (error.name === "NotAllowedError") {
+            cameraSupportMessage.textContent = "Camera access was denied. Please allow permissions and try again.";
+            cameraSupportMessage.classList.remove("hidden");
+          }
+        }
+      };
+
+      const initializeCameraSupport = async () => {
+        if (!isCameraSupported) {
+          cameraSupportMessage.classList.remove("hidden");
+          cameraSelect.innerHTML = "";
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "Not supported";
+          cameraSelect.appendChild(option);
+          cameraSelect.disabled = true;
+          if (startCameraButton) {
+            startCameraButton.disabled = true;
+          }
+          if (stopCameraButton) {
+            stopCameraButton.disabled = true;
+          }
+          return;
+        }
+
+        await loadCameraDevices();
+
+        if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === "function") {
+          navigator.mediaDevices.addEventListener("devicechange", loadCameraDevices);
+        } else if (navigator.mediaDevices && typeof navigator.mediaDevices.ondevicechange !== "undefined") {
+          navigator.mediaDevices.ondevicechange = loadCameraDevices;
         }
       };
 
@@ -121,10 +368,11 @@
         if (!file || !file.type.startsWith("image/")) {
           setStatus("Please choose an image file containing a QR code.", "error");
           resetResult();
-          updatePreview(null);
+          updatePreview();
           return;
         }
 
+        stopCamera(true);
         const url = URL.createObjectURL(file);
         const image = new Image();
         image.onload = () => {
@@ -157,11 +405,11 @@
         image.onerror = () => {
           URL.revokeObjectURL(url);
           resetResult();
-          updatePreview(null);
+          updatePreview();
           setStatus("Unable to load the selected image.", "error");
         };
 
-        updatePreview(url);
+        updatePreview({ imageUrl: url });
         setStatus("Processing image…", "info");
         image.src = url;
       };
@@ -210,6 +458,15 @@
           copyFeedback.textContent = "";
         }, 4000);
       });
+
+      if (startCameraButton) {
+        startCameraButton.addEventListener("click", startCamera);
+      }
+      if (stopCameraButton) {
+        stopCameraButton.addEventListener("click", () => stopCamera(false));
+      }
+
+      initializeCameraSupport();
     </script>
   </body>
 </html>
