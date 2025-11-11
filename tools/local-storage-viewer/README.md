@@ -1,7 +1,7 @@
 ---
 title: Local Storage Viewer
 description: Inspect and manage browser localStorage
-category: Browser
+category: Browser Utilities
 ---
 
 Browse, edit, import, and export the key-value pairs saved in your browser's `localStorage` for this origin.

@@ -1,7 +1,7 @@
 ---
 title: Cerebras LLM Inference
 description: Chat with Cerebras models via the built-in proxy worker
-category: Developer
+category: AI & Machine Learning
 ---
 
 Chat with Cerebras hosted models without exposing the API key. Configure the system prompt and sampling options, then stream responses through the built-in Cloudflare Worker proxy.

@@ -2,7 +2,7 @@
 title: Bible Verse Explorer
 description: Browse NET Bible passages by book and chapter.
 featured: true
-category: Text
+category: Productivity & Writing
 ---
 
 Browse the NET Bible locally with instant book, chapter, and verse lookups powered by the bundled SQLite database.
