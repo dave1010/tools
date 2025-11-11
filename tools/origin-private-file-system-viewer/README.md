@@ -1,7 +1,7 @@
 ---
 title: Origin Private File System Viewer
 description: Browse and manage Origin Private File System
-category: Browser
+category: Browser Utilities
 ---
 
 Inspect files and folders stored in the Origin Private File System (OPFS) for this origin. Everything runs locally using the File System Access API.

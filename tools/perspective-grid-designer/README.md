@@ -1,7 +1,7 @@
 ---
 title: Perspective Grid Designer
 description: Interactive vanishing-point grid generator
-category: Visualization
+category: Mapping & Visualization
 ---
 
 Design dramatic scenes faster with a responsive three-mode perspective grid. Switch between single, dual, and triple vanishing points, tweak the horizon, and download a polished PNG guide for your next panel, architectural sketch, or concept art piece.

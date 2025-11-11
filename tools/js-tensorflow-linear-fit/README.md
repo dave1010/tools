@@ -1,7 +1,7 @@
 ---
 title: TensorFlow.js Linear Fit Lab
 description: Train a tiny regression demo.
-category: Developer
+category: AI & Machine Learning
 ---
 
 This playground shows how TensorFlow.js can fit a simple linear function directly in the browser.

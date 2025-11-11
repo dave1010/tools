@@ -1,5 +1,5 @@
 ---
 title: Word & Character Count
 description: Count words and characters instantly
-category: Text
+category: Productivity & Writing
 ---

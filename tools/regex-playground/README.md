@@ -2,7 +2,7 @@
 title: Regex Playground
 description: Experiment with regular expressions and sample strings
 featured: true
-category: Text
+category: Developer Tools
 ---
 
 Use the regex input to see which strings match and how matches are highlighted.

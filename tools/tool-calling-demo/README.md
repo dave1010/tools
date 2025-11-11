@@ -2,7 +2,7 @@
 title: Tool Calling Demo
 description: Watch Cerebras tool calls unfold
 featured: true
-category: Developer
+category: AI & Machine Learning
 ---
 
 This demo shows how a Cerebras-hosted LLM can decide to call a JavaScript tool for precise answers. It logs each tool request and result so you can follow the full reasoning loop.

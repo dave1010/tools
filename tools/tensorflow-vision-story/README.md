@@ -1,7 +1,7 @@
 ---
 title: Vision Story Studio
 description: Classify an image then craft a narrative.
-category: AI
+category: AI & Machine Learning
 ---
 
 Vision Story Studio blends fast TensorFlow.js image recognition with a large language model to spark creative insights.

@@ -1,7 +1,7 @@
 ---
 title: QR Code Reader
 description: Upload QR code image and extract text/URL
-category: Encoding
+category: Data & File Conversion
 ---
 
 Drop an image that contains a QR code and the page will decode its contents right in the browser.
