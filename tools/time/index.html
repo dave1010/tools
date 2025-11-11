@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Time</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50 via-white to-brand-50 font-sans text-gray-900">
+    <main class="mx-auto flex min-h-screen w-full max-w-none flex-col p-4 md:p-6">
+      <section
+        id="clock-surface"
+        class="relative flex h-full w-full flex-1 cursor-pointer flex-col items-center justify-center gap-6 overflow-hidden rounded-3xl border border-brand-100 bg-white/80 p-6 text-center shadow-soft transition-colors duration-500 hover:border-brand-200"
+        role="button"
+        tabindex="0"
+        aria-haspopup="dialog"
+        aria-controls="time-overlay"
+        aria-label="Open time diagnostics"
+      >
+        <div class="text-sm uppercase tracking-[0.35em] text-brand-500">Tap anywhere for details</div>
+        <div id="clock-display" class="text-6xl font-semibold tabular-nums text-brand-700 sm:text-8xl md:text-9xl">--:--:--</div>
+        <div id="day-display" class="text-lg font-medium text-gray-600 sm:text-xl"></div>
+
+        <div
+          id="time-overlay"
+          class="hidden absolute inset-0 z-20 flex items-center justify-center bg-white/95 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="overlay-title"
+        >
+          <div class="relative w-full max-w-2xl space-y-6 rounded-3xl border border-brand-100 bg-white p-6 shadow-lg">
+            <header class="space-y-2 text-center">
+              <h2 id="overlay-title" class="text-2xl font-semibold text-gray-900">Time diagnostics</h2>
+              <p class="text-sm text-gray-600">
+                Detailed readings update in real time. Sync with the server clock for precise alignment.
+              </p>
+            </header>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl bg-brand-50 p-4 text-left">
+                <div class="text-xs uppercase tracking-wide text-brand-600">Precise time</div>
+                <div data-precise class="mt-2 text-lg font-semibold text-brand-700 tabular-nums">--:--:--.---</div>
+              </div>
+              <div class="rounded-2xl bg-brand-50 p-4 text-left">
+                <div class="text-xs uppercase tracking-wide text-brand-600">Date</div>
+                <div data-date class="mt-2 text-lg font-semibold text-brand-700">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">ISO 8601</div>
+                <div data-iso class="mt-2 font-mono text-sm text-gray-900 break-all">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Unix timestamp</div>
+                <div data-unix class="mt-2 font-mono text-sm text-gray-900">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Milliseconds since epoch</div>
+                <div data-epoch class="mt-2 font-mono text-sm text-gray-900 break-all">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">ISO week</div>
+                <div data-week class="mt-2 font-mono text-sm text-gray-900">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Day of year</div>
+                <div data-yearday class="mt-2 font-mono text-sm text-gray-900">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Timezone</div>
+                <div data-timezone class="mt-2 text-sm font-medium text-gray-900">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">UTC offset</div>
+                <div data-offset class="mt-2 font-mono text-sm text-gray-900">--</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Server sync</div>
+                <div data-sync class="mt-2 text-sm font-medium text-gray-900">Not yet synced</div>
+              </div>
+              <div class="rounded-2xl bg-white p-4 text-left shadow-sm md:col-span-2">
+                <div class="text-xs uppercase tracking-wide text-gray-500">Estimated device drift</div>
+                <div data-skew class="mt-2 font-mono text-sm text-gray-900">Unknown</div>
+              </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <button id="sync-button" class="btn btn-primary px-6 py-3 text-base font-semibold">Sync</button>
+              <span id="sync-status" class="text-sm text-gray-500"></span>
+            </div>
+
+            <div class="text-center text-xs uppercase tracking-wide text-gray-400">
+              Tap outside this panel or press Escape to close
+            </div>
+            <button
+              id="close-overlay"
+              type="button"
+              class="absolute right-4 top-4 rounded-full bg-brand-50 p-2 text-brand-600 transition hover:bg-brand-100"
+              aria-label="Close time diagnostics"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m6 6 12 12M6 18 18 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/time" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const clockDisplay = document.getElementById("clock-display");
+      const dayDisplay = document.getElementById("day-display");
+      const clockSurface = document.getElementById("clock-surface");
+      const overlay = document.getElementById("time-overlay");
+      const closeOverlayButton = document.getElementById("close-overlay");
+      const syncButton = document.getElementById("sync-button");
+      const syncStatus = document.getElementById("sync-status");
+
+      const overlayFields = {
+        precise: overlay.querySelector("[data-precise]"),
+        date: overlay.querySelector("[data-date]"),
+        iso: overlay.querySelector("[data-iso]"),
+        unix: overlay.querySelector("[data-unix]"),
+        epoch: overlay.querySelector("[data-epoch]"),
+        week: overlay.querySelector("[data-week]"),
+        yearday: overlay.querySelector("[data-yearday]"),
+        timezone: overlay.querySelector("[data-timezone]"),
+        offset: overlay.querySelector("[data-offset]"),
+        sync: overlay.querySelector("[data-sync]"),
+        skew: overlay.querySelector("[data-skew]")
+      };
+
+      let overlayVisible = false;
+      let serverOffsetMs = 0;
+      let lastSyncTimestamp = null;
+      let lastSkewMs = null;
+
+      const dateFormatter = new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+
+      const timezoneFormatter = new Intl.DateTimeFormat(undefined, {
+        timeZoneName: "long"
+      });
+
+      function getISOWeekInfo(date) {
+        const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNumber = target.getUTCDay() || 7;
+        target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+        const isoYear = target.getUTCFullYear();
+        const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+        const week = Math.ceil(((target - yearStart) / 86400000 + 1) / 7);
+        return { week, year: isoYear };
+      }
+
+      function getDayOfYear(date) {
+        const start = new Date(Date.UTC(date.getFullYear(), 0, 1));
+        const current = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+        return Math.floor((current - start) / 86400000) + 1;
+      }
+
+      function getCurrentDate() {
+        return new Date(Date.now() + serverOffsetMs);
+      }
+
+      function formatMainClock(date) {
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        const seconds = String(date.getSeconds()).padStart(2, "0");
+        return `${hours}:${minutes}:${seconds}`;
+      }
+
+      function updateOverlayFields(date) {
+        overlayFields.precise.textContent = `${formatMainClock(date)}.${String(date.getMilliseconds()).padStart(3, "0")}`;
+        overlayFields.date.textContent = dateFormatter.format(date);
+        overlayFields.iso.textContent = date.toISOString();
+        overlayFields.unix.textContent = Math.floor(date.getTime() / 1000).toString();
+        overlayFields.epoch.textContent = date.getTime().toString();
+
+        const { week, year } = getISOWeekInfo(date);
+        overlayFields.week.textContent = `${year}-W${String(week).padStart(2, "0")}`;
+        overlayFields.yearday.textContent = getDayOfYear(date).toString();
+
+        const tzParts = timezoneFormatter.formatToParts(date);
+        const timeZoneName = tzParts.find((part) => part.type === "timeZoneName");
+        overlayFields.timezone.textContent = timeZoneName ? timeZoneName.value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        const offsetMinutes = -date.getTimezoneOffset();
+        const sign = offsetMinutes >= 0 ? "+" : "-";
+        const absOffset = Math.abs(offsetMinutes);
+        const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, "0");
+        const offsetMins = String(absOffset % 60).padStart(2, "0");
+        overlayFields.offset.textContent = `${sign}${offsetHours}:${offsetMins}`;
+
+        if (lastSyncTimestamp) {
+          const sinceSyncMs = Date.now() - lastSyncTimestamp;
+          if (Math.abs(sinceSyncMs) < 1000) {
+            overlayFields.sync.textContent = "Synced just now";
+          } else {
+            const sinceSync = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+            const secondsAgo = Math.round(-sinceSyncMs / 1000);
+            overlayFields.sync.textContent = `Synced ${sinceSync.format(secondsAgo, "second")}`;
+          }
+        } else {
+          overlayFields.sync.textContent = "Not yet synced";
+        }
+
+        if (typeof lastSkewMs === "number") {
+          const magnitudeMs = Math.abs(lastSkewMs);
+          if (magnitudeMs < 1) {
+            overlayFields.skew.textContent = "Aligned (difference < 1 ms)";
+          } else {
+            const magnitudeSeconds = magnitudeMs / 1000;
+            const formattedSeconds = magnitudeSeconds.toLocaleString(undefined, {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3
+            });
+            const direction = lastSkewMs > 0 ? "ahead" : "behind";
+            overlayFields.skew.textContent = `Device clock is ${direction} by ${formattedSeconds} seconds (${Math.round(magnitudeMs)} ms)`;
+          }
+        } else {
+          overlayFields.skew.textContent = "Unknown";
+        }
+      }
+
+      function render() {
+        const now = getCurrentDate();
+        clockDisplay.textContent = formatMainClock(now);
+        dayDisplay.textContent = dateFormatter.format(now);
+
+        if (overlayVisible) {
+          updateOverlayFields(now);
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      render();
+
+      function showOverlay() {
+        overlay.classList.remove("hidden");
+        overlayVisible = true;
+        updateOverlayFields(getCurrentDate());
+      }
+
+      function hideOverlay() {
+        overlay.classList.add("hidden");
+        overlayVisible = false;
+      }
+
+      clockSurface.addEventListener("click", () => {
+        if (!overlayVisible) {
+          showOverlay();
+        }
+      });
+
+      clockSurface.addEventListener("keydown", (event) => {
+        if (overlayVisible) {
+          return;
+        }
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          showOverlay();
+        }
+      });
+
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+          hideOverlay();
+        }
+      });
+
+      closeOverlayButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        hideOverlay();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && overlayVisible) {
+          hideOverlay();
+        }
+      });
+
+      async function syncWithServer() {
+        try {
+          syncButton.disabled = true;
+          syncButton.classList.add("opacity-75");
+          syncStatus.textContent = "Syncing…";
+
+          const start = performance.now();
+          const response = await fetch(window.location.href, {
+            method: "GET",
+            cache: "no-store",
+            headers: { "Cache-Control": "no-cache" }
+          });
+          const end = performance.now();
+
+          const dateHeader = response.headers.get("Date");
+          if (!dateHeader) {
+            throw new Error("Server did not send a Date header");
+          }
+
+          const serverTime = new Date(dateHeader).getTime();
+          if (Number.isNaN(serverTime)) {
+            throw new Error("Unable to parse server time");
+          }
+
+          const roundTrip = end - start;
+          const navigationEntry = performance.getEntriesByType("navigation")[0];
+          const navRoundTrip = navigationEntry
+            ? navigationEntry.responseStart - navigationEntry.requestStart
+            : Number.POSITIVE_INFINITY;
+          const latencySample = Number.isFinite(navRoundTrip) && navRoundTrip > 0
+            ? Math.min(roundTrip, navRoundTrip)
+            : roundTrip;
+
+          const estimatedServerNow = serverTime + latencySample / 2;
+          const deviceNow = performance.timeOrigin + end;
+
+          serverOffsetMs = estimatedServerNow - deviceNow;
+          lastSkewMs = deviceNow - estimatedServerNow;
+          lastSyncTimestamp = deviceNow;
+
+          const direction = lastSkewMs > 0 ? "ahead" : lastSkewMs < 0 ? "behind" : "aligned";
+          const magnitude = Math.abs(Math.round(lastSkewMs));
+          syncStatus.textContent =
+            direction === "aligned"
+              ? "Aligned to server time"
+              : `Aligned – device is ${direction} by ${magnitude} ms`;
+
+          if (overlayVisible) {
+            updateOverlayFields(getCurrentDate());
+          }
+        } catch (error) {
+          console.error(error);
+          syncStatus.textContent = "Sync failed. Please try again.";
+        } finally {
+          syncButton.disabled = false;
+          syncButton.classList.remove("opacity-75");
+        }
+      }
+
+      syncButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        syncWithServer();
+      });
+    </script>
+  </body>
+</html>
