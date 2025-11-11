@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pyodide Python Interpreter</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/70 to-white">
+    <main class="mx-auto flex min-h-screen max-w-3xl flex-col space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Pyodide Python Interpreter</h1>
+        <p class="text-gray-600">
+          Run Python directly in your browser with a persistent Pyodide-powered REPL.
+        </p>
+      </header>
+
+      <section class="card flex-1 rounded-2xl border border-brand-100 bg-white/80 p-4 shadow-soft md:p-6">
+        <div class="flex h-full flex-col gap-4">
+          <div
+            id="status"
+            class="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700"
+            role="status"
+          >
+            Loading Pyodide runtime...
+          </div>
+
+          <div
+            id="repl-log"
+            class="flex-1 overflow-y-auto rounded-xl border border-brand-100 bg-white/80 p-4 font-mono text-sm text-gray-900"
+            aria-live="polite"
+          >
+            <p id="log-placeholder" class="text-gray-500">Output will appear here once you run Python code.</p>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label for="code-input" class="text-sm font-medium text-gray-700">Python code</label>
+              <span class="text-xs text-gray-500">Press Ctrl+Enter or ⌘+Enter to run</span>
+            </div>
+            <textarea
+              id="code-input"
+              class="h-36 w-full rounded-xl border border-gray-200 bg-white p-4 font-mono text-sm leading-6 shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+              placeholder="print('Hello from Pyodide!')"
+              spellcheck="false"
+              disabled
+            ></textarea>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <p class="text-xs text-gray-500">
+                The interpreter keeps state between runs. Define variables and reuse them in later commands.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <button id="run-button" class="btn btn-primary" type="button" disabled>Run code</button>
+                <button id="clear-button" class="btn btn-secondary" type="button">Clear output</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/pyodide-interpreter"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const statusBox = document.getElementById("status");
+      const logContainer = document.getElementById("repl-log");
+      const codeInput = document.getElementById("code-input");
+      const runButton = document.getElementById("run-button");
+      const clearButton = document.getElementById("clear-button");
+
+      const statusClasses = {
+        info: "border-brand-100 bg-brand-50 text-brand-700",
+        ready: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        error: "border-red-200 bg-red-50 text-red-700",
+      };
+
+      const setStatus = (message, variant = "info") => {
+        statusBox.textContent = message;
+        statusBox.classList.remove(...Object.values(statusClasses));
+        statusBox.classList.add(statusClasses[variant] ?? statusClasses.info);
+      };
+
+      const formatPrompt = (code) => {
+        if (!code) return ">>>";
+        const lines = code.replace(/\s+$/u, "").split("\n");
+        return lines
+          .map((line, index) => `${index === 0 ? ">>>" : "..."} ${line}`)
+          .join("\n");
+      };
+
+      const createOutputBlock = (text, className) => {
+        if (!text) return null;
+        const pre = document.createElement("pre");
+        pre.className = `whitespace-pre-wrap ${className}`;
+        pre.textContent = text;
+        return pre;
+      };
+
+      const removePlaceholder = () => {
+        const placeholder = logContainer.querySelector("#log-placeholder");
+        if (placeholder) {
+          placeholder.remove();
+        }
+      };
+
+      const appendEntry = (entry) => {
+        removePlaceholder();
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "space-y-2 rounded-lg bg-white/60 p-3 shadow-soft";
+
+        const promptBlock = createOutputBlock(formatPrompt(entry.code), "font-semibold text-brand-700");
+        if (promptBlock) {
+          wrapper.appendChild(promptBlock);
+        }
+
+        const stdoutBlock = createOutputBlock(entry.stdout, "text-gray-900");
+        if (stdoutBlock) {
+          wrapper.appendChild(stdoutBlock);
+        }
+
+        const resultBlock = createOutputBlock(entry.result, "text-emerald-600");
+        if (resultBlock) {
+          wrapper.appendChild(resultBlock);
+        }
+
+        const stderrText = entry.stderr ? entry.stderr.trimEnd() : "";
+        const errorText = entry.error ? entry.error.trimEnd() : "";
+
+        if (stderrText) {
+          const stderrBlock = createOutputBlock(stderrText, "text-red-600");
+          wrapper.appendChild(stderrBlock);
+        }
+
+        if (errorText) {
+          const errorBlock = createOutputBlock(errorText, "text-red-600");
+          wrapper.appendChild(errorBlock);
+        }
+
+        logContainer.appendChild(wrapper);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      };
+
+      const resetLog = () => {
+        logContainer.innerHTML = "";
+        const placeholder = document.createElement("p");
+        placeholder.id = "log-placeholder";
+        placeholder.className = "text-gray-500";
+        placeholder.textContent = "Output will appear here once you run Python code.";
+        logContainer.appendChild(placeholder);
+      };
+
+      clearButton.addEventListener("click", () => {
+        resetLog();
+        codeInput.focus();
+      });
+
+      let pyodide = null;
+
+      const initializePyodide = async () => {
+        try {
+          setStatus("Downloading Pyodide runtime...", "info");
+          pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/" });
+          await pyodide.runPythonAsync(`
+import ast
+import io
+import traceback
+from contextlib import redirect_stdout, redirect_stderr
+
+if "user_globals" not in globals():
+    user_globals = {"__name__": "__main__", "__builtins__": __builtins__}
+
+
+def execute(code: str):
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    result_repr = None
+    error_text = None
+
+    try:
+        module = ast.parse(code, mode="exec")
+        eval_expr = None
+        if module.body and isinstance(module.body[-1], ast.Expr):
+            last_expr = module.body.pop()
+            eval_expr = ast.Expression(last_expr.value)
+            ast.fix_missing_locations(eval_expr)
+        ast.fix_missing_locations(module)
+        compiled = compile(module, "<repl>", "exec")
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            exec(compiled, user_globals, user_globals)
+            if eval_expr is not None:
+                value = eval(compile(eval_expr, "<repl>", "eval"), user_globals, user_globals)
+                result_repr = repr(value)
+    except SystemExit as exc:
+        error_text = f"SystemExit: {exc}"
+    except Exception:
+        error_text = traceback.format_exc()
+
+    out_text = stdout.getvalue()
+    err_text = stderr.getvalue()
+    return {"stdout": out_text, "stderr": err_text, "result": result_repr, "error": error_text}
+          `);
+
+          runButton.disabled = false;
+          codeInput.disabled = false;
+          codeInput.focus();
+          setStatus("Pyodide ready. Type Python code below.", "ready");
+        } catch (error) {
+          console.error("Failed to load Pyodide", error);
+          setStatus("Failed to load Pyodide. Check your connection and reload.", "error");
+        }
+      };
+
+      const runCode = async () => {
+        const code = codeInput.value;
+        if (!pyodide || !code.trim()) {
+          return;
+        }
+
+        runButton.disabled = true;
+        setStatus("Running code...", "info");
+
+        try {
+          pyodide.globals.set("__code_to_run", code);
+          const result = await pyodide.runPythonAsync("execute(__code_to_run)");
+          const output = result.toJs({ create_proxies: false });
+          result.destroy?.();
+          appendEntry({
+            code,
+            stdout: output.stdout ?? "",
+            stderr: output.stderr ?? "",
+            result: output.result ?? "",
+            error: output.error ?? "",
+          });
+          setStatus("Pyodide ready. Type Python code below.", "ready");
+        } catch (error) {
+          console.error(error);
+          appendEntry({
+            code,
+            stdout: "",
+            stderr: "",
+            result: "",
+            error: error instanceof Error ? error.message : String(error),
+          });
+          setStatus("Execution failed. See output for details.", "error");
+        } finally {
+          runButton.disabled = false;
+          codeInput.focus();
+        }
+      };
+
+      runButton.addEventListener("click", runCode);
+
+      codeInput.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          runCode();
+        }
+      });
+
+      initializePyodide();
+    </script>
+  </body>
+</html>
