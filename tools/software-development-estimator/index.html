@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Software Development Estimator</title>
+  <link rel="stylesheet" href="/assets/tw.css">
+</head>
+<body>
+  <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+    <header class="space-y-2 text-center">
+      <h1 class="text-3xl font-semibold text-gray-900">Software Development Estimator</h1>
+      <p class="text-gray-600">Build a rough schedule, then let automatic accuracy adjustments work their chaotic magic.</p>
+    </header>
+
+    <section class="card space-y-6 p-6">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <input id="auto-adjust" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-brand-600" checked>
+          Automatic accuracy adjustment
+        </label>
+        <div id="methodology" class="flex flex-wrap items-center gap-4 text-sm text-gray-700">
+          <span class="font-medium">Methodology:</span>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="methodology" value="agile" class="h-4 w-4 border-gray-300 text-brand-600">
+            Agile (+50%)
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="methodology" value="scrum" class="h-4 w-4 border-gray-300 text-brand-600">
+            Scrum (+100%)
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="methodology" value="waterfall" class="h-4 w-4 border-gray-300 text-brand-600">
+            Waterfall (+150%)
+          </label>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th scope="col" class="px-4 py-3">Task</th>
+              <th scope="col" class="px-4 py-3">Estimate</th>
+              <th scope="col" class="px-4 py-3">Unit</th>
+              <th scope="col" class="px-4 py-3 text-center">Remove</th>
+            </tr>
+          </thead>
+          <tbody id="task-rows" class="divide-y divide-gray-200 bg-white"></tbody>
+        </table>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <button id="add-task" type="button" class="btn btn-secondary">Add task</button>
+        <button id="include-pm" type="button" class="btn btn-primary">Include project management</button>
+      </div>
+
+      <div class="rounded-lg bg-brand-50 p-4 text-sm text-brand-700" aria-live="polite" id="summary"></div>
+    </section>
+
+    <footer class="py-6 text-center text-sm text-gray-500">
+      <div class="flex justify-center gap-4">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">&larr; Back to tools.dave.engineer</a>
+        <a href="https://github.com/dave1010/tools/tree/main/tools/software-development-estimator" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const units = ["minutes", "hours", "days", "weeks", "months", "years"];
+    const conversions = {
+      minutes: 1,
+      hours: 60,
+      days: 60 * 24,
+      weeks: 60 * 24 * 7,
+      months: 60 * 24 * 30,
+      years: 60 * 24 * 365,
+    };
+
+    const taskRowsEl = document.getElementById("task-rows");
+    const addTaskButton = document.getElementById("add-task");
+    const summaryEl = document.getElementById("summary");
+    const autoAdjustCheckbox = document.getElementById("auto-adjust");
+    const includeProjectManagementButton = document.getElementById("include-pm");
+    const methodologyContainer = document.getElementById("methodology");
+
+    let tasks = [];
+    let nextId = 1;
+    let projectManagementClicks = 0;
+    let isApplyingAutomaticChange = false;
+    let lastAutomaticInflation = 0;
+    const AUTO_INFLATION_COOLDOWN_MS = 75;
+
+    const randomBetween = (min, max) => Math.random() * (max - min) + min;
+
+    const createTask = (title = "New Task", estimate = 4, unit = "hours") => ({
+      id: nextId++,
+      title,
+      estimate,
+      unit,
+    });
+
+    const formatNumber = (value) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+
+    const convertToMinutes = (estimate, unit) => estimate * (conversions[unit] ?? 1);
+
+    const summarizeTotal = () => {
+      if (!tasks.length) {
+        summaryEl.textContent = "No tasks yet. Add one to start estimating.";
+        return;
+      }
+
+      const totalMinutes = tasks.reduce((sum, task) => sum + convertToMinutes(task.estimate, task.unit), 0);
+      const parts = units.map((unit) => {
+        const value = totalMinutes / conversions[unit];
+        return `${formatNumber(Math.round(value))} ${unit}`;
+      });
+
+      summaryEl.textContent = `Total effort: ${parts.join(" • ")}`;
+    };
+
+    const renderTasks = () => {
+      taskRowsEl.innerHTML = "";
+      tasks.forEach((task) => {
+        const row = document.createElement("tr");
+        row.className = "align-top";
+
+        const titleCell = document.createElement("td");
+        titleCell.className = "px-4 py-3 align-middle";
+        const titleInput = document.createElement("input");
+        titleInput.type = "text";
+        titleInput.value = task.title;
+        titleInput.className = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-brand-500";
+        titleInput.addEventListener("input", (event) => {
+          task.title = event.target.value;
+        });
+        titleCell.appendChild(titleInput);
+
+        const estimateCell = document.createElement("td");
+        estimateCell.className = "px-4 py-3 align-middle";
+        const estimateInput = document.createElement("input");
+        estimateInput.type = "number";
+        estimateInput.min = "1";
+        estimateInput.step = "1";
+        estimateInput.value = task.estimate;
+        estimateInput.className = "w-24 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-brand-500";
+        estimateInput.addEventListener("input", (event) => {
+          const value = Math.max(1, Math.round(Number(event.target.value) || 0));
+          task.estimate = value;
+          event.target.value = value;
+          summarizeTotal();
+        });
+        estimateCell.appendChild(estimateInput);
+
+        const unitCell = document.createElement("td");
+        unitCell.className = "px-4 py-3 align-middle";
+        const unitSelect = document.createElement("select");
+        unitSelect.className = "w-28 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-brand-500";
+        units.forEach((unit) => {
+          const option = document.createElement("option");
+          option.value = unit;
+          option.textContent = unit;
+          if (unit === task.unit) {
+            option.selected = true;
+          }
+          unitSelect.appendChild(option);
+        });
+        unitSelect.addEventListener("change", (event) => {
+          const selectedUnit = event.target.value;
+          if (autoAdjustCheckbox.checked) {
+            const currentIndex = units.indexOf(selectedUnit);
+            if (currentIndex < units.length - 1) {
+              const promotedUnit = units[currentIndex + 1];
+              task.unit = promotedUnit;
+              event.target.value = promotedUnit;
+            } else {
+              task.unit = selectedUnit;
+            }
+          } else {
+            task.unit = selectedUnit;
+          }
+          summarizeTotal();
+        });
+        unitCell.appendChild(unitSelect);
+
+        const removeCell = document.createElement("td");
+        removeCell.className = "px-4 py-3 text-center align-middle";
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "btn btn-secondary text-xs";
+        removeButton.textContent = "Remove";
+        removeButton.addEventListener("click", () => {
+          tasks = tasks.filter((item) => item.id !== task.id);
+          summarizeTotal();
+          renderTasks();
+        });
+        removeCell.appendChild(removeButton);
+
+        row.appendChild(titleCell);
+        row.appendChild(estimateCell);
+        row.appendChild(unitCell);
+        row.appendChild(removeCell);
+
+        taskRowsEl.appendChild(row);
+      });
+
+      summarizeTotal();
+    };
+
+    const addTask = (task = createTask()) => {
+      tasks.push(task);
+      renderTasks();
+    };
+
+    const increaseAllEstimates = (multiplier) => {
+      tasks.forEach((task) => {
+        task.estimate = Math.max(1, Math.round(task.estimate * multiplier));
+      });
+      renderTasks();
+    };
+
+    const applyInteractionInflation = () => {
+      if (!autoAdjustCheckbox.checked || isApplyingAutomaticChange) {
+        return;
+      }
+      const now = performance.now();
+      if (now - lastAutomaticInflation < AUTO_INFLATION_COOLDOWN_MS) {
+        return;
+      }
+      lastAutomaticInflation = now;
+      isApplyingAutomaticChange = true;
+      try {
+        tasks.forEach((task) => {
+          const multiplier = randomBetween(1.05, 1.2);
+          task.estimate = Math.max(1, Math.round(task.estimate * multiplier));
+        });
+        renderTasks();
+      } finally {
+        isApplyingAutomaticChange = false;
+      }
+    };
+
+    const addProjectManagement = () => {
+      if (!tasks.length) {
+        addTask();
+      }
+
+      const multiplier = randomBetween(3, 4);
+      increaseAllEstimates(multiplier);
+
+      const totalMinutes = tasks.reduce((sum, task) => sum + convertToMinutes(task.estimate, task.unit), 0);
+      const pmShare = randomBetween(0.5, 0.75);
+      const pmMinutes = Math.max(1, Math.round(totalMinutes * pmShare));
+
+      projectManagementClicks += 1;
+      const pmUnit = "days";
+      const pmEstimate = Math.max(1, Math.round(pmMinutes / conversions[pmUnit]));
+      const title = projectManagementClicks === 1 ? "Project Management" : `Project Management ${projectManagementClicks}`;
+      tasks.push({ id: nextId++, title, estimate: pmEstimate, unit: pmUnit });
+      renderTasks();
+    };
+
+    addTaskButton.addEventListener("click", () => {
+      addTask();
+    });
+
+    includeProjectManagementButton.addEventListener("click", () => {
+      if (!autoAdjustCheckbox.checked) {
+        return;
+      }
+      addProjectManagement();
+    });
+
+    methodologyContainer.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.name !== "methodology") {
+        return;
+      }
+      if (!autoAdjustCheckbox.checked) {
+        return;
+      }
+      const multipliers = {
+        agile: 1.5,
+        scrum: 2,
+        waterfall: 2.5,
+      };
+      const multiplier = multipliers[target.value];
+      if (!multiplier) {
+        return;
+      }
+      increaseAllEstimates(multiplier);
+    });
+
+    autoAdjustCheckbox.addEventListener("change", () => {
+      const enabled = autoAdjustCheckbox.checked;
+      includeProjectManagementButton.disabled = !enabled;
+      includeProjectManagementButton.classList.toggle("hidden", !enabled);
+      methodologyContainer.classList.toggle("opacity-50", !enabled);
+      methodologyContainer.setAttribute("aria-disabled", String(!enabled));
+    });
+
+    document.addEventListener("click", () => {
+      applyInteractionInflation();
+    });
+
+    document.addEventListener("input", () => {
+      applyInteractionInflation();
+    });
+
+    includeProjectManagementButton.disabled = !autoAdjustCheckbox.checked;
+    includeProjectManagementButton.classList.toggle("hidden", !autoAdjustCheckbox.checked);
+    methodologyContainer.setAttribute("aria-disabled", String(!autoAdjustCheckbox.checked));
+
+    addTask(createTask("Initial Planning", 2, "days"));
+    summarizeTotal();
+  </script>
+</body>
+</html>
