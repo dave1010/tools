@@ -46,12 +46,6 @@ If the developer reports that JS is completely broken then surface all errors. E
 
 <skills>
 
-## Saving and exporting text files
-
-If it might be helpful to edit or export text data then add a "Save to scratchpad" button.
-A text string can be written using `window.localStorage.setItem('scratch-pad-content', contents)`,
-then add a link to `/tools/scratch-pad/`.
-
 ## Skills
 
 You have new skills. If any skill might be relevant then you MUST read it.
@@ -60,5 +54,6 @@ You have new skills. If any skill might be relevant then you MUST read it.
 - [cloudflare-kv](.skills/cloudflare-kv/SKILL.md) - Use when persisting tool data in Cloudflare KV - Describes bindings, key naming, and function conventions.
 - [github-integration](.skills/github-integration/SKILL.md) - Use when building GitHub-based features - Explains auth token usage, Gist reading/writing and rendering helpers.
 - [llm-inference](.skills/llm-inference/SKILL.md) - Use when wanting to interact with any LLM - Explains available inference endpoints so the agent selects suitable models.
+- [maps](.skills/maps/SKILL.md) - Use when building interactive map tools - Explains MapLibre setup, tiles, and common UI patterns.
 - [writing-skills](.skills/writing-skills/SKILL.md) - Use when creating or updating SKILL.md documentation - Explains how and why to create a skill.
 </skills>
