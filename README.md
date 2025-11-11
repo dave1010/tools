@@ -71,6 +71,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Compass](https://tools.dave.engineer/tools/compass) — Heading indicator with magnetometer data
 - [Counter](https://tools.dave.engineer/tools/counter) — Shared counter with a Cloudflare KV-backed increment button.
 - [Interval Timer](https://tools.dave.engineer/tools/interval-timer) — Customisable HIIT-style session timer
+- [Time](https://tools.dave.engineer/tools/time) — Full-screen clock with sync overlay
 
 ### Productivity & Writing
 
