@@ -29,6 +29,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [2D Size Comparator](https://tools.dave.engineer/tools/area-size-comparator) — Visualize and compare rectangular dimensions with overlays.
 - [Lux to ANSI Throw Converter](https://tools.dave.engineer/tools/lux-to-ansi-throw) — Estimate projector throw from lux readings
 - [Running Pace Planner](https://tools.dave.engineer/tools/running-pace-planner) — Plan running pace, splits, and finish time
+- [Software Development Estimator](https://tools.dave.engineer/tools/software-development-estimator) — Rough timelines for development projects.
 - [Speed Unit Converter](https://tools.dave.engineer/tools/speed-unit-converter) — Convert speed units instantly
 
 ### Data & File Conversion
