@@ -20,13 +20,9 @@ description: "Use when building interactive map tools - Explains MapLibre setup,
 
 ## Overlay & interaction tips
 
-- For draggable overlays, keep the overlay element outside the WebGL canvas and update CSS custom properties (`--translate-x`, `--rotate`, `--scale`).
-- Use pointer-events toggles so map gestures continue to work while interacting with overlays.
-- Recalculate overlay transforms on `map.on('resize', ...)` when the overlay is unlocked.
 - Keep status text in small, unobtrusive elements and update it via helper functions.
 
 ## Accessibility & layout
 
-- Wrap map UIs in translucent panels with strong contrast, following patterns in the existing map tools.
-- Use aria-live regions for status updates and set `aria-expanded` or `aria-controls` attributes on toggle buttons.
-- Provide footer links back home and to the tool's GitHub directory as shown in other tools.
+- Generally prefer maps that take up the whole viewport, with UI controls and panels overlayed
+- Footer links in an overlay too.
