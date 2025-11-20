@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Copilot Session Viewer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Copilot Session Viewer</h1>
+        <p class="text-gray-600">Turn Copilot JSON exports into readable chat transcripts.</p>
+      </header>
+
+      <section class="card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="space-y-2 text-gray-700">
+          <p class="text-sm text-gray-600">
+            Export your session from the Copilot debug view in VS Code, then drop the JSON file here to see the prompts, LLM
+            replies, and tool calls in order.
+          </p>
+          <div
+            id="drop-zone"
+            class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/60 px-4 py-6 text-center transition hover:border-brand-500 hover:bg-brand-50"
+          >
+            <div class="rounded-full bg-brand-100 px-3 py-1 text-sm font-medium text-brand-700">Drop Copilot JSON</div>
+            <p class="text-sm text-gray-600">or click to choose a file</p>
+            <input id="file-input" type="file" accept="application/json" class="sr-only" />
+          </div>
+          <p id="status" class="text-sm text-gray-500"></p>
+        </div>
+      </section>
+
+      <section id="summary" class="hidden card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6"></section>
+
+      <section id="prompts" class="space-y-4"></section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/copilot-session-viewer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const fileInput = document.getElementById('file-input');
+      const dropZone = document.getElementById('drop-zone');
+      const statusEl = document.getElementById('status');
+      const summaryEl = document.getElementById('summary');
+      const promptsEl = document.getElementById('prompts');
+
+      const setStatus = (message, isError = false) => {
+        statusEl.textContent = message;
+        statusEl.className = `text-sm ${isError ? 'text-red-600' : 'text-gray-500'}`;
+      };
+
+      const formatDate = (value) => {
+        if (!value) return 'Unknown';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString();
+      };
+
+      const createBadge = (text, color) => {
+        const badge = document.createElement('span');
+        badge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${color}`;
+        badge.textContent = text;
+        return badge;
+      };
+
+      const createTextBlock = (label, text) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'space-y-1';
+
+        const title = document.createElement('p');
+        title.className = 'text-sm font-medium text-gray-700';
+        title.textContent = label;
+
+        const body = document.createElement('div');
+        body.className = 'whitespace-pre-wrap rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-800';
+        body.textContent = text || '—';
+
+        wrapper.append(title, body);
+        return wrapper;
+      };
+
+      const createMessage = (role, content, meta = '') => {
+        const container = document.createElement('div');
+        container.className = 'space-y-2 rounded-xl border border-gray-200 bg-white p-3 shadow-soft';
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center gap-2';
+        header.appendChild(createBadge(role, role === 'User' ? 'bg-brand-100 text-brand-800' : role === 'LLM' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'));
+
+        if (meta) {
+          const metaEl = document.createElement('span');
+          metaEl.className = 'text-xs text-gray-500';
+          metaEl.textContent = meta;
+          header.appendChild(metaEl);
+        }
+
+        const body = document.createElement('div');
+        body.className = 'whitespace-pre-wrap text-sm text-gray-800';
+        body.textContent = content || '—';
+
+        container.append(header, body);
+        return container;
+      };
+
+      const createToolCall = (log) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'space-y-2 rounded-xl border border-brand-100 bg-brand-50/60 p-3';
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between gap-2';
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2';
+        left.append(createBadge('Tool Call', 'bg-brand-200 text-brand-800'));
+        const toolName = log.tool || (log.metadata && log.metadata.name) || 'Unknown tool';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-sm font-semibold text-gray-800';
+        nameEl.textContent = toolName;
+        left.append(nameEl);
+        header.append(left);
+
+        const timeEl = document.createElement('span');
+        timeEl.className = 'text-xs text-gray-500';
+        timeEl.textContent = log.time ? formatDate(log.time) : '';
+        header.append(timeEl);
+
+        const payloads = document.createElement('div');
+        payloads.className = 'space-y-3';
+
+        if (log.args) {
+          const details = document.createElement('details');
+          details.className = 'rounded-lg border border-gray-200 bg-white';
+          const summary = document.createElement('summary');
+          summary.className = 'cursor-pointer px-3 py-2 text-sm font-medium text-gray-700';
+          summary.textContent = 'Arguments';
+          const pre = document.createElement('pre');
+          pre.className = 'overflow-auto px-3 pb-3 text-xs text-gray-800';
+          pre.textContent = typeof log.args === 'string' ? log.args : JSON.stringify(log.args, null, 2);
+          details.append(summary, pre);
+          payloads.append(details);
+        }
+
+        if (log.response) {
+          const details = document.createElement('details');
+          details.className = 'rounded-lg border border-gray-200 bg-white';
+          const summary = document.createElement('summary');
+          summary.className = 'cursor-pointer px-3 py-2 text-sm font-medium text-gray-700';
+          summary.textContent = 'Response';
+          const pre = document.createElement('pre');
+          pre.className = 'overflow-auto px-3 pb-3 text-xs text-gray-800';
+          pre.textContent = Array.isArray(log.response)
+            ? log.response.join('\n')
+            : typeof log.response === 'string'
+              ? log.response
+              : JSON.stringify(log.response, null, 2);
+          details.append(summary, pre);
+          payloads.append(details);
+        }
+
+        wrapper.append(header, payloads);
+        return wrapper;
+      };
+
+      const clearOutput = () => {
+        summaryEl.innerHTML = '';
+        promptsEl.innerHTML = '';
+        summaryEl.classList.add('hidden');
+      };
+
+      const renderSummary = (session) => {
+        summaryEl.classList.remove('hidden');
+        summaryEl.innerHTML = '';
+
+        const heading = document.createElement('div');
+        heading.className = 'flex items-center justify-between';
+        const title = document.createElement('h2');
+        title.className = 'text-xl font-semibold text-gray-900';
+        title.textContent = 'Session Summary';
+        heading.appendChild(title);
+
+        const exported = document.createElement('span');
+        exported.className = 'text-sm text-gray-600';
+        exported.textContent = `Exported ${formatDate(session.exportedAt)}`;
+        heading.appendChild(exported);
+
+        const stats = document.createElement('div');
+        stats.className = 'grid grid-cols-1 gap-3 md:grid-cols-3';
+        const statItems = [
+          { label: 'Prompts', value: session.totalPrompts || (session.prompts ? session.prompts.length : '—') },
+          { label: 'Log Entries', value: session.totalLogEntries || '—' },
+          { label: 'Model', value: (session.prompts?.[0]?.logs?.[0]?.metadata?.model) || '—' },
+        ];
+
+        statItems.forEach((stat) => {
+          const card = document.createElement('div');
+          card.className = 'rounded-xl border border-gray-200 bg-gray-50 px-4 py-3';
+          const label = document.createElement('p');
+          label.className = 'text-sm text-gray-600';
+          label.textContent = stat.label;
+          const value = document.createElement('p');
+          value.className = 'text-lg font-semibold text-gray-900';
+          value.textContent = stat.value;
+          card.append(label, value);
+          stats.append(card);
+        });
+
+        if (Array.isArray(session.prompts) && session.prompts.length) {
+          const firstPrompt = session.prompts[0];
+          const tools = firstPrompt.logs?.[0]?.metadata?.tools;
+          if (Array.isArray(tools) && tools.length) {
+            const toolList = document.createElement('div');
+            toolList.className = 'space-y-2';
+            const titleEl = document.createElement('p');
+            titleEl.className = 'text-sm font-medium text-gray-700';
+            titleEl.textContent = 'Available tools in session';
+            toolList.appendChild(titleEl);
+
+            const list = document.createElement('div');
+            list.className = 'flex flex-wrap gap-2';
+            tools.forEach((tool) => {
+              const name = tool.function?.name || 'function';
+              const badge = createBadge(name, 'bg-purple-100 text-purple-800');
+              badge.title = tool.function?.description || 'Tool';
+              list.appendChild(badge);
+            });
+            toolList.appendChild(list);
+            summaryEl.append(heading, stats, toolList);
+            return;
+          }
+        }
+
+        summaryEl.append(heading, stats);
+      };
+
+      const renderPrompt = (prompt, index) => {
+        const card = document.createElement('article');
+        card.className = 'card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-5';
+
+        const header = document.createElement('div');
+        header.className = 'flex items-start justify-between gap-2';
+        const title = document.createElement('div');
+        title.className = 'space-y-1';
+        const heading = document.createElement('h3');
+        heading.className = 'text-lg font-semibold text-gray-900';
+        heading.textContent = `Prompt ${index + 1}`;
+        const info = document.createElement('p');
+        info.className = 'text-sm text-gray-600';
+        info.textContent = `${prompt.logCount || prompt.logs?.length || 0} log entries`;
+        title.append(heading, info);
+        header.appendChild(title);
+
+        const userMessage = createMessage('User', prompt.prompt || '—');
+
+        const logList = document.createElement('div');
+        logList.className = 'space-y-3';
+
+        (prompt.logs || []).forEach((log) => {
+          if (log.tool || log.kind === 'tool') {
+            logList.appendChild(createToolCall(log));
+            return;
+          }
+
+          if (log.kind === 'request' && log.response?.message) {
+            const text = Array.isArray(log.response.message)
+              ? log.response.message.join('\n')
+              : typeof log.response.message === 'string'
+                ? log.response.message
+                : JSON.stringify(log.response.message, null, 2);
+            const meta = log.metadata?.model ? `${log.metadata.model} • ${log.metadata?.usage?.total_tokens || ''} tokens` : '';
+            logList.appendChild(createMessage('LLM', text, meta));
+            return;
+          }
+
+          if (log.requestMessages?.messages?.length) {
+            const serialized = JSON.stringify(log.requestMessages.messages, null, 2);
+            logList.appendChild(createTextBlock('Request messages', serialized));
+            return;
+          }
+        });
+
+        card.append(header, userMessage, logList);
+        return card;
+      };
+
+      const renderSession = (session) => {
+        clearOutput();
+        renderSummary(session);
+
+        if (!Array.isArray(session.prompts) || session.prompts.length === 0) {
+          setStatus('No prompts found in this file.', true);
+          return;
+        }
+
+        session.prompts.forEach((prompt, index) => {
+          promptsEl.appendChild(renderPrompt(prompt, index));
+        });
+        setStatus(`Loaded ${session.prompts.length} prompt${session.prompts.length === 1 ? '' : 's'}.`);
+      };
+
+      const handleFile = (file) => {
+        if (!file) return;
+        if (file.type && file.type !== 'application/json') {
+          setStatus('Please upload a JSON file.', true);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const parsed = JSON.parse(event.target.result);
+            renderSession(parsed);
+          } catch (error) {
+            clearOutput();
+            setStatus('Could not parse JSON. Please check the file.', true);
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      dropZone.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (event) => handleFile(event.target.files[0]));
+
+      ['dragenter', 'dragover'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dropZone.classList.add('border-brand-500');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dropZone.classList.remove('border-brand-500');
+        });
+      });
+
+      dropZone.addEventListener('drop', (event) => {
+        const file = event.dataTransfer?.files?.[0];
+        handleFile(file);
+      });
+    </script>
+  </body>
+</html>
