@@ -36,6 +36,7 @@ Tools live in the [`./tools`](./tools) directory.
 
 - [Basic QR Code Generator](https://tools.dave.engineer/tools/basic-qr-code) — Generate QR codes from text
 - [CSV ⇄ Markdown Table Converter](https://tools.dave.engineer/tools/csv-markdown-table) — Convert tables between CSV and Markdown
+- [JSON Dedupe & Simplify](https://tools.dave.engineer/tools/json-simplifier) — Shrink JSON for docs and prompt examples.
 - [Morse Code to Text](https://tools.dave.engineer/tools/morse-code-to-text) — Tap or hold to transcribe Morse code into plain text
 - [OpenSCAD to STL](https://tools.dave.engineer/tools/openscad-to-stl) — Compile OpenSCAD designs into STL files.
 - [QR Code Reader](https://tools.dave.engineer/tools/qr-code-reader) — Upload QR code image and extract text/URL
