@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Dedupe & Simplify</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">JSON Dedupe & Simplify</h1>
+        <p class="text-gray-600">Trim long strings and dedupe array leaves to keep JSON examples compact.</p>
+      </header>
+
+      <section class="card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <form id="simplify-form" class="space-y-4" novalidate>
+          <div class="space-y-2">
+            <label for="input-json" class="font-medium text-gray-700">Input JSON</label>
+            <textarea
+              id="input-json"
+              class="h-52 w-full rounded-xl border border-gray-300 bg-white p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+              placeholder='Paste JSON here or upload a file. Example: {"items":[{"title":"A very long description..."},{"title":"Another item"}],"numbers":[1,2,3]}'
+              spellcheck="false"
+              wrap="off"
+            ></textarea>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <input type="file" id="file-input" accept="application/json,.json,.txt" class="hidden" />
+            <button type="button" id="upload-btn" class="btn btn-secondary">Upload JSON File</button>
+            <button type="submit" class="btn btn-primary">Simplify JSON</button>
+            <button type="button" id="clear-btn" class="btn btn-secondary">Clear</button>
+            <p id="status" class="text-sm text-gray-600"></p>
+          </div>
+        </form>
+      </section>
+
+      <section class="card space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold text-gray-900">Simplified JSON</h2>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="copy-btn" class="btn" disabled>Copy</button>
+            <button type="button" id="download-btn" class="btn btn-secondary" disabled>Download</button>
+          </div>
+        </div>
+        <textarea
+          id="output-json"
+          class="h-52 w-full rounded-xl border border-gray-300 bg-gray-50 p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+          spellcheck="false"
+          wrap="off"
+          readonly
+        ></textarea>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/json-simplifier" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const form = document.getElementById('simplify-form');
+      const inputEl = document.getElementById('input-json');
+      const outputEl = document.getElementById('output-json');
+      const statusEl = document.getElementById('status');
+      const copyBtn = document.getElementById('copy-btn');
+      const downloadBtn = document.getElementById('download-btn');
+      const fileInput = document.getElementById('file-input');
+      const uploadBtn = document.getElementById('upload-btn');
+      const clearBtn = document.getElementById('clear-btn');
+
+      const SKIP = Symbol('skip');
+
+      const isPlainObject = (value) => Object.prototype.toString.call(value) === '[object Object]';
+
+      const truncateString = (value) => {
+        if (typeof value !== 'string') return value;
+        return value.length > 200 ? `${value.slice(0, 200)}...` : value;
+      };
+
+      const simplifyValue = (value, path, seen) => {
+        if (typeof value === 'string' || value === null || typeof value !== 'object') {
+          const normalizedPath = path.join('.');
+          if (seen.has(normalizedPath)) return SKIP;
+          seen.add(normalizedPath);
+          return truncateString(value);
+        }
+
+        if (Array.isArray(value)) {
+          const compacted = [];
+          for (const item of value) {
+            const simplified = simplifyValue(item, path.concat('*'), seen);
+            if (simplified === SKIP) continue;
+            if (isPlainObject(simplified) && Object.keys(simplified).length === 0) continue;
+            if (Array.isArray(simplified) && simplified.length === 0) continue;
+            compacted.push(simplified);
+          }
+          return compacted;
+        }
+
+        const result = {};
+        for (const [key, val] of Object.entries(value)) {
+          const simplified = simplifyValue(val, path.concat(key), seen);
+          if (simplified === SKIP) continue;
+          if (isPlainObject(simplified) && Object.keys(simplified).length === 0) continue;
+          if (Array.isArray(simplified) && simplified.length === 0) continue;
+          result[key] = simplified;
+        }
+        return result;
+      };
+
+      const simplifyJson = (raw) => {
+        const parsed = JSON.parse(raw);
+        const seenPaths = new Set();
+        const simplified = simplifyValue(parsed, [], seenPaths);
+        return JSON.stringify(simplified, null, 2);
+      };
+
+      const setStatus = (message, isError = false) => {
+        statusEl.textContent = message;
+        statusEl.className = `text-sm ${isError ? 'text-red-600' : 'text-gray-600'}`;
+      };
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        try {
+          const raw = inputEl.value.trim();
+          if (!raw) {
+            setStatus('Please add JSON to simplify.', true);
+            return;
+          }
+          const output = simplifyJson(raw);
+          outputEl.value = output;
+          copyBtn.disabled = false;
+          downloadBtn.disabled = false;
+          setStatus('Simplified JSON ready.');
+        } catch (error) {
+          setStatus(`Could not parse JSON: ${error.message}`, true);
+          copyBtn.disabled = true;
+          downloadBtn.disabled = true;
+          outputEl.value = '';
+        }
+      });
+
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(outputEl.value);
+          setStatus('Copied to clipboard.');
+        } catch (error) {
+          setStatus('Clipboard copy failed. Please copy manually.', true);
+        }
+      });
+
+      downloadBtn.addEventListener('click', () => {
+        const blob = new Blob([outputEl.value], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'simplified.json';
+        link.click();
+        URL.revokeObjectURL(url);
+        setStatus('Downloaded simplified JSON.');
+      });
+
+      uploadBtn.addEventListener('click', () => fileInput.click());
+
+      fileInput.addEventListener('change', () => {
+        const [file] = fileInput.files || [];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          inputEl.value = event.target?.result || '';
+          setStatus(`Loaded ${file.name}. Ready to simplify.`);
+        };
+        reader.onerror = () => setStatus('Could not read file.', true);
+        reader.readAsText(file);
+      });
+
+      clearBtn.addEventListener('click', () => {
+        inputEl.value = '';
+        outputEl.value = '';
+        copyBtn.disabled = true;
+        downloadBtn.disabled = true;
+        setStatus('Inputs cleared.');
+        fileInput.value = '';
+      });
+    </script>
+  </body>
+</html>
