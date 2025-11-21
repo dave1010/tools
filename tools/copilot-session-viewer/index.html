@@ -33,6 +33,11 @@
 
       <section id="summary" class="hidden card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6"></section>
 
+      <section id="downloads" class="hidden flex flex-wrap gap-3">
+        <button id="download-md" class="btn btn-primary">Download as Markdown</button>
+        <button id="download-md-compact" class="btn btn-secondary">Download as Markdown (without tool call details)</button>
+      </section>
+
       <section id="prompts" class="space-y-4"></section>
 
       <footer class="py-6 text-center text-sm text-gray-500">
@@ -48,7 +53,11 @@
       const dropZone = document.getElementById('drop-zone');
       const statusEl = document.getElementById('status');
       const summaryEl = document.getElementById('summary');
+      const downloadsEl = document.getElementById('downloads');
+      const downloadMdBtn = document.getElementById('download-md');
+      const downloadMdCompactBtn = document.getElementById('download-md-compact');
       const promptsEl = document.getElementById('prompts');
+      let currentSession = null;
 
       const setStatus = (message, isError = false) => {
         statusEl.textContent = message;
@@ -170,6 +179,98 @@
         summaryEl.innerHTML = '';
         promptsEl.innerHTML = '';
         summaryEl.classList.add('hidden');
+        downloadsEl.classList.add('hidden');
+        currentSession = null;
+      };
+
+      const escapeCodeFence = (text = '') => String(text).replace(/```/g, '\`\`\`');
+
+      const formatLogContent = (content) => {
+        if (Array.isArray(content)) return content.join('\n');
+        if (typeof content === 'string') return content;
+        if (content === null || content === undefined) return '—';
+        return JSON.stringify(content, null, 2);
+      };
+
+      const generateMarkdown = (session, includeToolDetails = true) => {
+        const lines = [];
+        lines.push(`# Copilot Session`);
+        lines.push(`Exported: ${formatDate(session.exportedAt)}`);
+        lines.push('');
+
+        const promptCount = session.totalPrompts || (session.prompts ? session.prompts.length : '—');
+        lines.push(`- Prompts: ${promptCount}`);
+        lines.push(`- Log entries: ${session.totalLogEntries || '—'}`);
+        const model = session.prompts?.[0]?.logs?.[0]?.metadata?.model;
+        lines.push(`- Model: ${model || '—'}`);
+        const tools = session.prompts?.[0]?.logs?.[0]?.metadata?.tools || [];
+        if (tools.length) {
+          lines.push(`- Available tools: ${tools.map((tool) => tool.function?.name || 'function').join(', ')}`);
+        }
+        lines.push('');
+
+        (session.prompts || []).forEach((prompt, index) => {
+          lines.push(`## Prompt ${index + 1}`);
+          lines.push('');
+          lines.push(`**User**`);
+          lines.push('');
+          lines.push(escapeCodeFence(prompt.prompt || '—'));
+          lines.push('');
+
+          (prompt.logs || []).forEach((log) => {
+            if (log.tool || log.kind === 'tool') {
+              const toolName = log.tool || log.metadata?.name || 'Unknown tool';
+              const time = log.time ? ` (${formatDate(log.time)})` : '';
+              if (includeToolDetails) {
+                lines.push(`- Tool Call: **${toolName}**${time}`);
+                if (log.args) {
+                  lines.push('  - Arguments:');
+                  lines.push('');
+                  lines.push('  ```json');
+                  lines.push(escapeCodeFence(typeof log.args === 'string' ? log.args : JSON.stringify(log.args, null, 2)));
+                  lines.push('  ```');
+                }
+                if (log.response) {
+                  lines.push('  - Response:');
+                  lines.push('');
+                  lines.push('  ```json');
+                  const responseText = Array.isArray(log.response)
+                    ? log.response.join('\n')
+                    : typeof log.response === 'string'
+                      ? log.response
+                      : JSON.stringify(log.response, null, 2);
+                  lines.push(escapeCodeFence(responseText));
+                  lines.push('  ```');
+                }
+              } else {
+                lines.push(`- Tool Call: **${toolName}**${time} (details omitted)`);
+              }
+              lines.push('');
+              return;
+            }
+
+            if (log.kind === 'request' && log.response?.message) {
+              const text = formatLogContent(log.response.message);
+              const meta = log.metadata?.model ? `${log.metadata.model}${log.metadata?.usage?.total_tokens ? ` • ${log.metadata.usage.total_tokens} tokens` : ''}` : '';
+              lines.push(`**LLM${meta ? ` (${meta})` : ''}**`);
+              lines.push('');
+              lines.push(escapeCodeFence(text));
+              lines.push('');
+              return;
+            }
+
+            if (log.requestMessages?.messages?.length) {
+              lines.push('Request messages:');
+              lines.push('');
+              lines.push('```json');
+              lines.push(escapeCodeFence(JSON.stringify(log.requestMessages.messages, null, 2)));
+              lines.push('```');
+              lines.push('');
+            }
+          });
+        });
+
+        return lines.join('\n');
       };
 
       const renderSummary = (session) => {
@@ -299,6 +400,8 @@
         session.prompts.forEach((prompt, index) => {
           promptsEl.appendChild(renderPrompt(prompt, index));
         });
+        currentSession = session;
+        downloadsEl.classList.remove('hidden');
         setStatus(`Loaded ${session.prompts.length} prompt${session.prompts.length === 1 ? '' : 's'}.`);
       };
 
@@ -344,6 +447,30 @@
       dropZone.addEventListener('drop', (event) => {
         const file = event.dataTransfer?.files?.[0];
         handleFile(file);
+      });
+
+      downloadMdBtn.addEventListener('click', () => {
+        if (!currentSession) return;
+        const markdown = generateMarkdown(currentSession, true);
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'copilot-session.md';
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+
+      downloadMdCompactBtn.addEventListener('click', () => {
+        if (!currentSession) return;
+        const markdown = generateMarkdown(currentSession, false);
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'copilot-session-no-tools.md';
+        link.click();
+        URL.revokeObjectURL(url);
       });
     </script>
   </body>

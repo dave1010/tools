@@ -17,3 +17,4 @@ Usage:
 1. Export the session from the Copilot debug view in VS Code.
 2. Drop or choose the JSON file.
 3. Browse the rendered transcript and toggle tool payloads as needed.
+4. Download the transcript as Markdown, with or without tool call details, for sharing.
