@@ -16,7 +16,10 @@
       <section class="card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
         <form id="simplify-form" class="space-y-4" novalidate>
           <div class="space-y-2">
-            <label for="input-json" class="font-medium text-gray-700">Input JSON</label>
+            <div class="flex items-center justify-between text-sm text-gray-600">
+              <label for="input-json" class="font-medium text-gray-700 text-base">Input JSON</label>
+              <span id="input-count" aria-live="polite"></span>
+            </div>
             <textarea
               id="input-json"
               class="h-52 w-full rounded-xl border border-gray-300 bg-white p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
@@ -39,6 +42,7 @@
       <section class="card space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <h2 class="text-lg font-semibold text-gray-900">Simplified JSON</h2>
+          <span id="output-count" class="text-sm text-gray-600" aria-live="polite"></span>
           <div class="flex flex-wrap gap-2">
             <button type="button" id="copy-btn" class="btn" disabled>Copy</button>
             <button type="button" id="download-btn" class="btn btn-secondary" disabled>Download</button>
@@ -71,6 +75,8 @@
       const fileInput = document.getElementById('file-input');
       const uploadBtn = document.getElementById('upload-btn');
       const clearBtn = document.getElementById('clear-btn');
+      const inputCountEl = document.getElementById('input-count');
+      const outputCountEl = document.getElementById('output-count');
 
       const SKIP = Symbol('skip');
 
@@ -124,12 +130,22 @@
         statusEl.className = `text-sm ${isError ? 'text-red-600' : 'text-gray-600'}`;
       };
 
+      const formatCount = (value) => `${value.toLocaleString()} characters`;
+
+      const updateCounts = () => {
+        inputCountEl.textContent = formatCount(inputEl.value.length);
+        outputCountEl.textContent = outputEl.value ? formatCount(outputEl.value.length) : '—';
+      };
+
+      updateCounts();
+
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         try {
           const raw = inputEl.value.trim();
           if (!raw) {
             setStatus('Please add JSON to simplify.', true);
+            updateCounts();
             return;
           }
           const output = simplifyJson(raw);
@@ -137,11 +153,13 @@
           copyBtn.disabled = false;
           downloadBtn.disabled = false;
           setStatus('Simplified JSON ready.');
+          updateCounts();
         } catch (error) {
           setStatus(`Could not parse JSON: ${error.message}`, true);
           copyBtn.disabled = true;
           downloadBtn.disabled = true;
           outputEl.value = '';
+          updateCounts();
         }
       });
 
@@ -149,6 +167,7 @@
         try {
           await navigator.clipboard.writeText(outputEl.value);
           setStatus('Copied to clipboard.');
+          updateCounts();
         } catch (error) {
           setStatus('Clipboard copy failed. Please copy manually.', true);
         }
@@ -163,6 +182,7 @@
         link.click();
         URL.revokeObjectURL(url);
         setStatus('Downloaded simplified JSON.');
+        updateCounts();
       });
 
       uploadBtn.addEventListener('click', () => fileInput.click());
@@ -174,6 +194,7 @@
         reader.onload = (event) => {
           inputEl.value = event.target?.result || '';
           setStatus(`Loaded ${file.name}. Ready to simplify.`);
+          updateCounts();
         };
         reader.onerror = () => setStatus('Could not read file.', true);
         reader.readAsText(file);
@@ -186,7 +207,10 @@
         downloadBtn.disabled = true;
         setStatus('Inputs cleared.');
         fileInput.value = '';
+        updateCounts();
       });
+
+      inputEl.addEventListener('input', updateCounts);
     </script>
   </body>
 </html>
