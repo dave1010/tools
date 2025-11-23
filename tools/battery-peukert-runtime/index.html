@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Peukert Battery Runtime Estimator</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2">
+        <p class="text-sm font-semibold uppercase tracking-wide text-brand-700">Energy &amp; Power</p>
+        <h1 class="text-3xl font-semibold text-gray-900">Peukert Battery Runtime Estimator</h1>
+        <p class="text-gray-600 leading-relaxed">
+          Model how real batteries sag under heavier loads. Enter your pack details and load profile to see
+          how Peukert's law shrinks runtime in non-linear ways.
+        </p>
+      </header>
+
+      <section class="grid gap-4 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start">
+        <form id="inputs" class="space-y-4 rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-soft" autocomplete="off">
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-1">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rated capacity (Ah)</span>
+              <input type="number" id="capacity" min="1" step="1" value="100" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rating hours (h)</span>
+              <input type="number" id="ratingHours" min="1" step="1" value="20" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Peukert exponent (k)</span>
+              <input type="number" id="exponent" min="1" max="1.5" step="0.01" value="1.15" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+              <p class="text-xs text-gray-500">Higher values exaggerate runtime loss at high currents.</p>
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Parallel strings</span>
+              <input type="number" id="parallel" min="1" step="1" value="1" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+              <p class="text-xs text-gray-500">Current splits across parallels; Peukert applies per string.</p>
+            </label>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-1">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Nominal pack voltage (V)</span>
+              <input type="number" id="voltage" min="1" step="0.1" value="12.8" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Cutoff depth of discharge (%)</span>
+              <input type="number" id="dod" min="5" max="100" step="1" value="80" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+              <p class="text-xs text-gray-500">Percent of rated capacity you're willing to use.</p>
+            </label>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="space-y-2 rounded-xl border border-brand-100 bg-brand-50/60 p-3">
+              <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-brand-700">
+                <span>Load power (W)</span>
+                <button type="button" id="copyCurrent" class="text-xs font-medium text-brand-700 hover:text-brand-600">Use computed current</button>
+              </div>
+              <input type="number" id="power" min="1" step="5" value="600" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+              <label class="flex items-center justify-between text-xs text-gray-600">
+                <span>DC-DC / inverter efficiency</span>
+                <input type="number" id="efficiency" min="50" max="100" step="1" value="92" class="w-20 rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+              </label>
+              <p class="text-xs text-brand-800">Current = Power ÷ (Voltage × Efficiency)</p>
+            </div>
+            <div class="space-y-2 rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+              <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-600">
+                <span>Or set a direct DC current</span>
+                <span class="font-mono text-gray-700" id="computedCurrent">–</span>
+              </div>
+              <input type="number" id="current" min="0.1" step="0.1" value="45" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500" />
+              <p class="text-xs text-gray-500">Override the computed current if you already know it.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 text-xs text-gray-600">
+            <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 font-medium"><span class="h-2.5 w-2.5 rounded-full bg-brand-500"></span>Non-linear discharge model</span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 font-medium">Considers parallel string sharing</span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 font-medium">Efficiency + DOD cutoff applied</span>
+          </div>
+        </form>
+
+        <section class="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Estimated runtime</p>
+              <h2 id="runtime" class="text-3xl font-semibold text-gray-900">—</h2>
+              <p id="runtimeDetail" class="text-sm text-gray-600"></p>
+            </div>
+            <div class="rounded-xl bg-brand-50 px-3 py-2 text-right text-brand-800">
+              <p class="text-xs font-semibold uppercase tracking-wide">Peukert penalty</p>
+              <p id="penalty" class="text-lg font-semibold">—</p>
+              <p class="text-[11px]">Runtime vs. ideal linear discharge</p>
+            </div>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Effective capacity at this load</p>
+              <p id="effectiveCapacity" class="text-xl font-semibold text-gray-900">—</p>
+              <p id="cRate" class="text-sm text-gray-600"></p>
+            </div>
+            <div class="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Per-string stress</p>
+              <p id="stringLoad" class="text-xl font-semibold text-gray-900">—</p>
+              <p id="stringNote" class="text-sm text-gray-600"></p>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-brand-100 bg-brand-50/60 p-3 text-sm text-brand-900" id="insight">Peukert effect insight will appear here.</div>
+
+          <footer class="pt-2 text-center text-sm text-gray-500">
+            <div class="flex justify-center gap-4">
+              <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+              <a href="https://github.com/dave1010/tools/tree/main/tools/battery-peukert-runtime" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+            </div>
+          </footer>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const inputs = {
+        capacity: document.getElementById('capacity'),
+        ratingHours: document.getElementById('ratingHours'),
+        exponent: document.getElementById('exponent'),
+        parallel: document.getElementById('parallel'),
+        voltage: document.getElementById('voltage'),
+        dod: document.getElementById('dod'),
+        power: document.getElementById('power'),
+        efficiency: document.getElementById('efficiency'),
+        current: document.getElementById('current'),
+      };
+
+      const outputs = {
+        runtime: document.getElementById('runtime'),
+        runtimeDetail: document.getElementById('runtimeDetail'),
+        penalty: document.getElementById('penalty'),
+        effectiveCapacity: document.getElementById('effectiveCapacity'),
+        cRate: document.getElementById('cRate'),
+        stringLoad: document.getElementById('stringLoad'),
+        stringNote: document.getElementById('stringNote'),
+        computedCurrent: document.getElementById('computedCurrent'),
+        insight: document.getElementById('insight'),
+      };
+
+      const copyCurrentBtn = document.getElementById('copyCurrent');
+
+      function formatHours(hours) {
+        if (!Number.isFinite(hours) || hours <= 0) return '—';
+        const totalMinutes = Math.round(hours * 60);
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        return `${h}h ${m.toString().padStart(2, '0')}m`;
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function computeCurrent() {
+        const voltage = Number(inputs.voltage.value);
+        const power = Number(inputs.power.value);
+        const eff = clamp(Number(inputs.efficiency.value) / 100, 0.5, 1);
+        if (voltage > 0 && power > 0) {
+          return power / (voltage * eff);
+        }
+        return null;
+      }
+
+      function calculate() {
+        const capacity = Math.max(Number(inputs.capacity.value), 0.1);
+        const ratingHours = Math.max(Number(inputs.ratingHours.value), 1);
+        const exponent = clamp(Number(inputs.exponent.value), 1, 1.5);
+        const parallels = Math.max(Number(inputs.parallel.value), 1);
+        const dod = clamp(Number(inputs.dod.value), 5, 100) / 100;
+
+        const iRef = capacity / ratingHours;
+        const computedCurrent = computeCurrent();
+        const loadCurrent = Math.max(Number(inputs.current.value), 0.01);
+        const chosenCurrent = computedCurrent && computedCurrent > 0 ? computedCurrent : loadCurrent;
+
+        if (computedCurrent) {
+          outputs.computedCurrent.textContent = `${computedCurrent.toFixed(2)} A`; // helper display
+        } else {
+          outputs.computedCurrent.textContent = '—';
+        }
+
+        const perStringCurrent = chosenCurrent / parallels;
+        const peukertRuntimeHours = ratingHours * (iRef / perStringCurrent) ** exponent;
+        const adjustedRuntime = peukertRuntimeHours * dod;
+        const effectiveCapacity = chosenCurrent * adjustedRuntime;
+        const linearRuntime = ratingHours * (iRef / perStringCurrent);
+
+        outputs.runtime.textContent = formatHours(adjustedRuntime);
+        const currentSource = computedCurrent && computedCurrent > 0 ? 'auto-computed from power' : 'set manually';
+
+        outputs.runtimeDetail.textContent = `Using ${dod * 100}% of rated capacity at ${chosenCurrent.toFixed(1)} A total (${perStringCurrent.toFixed(1)} A per string, ${currentSource}).`;
+
+        const penaltyRatio = adjustedRuntime > 0 && linearRuntime > 0 ? adjustedRuntime / (linearRuntime * dod) : 0;
+        outputs.penalty.textContent = penaltyRatio ? `${Math.round(penaltyRatio * 100)}%` : '—';
+
+        outputs.effectiveCapacity.textContent = `${effectiveCapacity.toFixed(1)} Ah usable`;
+        const totalCapacity = capacity * parallels;
+        outputs.cRate.textContent = `C-rate: ${(chosenCurrent / totalCapacity).toFixed(2)}C vs. C${ratingHours}`;
+
+        outputs.stringLoad.textContent = `${perStringCurrent.toFixed(1)} A per string`;
+        outputs.stringNote.textContent = perStringCurrent > iRef
+          ? 'Above the rated test current—expect notable runtime loss.'
+          : 'Below the rated test current—runtime will be generous.';
+
+        const insightPieces = [];
+        if (exponent > 1.2) insightPieces.push('High Peukert exponent: heavy loads hit you harder.');
+        if (perStringCurrent > iRef * 1.5) insightPieces.push('Load is over 1.5× the reference current; voltage sag is likely.');
+        if (dod < 0.7) insightPieces.push('Conservative cutoff chosen, extending battery life.');
+        if (!insightPieces.length) insightPieces.push('Settings fall near the rated curve; behavior will be close to linear.');
+        outputs.insight.textContent = insightPieces.join(' ');
+      }
+
+      Object.values(inputs).forEach((input) => {
+        input.addEventListener('input', calculate);
+      });
+
+      copyCurrentBtn.addEventListener('click', () => {
+        const computed = computeCurrent();
+        if (computed) {
+          inputs.current.value = computed.toFixed(2);
+          calculate();
+        }
+      });
+
+      calculate();
+    </script>
+  </body>
+</html>
