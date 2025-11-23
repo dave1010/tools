@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Genetic Supersequence Solver</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js" onerror="alert('Failed to load: ' + this.src)"></script>
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-5xl space-y-4 p-4 font-sans md:p-6">
+      <header class="rounded-2xl bg-white/70 p-6 shadow-soft">
+        <p class="text-sm font-semibold uppercase tracking-wide text-brand-700">Genetic algorithm playground</p>
+        <h1 class="text-3xl font-semibold text-gray-900">Shortest Common Supersequence Explorer</h1>
+        <p class="mt-2 max-w-3xl text-gray-600">
+          Approximate the shortest string that contains every sequence as a subsequence. Experiment with population, mutation,
+          and crossover settings to watch the algorithm converge.
+        </p>
+      </header>
+
+      <section class="grid gap-4 lg:grid-cols-2">
+        <div class="space-y-4">
+          <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900">Sequences</h2>
+                <p class="text-sm text-gray-600">Add strings to include in the supersequence (order does not matter).</p>
+              </div>
+              <button id="resetDefaults" class="btn btn-secondary">Reset defaults</button>
+            </div>
+            <div id="sequenceList" class="mt-4 space-y-2"></div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <input
+                id="newSequenceInput"
+                type="text"
+                placeholder="Add a sequence (e.g. ACGTAG)"
+                class="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+              <button id="addSequence" class="btn btn-primary">Add</button>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-semibold text-gray-900">Genetic algorithm settings</h2>
+              <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">Client-side</span>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+              <label class="space-y-1 text-sm text-gray-700">
+                <span class="font-semibold">Population</span>
+                <input id="populationSize" type="number" min="10" max="300" value="80" class="settings-input" />
+              </label>
+              <label class="space-y-1 text-sm text-gray-700">
+                <span class="font-semibold">Generations</span>
+                <input id="generations" type="number" min="10" max="500" value="150" class="settings-input" />
+              </label>
+              <label class="space-y-1 text-sm text-gray-700">
+                <span class="font-semibold">Elites</span>
+                <input id="elites" type="number" min="1" max="20" value="4" class="settings-input" />
+              </label>
+              <label class="space-y-1 text-sm text-gray-700">
+                <span class="font-semibold">Mutation rate</span>
+                <input id="mutationRate" type="number" min="0" max="1" step="0.01" value="0.15" class="settings-input" />
+              </label>
+              <label class="space-y-1 text-sm text-gray-700">
+                <span class="font-semibold">Crossover rate</span>
+                <input id="crossoverRate" type="number" min="0" max="1" step="0.05" value="0.8" class="settings-input" />
+              </label>
+              <label class="space-y-1 text-sm text-gray-700">
+                <span class="font-semibold">Tournament size</span>
+                <input id="tournamentSize" type="number" min="2" max="10" value="3" class="settings-input" />
+              </label>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-3">
+              <button id="runButton" class="btn btn-primary">Run genetic search</button>
+              <button id="stepButton" class="btn btn-secondary">Run 1 generation</button>
+              <p id="statusMessage" class="text-sm text-gray-600"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+            <div class="flex items-start justify-between">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900">Best candidate</h2>
+                <p class="text-sm text-gray-600">Updated after each run.</p>
+              </div>
+              <div class="rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700" id="bestLengthTag">—</div>
+            </div>
+            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm text-gray-700">
+              <div class="rounded-lg bg-brand-50 px-3 py-2">
+                <dt class="text-xs uppercase tracking-wide text-brand-700">Length</dt>
+                <dd id="bestLength" class="text-lg font-semibold text-gray-900">—</dd>
+              </div>
+              <div class="rounded-lg bg-gray-50 px-3 py-2">
+                <dt class="text-xs uppercase tracking-wide text-gray-500">Coverage</dt>
+                <dd id="coverage" class="text-lg font-semibold text-gray-900">—</dd>
+              </div>
+            </dl>
+            <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <p class="mb-1 text-xs uppercase tracking-wide text-gray-500">Supersequence</p>
+              <pre id="bestSequence" class="whitespace-pre-wrap break-words rounded-lg bg-white/80 p-3 text-sm font-mono text-gray-900"></pre>
+            </div>
+            <div class="mt-3 text-sm text-gray-600" id="coverageList"></div>
+          </div>
+
+          <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900">Progress</h2>
+                <p class="text-sm text-gray-600">Best length per generation.</p>
+              </div>
+              <span class="text-xs font-semibold text-gray-500" id="generationCounter">Gen —</span>
+            </div>
+            <canvas id="fitnessChart" class="mt-4 h-56 w-full"></canvas>
+          </div>
+
+          <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-semibold text-gray-900">Population snapshots</h2>
+              <span class="text-xs text-gray-500" id="snapshotCount">—</span>
+            </div>
+            <div id="populationList" class="mt-3 space-y-2 text-sm text-gray-700"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/genetic-supersequence-solver"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <style>
+      .settings-input {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.95rem;
+        transition: border-color 150ms ease;
+      }
+      .settings-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px #bfdbfe;
+      }
+    </style>
+
+    <script>
+      const sequenceListEl = document.getElementById('sequenceList');
+      const newSequenceInput = document.getElementById('newSequenceInput');
+      const addSequenceButton = document.getElementById('addSequence');
+      const resetDefaultsButton = document.getElementById('resetDefaults');
+      const runButton = document.getElementById('runButton');
+      const stepButton = document.getElementById('stepButton');
+      const statusMessage = document.getElementById('statusMessage');
+      const bestSequenceEl = document.getElementById('bestSequence');
+      const bestLengthEl = document.getElementById('bestLength');
+      const bestLengthTag = document.getElementById('bestLengthTag');
+      const coverageEl = document.getElementById('coverage');
+      const coverageListEl = document.getElementById('coverageList');
+      const generationCounter = document.getElementById('generationCounter');
+      const populationList = document.getElementById('populationList');
+      const snapshotCount = document.getElementById('snapshotCount');
+
+      let sequences = ['ACGTGAC', 'GTACGTA', 'TACCGT', 'GACTA'];
+      let chart;
+      let lastPopulation = [];
+      let lastGeneration = 0;
+      let historySeries = [];
+
+      function renderSequences() {
+        sequenceListEl.innerHTML = '';
+        if (!sequences.length) {
+          sequenceListEl.innerHTML = '<p class="text-sm text-gray-500">Add at least one sequence to get started.</p>';
+          return;
+        }
+        sequences.forEach((seq, index) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2';
+          const label = document.createElement('span');
+          label.className = 'text-xs font-semibold text-gray-500';
+          label.textContent = `S${index + 1}`;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = seq;
+          input.className = 'flex-1 rounded-md border border-gray-200 px-3 py-1 text-sm focus:border-brand-500 focus:outline-none';
+          input.addEventListener('input', () => {
+            sequences[index] = input.value.trim();
+          });
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'btn btn-secondary px-2 py-1 text-xs';
+          removeBtn.textContent = 'Remove';
+          removeBtn.addEventListener('click', () => {
+            sequences.splice(index, 1);
+            renderSequences();
+          });
+          row.append(label, input, removeBtn);
+          sequenceListEl.appendChild(row);
+        });
+      }
+
+      function addSequence() {
+        const value = newSequenceInput.value.trim();
+        if (!value) return;
+        sequences.push(value);
+        newSequenceInput.value = '';
+        renderSequences();
+      }
+
+      function resetDefaults() {
+        sequences = ['ACGTGAC', 'GTACGTA', 'TACCGT', 'GACTA'];
+        document.getElementById('populationSize').value = 80;
+        document.getElementById('generations').value = 150;
+        document.getElementById('mutationRate').value = 0.15;
+        document.getElementById('crossoverRate').value = 0.8;
+        document.getElementById('elites').value = 4;
+        document.getElementById('tournamentSize').value = 3;
+        historySeries = [];
+        renderSequences();
+      }
+
+      function isSubsequence(sub, superSeq) {
+        let i = 0;
+        for (const ch of superSeq) {
+          if (ch === sub[i]) i++;
+          if (i === sub.length) return true;
+        }
+        return false;
+      }
+
+      function mergeStrings(a, b) {
+        if (!a) return b;
+        if (!b) return a;
+        let maxOverlap = 0;
+        let merged = a + b;
+        const minLen = Math.min(a.length, b.length);
+        for (let i = minLen; i > 0; i--) {
+          if (a.slice(-i) === b.slice(0, i)) {
+            maxOverlap = i;
+            merged = a + b.slice(i);
+            break;
+          }
+        }
+        for (let i = minLen; i > maxOverlap; i--) {
+          if (b.slice(-i) === a.slice(0, i)) {
+            merged = b + a.slice(i);
+            break;
+          }
+        }
+        return merged;
+      }
+
+      function makeCandidate(order) {
+        return order.reduce((acc, seq) => mergeStrings(acc, seq), '');
+      }
+
+      function shuffle(array) {
+        const arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+
+      function evaluateCandidate(candidate, targetSequences) {
+        let missing = 0;
+        for (const seq of targetSequences) {
+          if (!isSubsequence(seq, candidate)) missing++;
+        }
+        const penalty = Math.max(8, Math.max(...targetSequences.map((s) => s.length))) * 3;
+        const fitness = candidate.length + missing * penalty;
+        return { fitness, missing };
+      }
+
+      function tournamentSelect(population, size) {
+        let best = null;
+        for (let i = 0; i < size; i++) {
+          const contender = population[Math.floor(Math.random() * population.length)];
+          if (!best || contender.fitness < best.fitness) best = contender;
+        }
+        return best;
+      }
+
+      function mutate(candidate, targetSequences, rate) {
+        let result = candidate;
+        if (Math.random() < rate) {
+          const randomSeq = targetSequences[Math.floor(Math.random() * targetSequences.length)];
+          const insertAt = Math.floor(Math.random() * (result.length + 1));
+          result = result.slice(0, insertAt) + randomSeq + result.slice(insertAt);
+        }
+        if (Math.random() < rate / 2 && result.length > 4) {
+          const start = Math.floor(Math.random() * Math.max(1, result.length - 3));
+          const deleteLen = Math.floor(Math.random() * 3) + 1;
+          result = result.slice(0, start) + result.slice(start + deleteLen);
+        }
+        return result;
+      }
+
+      function createPopulation(size, targetSequences) {
+        const population = [];
+        for (let i = 0; i < size; i++) {
+          const candidate = makeCandidate(shuffle(targetSequences));
+          const metrics = evaluateCandidate(candidate, targetSequences);
+          population.push({ value: candidate, ...metrics });
+        }
+        return population;
+      }
+
+      function crossover(a, b, rate) {
+        if (Math.random() > rate) return Math.random() > 0.5 ? a : b;
+        const mergedAB = mergeStrings(a, b);
+        const mergedBA = mergeStrings(b, a);
+        return mergedAB.length <= mergedBA.length ? mergedAB : mergedBA;
+      }
+
+      function summarizeCoverage(candidate, targetSequences) {
+        const details = targetSequences.map((seq, idx) => ({
+          label: `S${idx + 1}`,
+          hit: isSubsequence(seq, candidate),
+          length: seq.length,
+        }));
+        const covered = details.filter((d) => d.hit).length;
+        return { covered, total: details.length, details };
+      }
+
+      function updatePopulationList(population) {
+        snapshotCount.textContent = `${Math.min(5, population.length)} shown`;
+        populationList.innerHTML = '';
+        const top = [...population].sort((a, b) => a.fitness - b.fitness).slice(0, 5);
+        top.forEach((entry, idx) => {
+          const row = document.createElement('div');
+          row.className = 'rounded-lg border border-gray-200 bg-gray-50 px-3 py-2';
+          row.innerHTML = `
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <span>Candidate ${idx + 1}</span>
+              <span>fitness ${entry.fitness.toFixed(1)}</span>
+            </div>
+            <div class="mt-1 text-sm font-mono text-gray-800 break-words">${entry.value}</div>
+          `;
+          populationList.appendChild(row);
+        });
+      }
+
+      function renderChart(history) {
+        const ctx = document.getElementById('fitnessChart').getContext('2d');
+        const labels = history.map((_, idx) => idx + 1);
+        const data = history.map((h) => h);
+        if (!chart) {
+          chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                {
+                  label: 'Best length',
+                  data,
+                  borderColor: '#2563eb',
+                  backgroundColor: '#bfdbfe',
+                  tension: 0.3,
+                  fill: true,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { title: { display: true, text: 'Length' } },
+                x: { title: { display: true, text: 'Generation' } },
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => `Length: ${ctx.parsed.y}` } },
+              },
+            },
+          });
+        } else {
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = data;
+          chart.update();
+        }
+      }
+
+      function displayBest(best, targetSequences) {
+        bestSequenceEl.textContent = best.value || '—';
+        bestLengthEl.textContent = best.value ? best.value.length : '—';
+        bestLengthTag.textContent = best.value ? `${best.value.length} chars` : '—';
+        const coverageInfo = summarizeCoverage(best.value, targetSequences);
+        coverageEl.textContent = `${coverageInfo.covered}/${coverageInfo.total}`;
+        coverageListEl.innerHTML = coverageInfo.details
+          .map((d) => `<span class="mr-2 rounded-full px-2 py-1 text-xs ${
+            d.hit ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }">${d.label}: ${d.hit ? 'covered' : 'missing'}</span>`)
+          .join(' ');
+      }
+
+      function prepareSequences() {
+        const cleaned = sequences.map((s) => s.trim()).filter(Boolean);
+        const unique = Array.from(new Set(cleaned));
+        return unique;
+      }
+
+      function runGenerations(stepCount = null, appendHistory = false) {
+        const targetSequences = prepareSequences();
+        if (!targetSequences.length) {
+          statusMessage.textContent = 'Please add at least one sequence.';
+          return;
+        }
+        const populationSize = parseInt(document.getElementById('populationSize').value, 10);
+        const generations = stepCount ?? parseInt(document.getElementById('generations').value, 10);
+        const mutationRate = parseFloat(document.getElementById('mutationRate').value);
+        const crossoverRate = parseFloat(document.getElementById('crossoverRate').value);
+        const elites = parseInt(document.getElementById('elites').value, 10);
+        const tournamentSize = parseInt(document.getElementById('tournamentSize').value, 10);
+
+        let population = lastPopulation.length ? lastPopulation : createPopulation(populationSize, targetSequences);
+        const history = [];
+
+        for (let gen = 0; gen < generations; gen++) {
+          population.sort((a, b) => a.fitness - b.fitness);
+          const best = population[0];
+          history.push(best.value.length);
+          const newPopulation = population.slice(0, elites);
+          while (newPopulation.length < populationSize) {
+            const p1 = tournamentSelect(population, tournamentSize);
+            const p2 = tournamentSelect(population, tournamentSize);
+            let childValue = crossover(p1.value, p2.value, crossoverRate);
+            childValue = mutate(childValue, targetSequences, mutationRate);
+            const metrics = evaluateCandidate(childValue, targetSequences);
+            newPopulation.push({ value: childValue, ...metrics });
+          }
+          population = newPopulation;
+        }
+
+        population.sort((a, b) => a.fitness - b.fitness);
+        const best = population[0];
+        lastPopulation = population;
+        lastGeneration += generations;
+        generationCounter.textContent = `Gen ${lastGeneration}`;
+        statusMessage.textContent = `Finished ${generations} generation${generations === 1 ? '' : 's'}.`;
+        displayBest(best, targetSequences);
+        historySeries = appendHistory ? historySeries.concat(history) : history;
+        renderChart(historySeries);
+        updatePopulationList(population);
+      }
+
+      addSequenceButton.addEventListener('click', addSequence);
+      newSequenceInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') addSequence();
+      });
+      resetDefaultsButton.addEventListener('click', () => {
+        lastPopulation = [];
+        lastGeneration = 0;
+        historySeries = [];
+        resetDefaults();
+        statusMessage.textContent = 'Defaults restored. Ready to run again.';
+      });
+      runButton.addEventListener('click', () => {
+        lastGeneration = 0;
+        lastPopulation = [];
+        historySeries = [];
+        runGenerations();
+      });
+      stepButton.addEventListener('click', () => {
+        if (!lastPopulation.length) {
+          lastPopulation = createPopulation(parseInt(document.getElementById('populationSize').value, 10), prepareSequences());
+          lastGeneration = 0;
+        }
+        runGenerations(1, true);
+      });
+
+      renderSequences();
+      statusMessage.textContent = 'Defaults loaded. Hit run to start the search.';
+    </script>
+  </body>
+</html>
