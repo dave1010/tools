@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF to Text/Markdown</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">PDF to Text/Markdown</h1>
+        <p class="text-gray-600">Extract readable text from PDFs entirely in your browser.</p>
+      </header>
+
+      <section class="card space-y-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="space-y-3">
+          <label class="font-medium text-gray-700" for="pdf-input">Select a PDF</label>
+          <div
+            class="flex flex-col gap-3 rounded-xl border border-dashed border-brand-200 bg-brand-50/50 p-4 text-center text-gray-700"
+          >
+            <input
+              type="file"
+              id="pdf-input"
+              accept="application/pdf"
+              class="block w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+            />
+            <p class="text-sm text-gray-500">Your file never leaves this page.</p>
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-gray-700">Output format</label>
+            <div class="flex flex-wrap gap-3" id="format-options">
+              <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="radio" name="output-format" value="markdown" class="h-4 w-4 text-brand-600" checked />
+                Markdown
+              </label>
+              <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="radio" name="output-format" value="text" class="h-4 w-4 text-brand-600" />
+                Plain text
+              </label>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-gray-700" for="split-pages">
+              Page separation
+            </label>
+            <select
+              id="split-pages"
+              class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-soft focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <option value="heading">Use page headings</option>
+              <option value="divider">Use horizontal dividers</option>
+              <option value="none">Merge all pages</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <button id="convert-btn" class="btn btn-primary">Convert PDF</button>
+          <button id="copy-btn" class="btn btn-secondary" disabled>Copy output</button>
+          <button id="download-btn" class="btn btn-secondary" disabled>Download</button>
+          <span id="status" class="text-sm text-gray-600" role="status"></span>
+        </div>
+
+        <div class="space-y-2">
+          <label for="output" class="font-medium text-gray-700">Output</label>
+          <textarea
+            id="output"
+            class="h-64 w-full rounded-xl border border-gray-300 bg-gray-50 p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+            placeholder="Converted text will appear here."
+            readonly
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <p class="text-sm text-gray-500">
+          Tip: Larger PDFs may take a few moments to process. You can switch formats after conversion without re-uploading.
+        </p>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/pdf-to-text-markdown"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js" onerror="alert('Failed to load: ' + this.src)"></script>
+    <script>
+      const pdfInput = document.getElementById("pdf-input");
+      const convertBtn = document.getElementById("convert-btn");
+      const copyBtn = document.getElementById("copy-btn");
+      const downloadBtn = document.getElementById("download-btn");
+      const output = document.getElementById("output");
+      const statusText = document.getElementById("status");
+      const formatOptions = document.getElementById("format-options");
+      const splitSelect = document.getElementById("split-pages");
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+
+      let lastResult = null;
+      let lastFilename = "document";
+
+      const setStatus = (message) => {
+        statusText.textContent = message;
+      };
+
+      const setButtonsState = (enabled) => {
+        copyBtn.disabled = !enabled;
+        downloadBtn.disabled = !enabled;
+      };
+
+      const extractTextFromPage = (items) => {
+        const lines = [];
+        let currentLine = [];
+        let lastY = null;
+        const yTolerance = 2.5;
+
+        for (const item of items) {
+          const y = item.transform[5];
+          const text = item.str.trim();
+          if (!text) continue;
+
+          if (lastY !== null && Math.abs(y - lastY) > yTolerance) {
+            if (currentLine.length) {
+              lines.push(currentLine.join(" "));
+            }
+            currentLine = [];
+          }
+
+          currentLine.push(text);
+          lastY = y;
+        }
+
+        if (currentLine.length) {
+          lines.push(currentLine.join(" "));
+        }
+
+        return lines.join("\n");
+      };
+
+      const buildOutput = (pages, format, separation) => {
+        if (!pages.length) return "";
+
+        if (format === "text") {
+          if (separation === "none") {
+            return pages.join("\n\n").trim();
+          }
+          const divider = separation === "divider" ? "\n\n---\n\n" : "\n\n";
+          return pages.join(divider).trim();
+        }
+
+        const headingPages = pages.map((content, index) => {
+          if (separation === "none") return content;
+          if (separation === "divider") {
+            return `${content}\n\n---`;
+          }
+          return `## Page ${index + 1}\n\n${content}`;
+        });
+
+        return headingPages.join("\n\n").trim();
+      };
+
+      const convertPdf = async () => {
+        const file = pdfInput.files?.[0];
+        if (!file) {
+          alert("Please select a PDF first.");
+          return;
+        }
+
+        lastFilename = file.name.replace(/\.pdf$/i, "") || "document";
+        setStatus("Reading PDF…");
+        setButtonsState(false);
+        output.value = "";
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pageContents = [];
+
+        for (let i = 1; i <= pdf.numPages; i += 1) {
+          setStatus(`Processing page ${i} of ${pdf.numPages}…`);
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = extractTextFromPage(textContent.items);
+          pageContents.push(pageText.trim());
+        }
+
+        lastResult = pageContents;
+        const format = document.querySelector('input[name="output-format"]:checked').value;
+        const separation = splitSelect.value;
+        const finalOutput = buildOutput(lastResult, format, separation);
+        output.value = finalOutput;
+        setButtonsState(Boolean(finalOutput));
+        setStatus(`Converted ${pdf.numPages} page${pdf.numPages > 1 ? "s" : ""}.`);
+      };
+
+      const updateOutputFormat = () => {
+        if (!lastResult) return;
+        const format = document.querySelector('input[name="output-format"]:checked').value;
+        const separation = splitSelect.value;
+        const finalOutput = buildOutput(lastResult, format, separation);
+        output.value = finalOutput;
+      };
+
+      const copyOutput = async () => {
+        if (!output.value) return;
+        try {
+          await navigator.clipboard.writeText(output.value);
+          setStatus("Output copied to clipboard.");
+        } catch (error) {
+          setStatus("Unable to copy. Please copy manually.");
+        }
+      };
+
+      const downloadOutput = () => {
+        if (!output.value) return;
+        const format = document.querySelector('input[name="output-format"]:checked').value;
+        const extension = format === "markdown" ? "md" : "txt";
+        const blob = new Blob([output.value], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${lastFilename || "document"}.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setStatus("Download ready.");
+      };
+
+      convertBtn.addEventListener("click", () => {
+        convertBtn.disabled = true;
+        convertPdf()
+          .catch((error) => {
+            console.error(error);
+            alert("Unable to read this PDF. Please try another file.");
+            setStatus("Conversion failed.");
+          })
+          .finally(() => {
+            convertBtn.disabled = false;
+          });
+      });
+
+      copyBtn.addEventListener("click", copyOutput);
+      downloadBtn.addEventListener("click", downloadOutput);
+      formatOptions.addEventListener("change", updateOutputFormat);
+      splitSelect.addEventListener("change", updateOutputFormat);
+    </script>
+  </body>
+</html>
