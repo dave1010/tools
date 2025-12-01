@@ -53,6 +53,7 @@ Tools live in the [`./tools`](./tools) directory.
 
 ### Learning & Education
 
+- [Decay Lab](https://tools.dave.engineer/tools/decay-lab) — Visualize exponential decay and half-life
 - [Times Tables Trainer](https://tools.dave.engineer/tools/times-tables-trainer) — Practice multiplication with spaced repetition
 
 ### Mapping & Visualization
