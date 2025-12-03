@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live HTML Previewer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <p class="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-700">
+          Live preview
+        </p>
+        <h1 class="text-3xl font-semibold text-gray-900">Live HTML Previewer</h1>
+        <p class="text-gray-600">
+          Paste or type HTML, watch it render instantly, and copy the rich or plain output.
+        </p>
+      </header>
+
+      <section class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:grid-cols-2 md:p-6">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold text-gray-900">HTML source</h2>
+            <div class="flex gap-2">
+              <button id="copyRich" class="btn btn-primary">Copy Rich Text</button>
+              <button id="copyPlain" class="btn btn-secondary">Copy Plain Text</button>
+            </div>
+          </div>
+          <textarea
+            id="htmlInput"
+            class="w-full min-h-[280px] rounded-xl border border-gray-200 bg-gray-50 p-3 font-mono text-sm text-gray-800 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            aria-label="HTML source"
+            spellcheck="false"
+          ></textarea>
+          <p id="status" class="text-sm text-gray-500">Start typing to update the preview.</p>
+        </div>
+
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">Rendered preview</h2>
+            <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">Live</span>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-2">
+            <iframe
+              id="previewFrame"
+              title="Rendered preview"
+              class="h-[280px] w-full rounded-lg border border-gray-200 bg-white"
+              sandbox="allow-same-origin"
+            ></iframe>
+          </div>
+          <p class="text-sm text-gray-600">Scripts are blocked in the preview for safety.</p>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <h3 class="text-lg font-semibold text-gray-900">Related tools</h3>
+        <div class="mt-3 flex flex-wrap gap-3">
+          <a class="btn" href="/tools/rich-text-to-markdown/">Rich Text to Markdown</a>
+          <a class="btn" href="/tools/markdown-to-html/">Markdown to HTML</a>
+          <a class="btn" href="/tools/scratch-pad/">Scratch Pad</a>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/html-live-preview" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const htmlInput = document.getElementById('htmlInput');
+      const previewFrame = document.getElementById('previewFrame');
+      const status = document.getElementById('status');
+      const copyRichButton = document.getElementById('copyRich');
+      const copyPlainButton = document.getElementById('copyPlain');
+
+      const starter = `
+<h2 class="text-2xl font-semibold">Hello, world!</h2>
+<p class="text-gray-700">Drop any HTML snippet here to see it rendered live.</p>
+<ul>
+  <li>Inline styles work.</li>
+  <li><strong>Typography</strong> is preserved.</li>
+  <li>Scripts are blocked for safety.</li>
+</ul>
+`;
+
+      const updatePreview = () => {
+        const html = htmlInput.value;
+        const doc = `<!DOCTYPE html><html><head><style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;padding:16px;color:#111;line-height:1.6;}img,video{max-width:100%;height:auto;}code{background:#f1f5f9;border-radius:6px;padding:2px 6px;}</style></head><body>${html}</body></html>`;
+        previewFrame.srcdoc = doc;
+        status.textContent = `Preview updated ${new Date().toLocaleTimeString()}`;
+      };
+
+      const getRenderedDocument = () => previewFrame.contentDocument;
+
+      const copyRichText = async () => {
+        const doc = getRenderedDocument();
+        if (!doc) return;
+        const html = doc.body.innerHTML.trim();
+        const text = doc.body.innerText;
+        if (!html && !text) {
+          status.textContent = 'Nothing to copy yet.';
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([text], { type: 'text/plain' })
+              })
+            ]);
+          } else if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(html || text);
+          }
+          status.textContent = 'Copied rendered HTML to clipboard.';
+        } catch (error) {
+          console.error(error);
+          status.textContent = 'Unable to copy rich text. Check clipboard permissions.';
+        }
+      };
+
+      const copyPlainText = async () => {
+        const doc = getRenderedDocument();
+        if (!doc) return;
+        const text = doc.body.innerText.trim();
+        if (!text) {
+          status.textContent = 'No text to copy yet.';
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(text);
+          status.textContent = 'Copied rendered plain text to clipboard.';
+        } catch (error) {
+          console.error(error);
+          status.textContent = 'Unable to copy plain text. Check clipboard permissions.';
+        }
+      };
+
+      htmlInput.addEventListener('input', updatePreview);
+      copyRichButton.addEventListener('click', copyRichText);
+      copyPlainButton.addEventListener('click', copyPlainText);
+
+      htmlInput.value = starter.trim();
+      updatePreview();
+    </script>
+  </body>
+</html>
