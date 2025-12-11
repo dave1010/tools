@@ -290,7 +290,33 @@
         }
       };
 
-      const convertClipboardData = (event) => {
+      const copyMarkdownToClipboard = async (value, { silent = false } = {}) => {
+        if (!value) {
+          return false;
+        }
+
+        try {
+          await navigator.clipboard.writeText(value);
+          if (!silent) {
+            updateStatus('Markdown copied to clipboard.', 'success');
+          }
+          return true;
+        } catch (error) {
+          console.warn('Clipboard copy failed', error);
+          markdownOutput.focus();
+          markdownOutput.select();
+          if (!silent) {
+            updateStatus('Press ⌘/Ctrl + C to copy.', 'info');
+          }
+          return false;
+        }
+      };
+
+      const convertClipboardData = async (event) => {
+        if (event && typeof event.preventDefault === 'function') {
+          event.preventDefault();
+        }
+
         const clipboardData = event.clipboardData || window.clipboardData;
 
         if (!clipboardData) {
@@ -332,22 +358,19 @@
 
         markdownOutput.value = markdownText;
         showResultView();
-        updateStatus('Markdown ready.', 'success');
+
+        const copied = await copyMarkdownToClipboard(markdownText, { silent: true });
+        updateStatus(
+          copied ? 'Markdown ready and copied to clipboard.' : 'Markdown ready. Use Copy Markdown to copy.',
+          copied ? 'success' : 'info'
+        );
       };
 
-      pasteArea.addEventListener('paste', convertClipboardData);
+      document.addEventListener('paste', convertClipboardData);
 
       copyButton.addEventListener('click', async () => {
         const value = markdownOutput.value;
-        try {
-          await navigator.clipboard.writeText(value);
-          updateStatus('Markdown copied to clipboard.', 'success');
-        } catch (error) {
-          console.warn('Clipboard copy failed', error);
-          markdownOutput.focus();
-          markdownOutput.select();
-          updateStatus('Press ⌘/Ctrl + C to copy.', 'info');
-        }
+        await copyMarkdownToClipboard(value);
       });
 
       backButton.addEventListener('click', () => {

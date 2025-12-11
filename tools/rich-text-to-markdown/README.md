@@ -6,9 +6,9 @@ category: Productivity & Writing
 
 ## Usage
 
-1. Paste your formatted content into the editor.
-2. The Markdown conversion appears instantly.
-3. Copy the Markdown or open it directly in the Scratch Pad for further editing.
+1. Paste your formatted content anywhere on the page.
+2. The Markdown conversion appears instantly and is copied to your clipboard.
+3. Open it in the Scratch Pad for further editing or re-copy if needed.
 
 ## Tips
 
