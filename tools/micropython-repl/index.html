@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MicroPython Web REPL</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl space-y-6 p-4 font-sans md:p-6">
+      <header class="space-y-3 text-center">
+        <p class="text-sm font-semibold uppercase tracking-wide text-brand-700">Browser sandbox</p>
+        <h1 class="text-3xl font-semibold text-gray-900">MicroPython Web REPL</h1>
+        <p class="text-sm text-gray-600">
+          Execute MicroPython snippets in your browser. Output streams are captured so you can keep a running session with
+          state that persists between runs.
+        </p>
+        <p class="text-xs text-gray-500">
+          Based on the original <a class="font-medium text-brand-700 hover:text-brand-600" href="https://tools.simonwillison.net/micropython" target="_blank" rel="noreferrer">MicroPython WASM demo by Simon Willison</a>.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-2xl bg-white p-6 shadow">
+        <div class="flex flex-wrap items-center gap-3 justify-between">
+          <div class="space-y-1">
+            <p id="status" class="text-sm font-medium text-gray-800">Loading MicroPython runtime…</p>
+            <p class="text-xs text-gray-500">State is preserved between runs. Refresh the page to reset the interpreter.</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-500">
+            <span class="inline-block h-2 w-2 rounded-full bg-brand-500 animate-pulse" aria-hidden="true"></span>
+            <span aria-live="polite" id="runtimeState">Starting…</span>
+          </div>
+        </div>
+
+        <label class="block space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-sm font-medium text-gray-800">Python input</span>
+            <span class="text-xs text-gray-500">Focus stays here for mobile keyboards.</span>
+          </div>
+          <textarea
+            id="codeInput"
+            class="min-h-[8rem] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 font-mono text-sm text-gray-900 shadow-inner focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            spellcheck="false">print('hello from MicroPython!')</textarea>
+        </label>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button id="runButton" class="btn btn-primary" disabled>Initializing…</button>
+          <button id="clearButton" class="btn btn-secondary" type="button">Clear output</button>
+          <span class="text-xs text-gray-500">Shift+Enter adds new lines; Enter on the button runs the snippet.</span>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-800">Session output</span>
+            <span class="text-xs text-gray-500">stdout and stderr</span>
+          </div>
+          <div class="rounded-xl bg-gray-900 p-4 text-gray-100 shadow-inner">
+            <pre id="console" class="max-h-[50vh] overflow-auto text-sm leading-relaxed" aria-live="polite"></pre>
+          </div>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/micropython-repl" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script type="module">
+      import * as mpjs from 'https://cdn.jsdelivr.net/npm/@micropython/micropython-webassembly-pyscript@1.26.0/micropython.mjs';
+
+      const runButton = document.getElementById('runButton');
+      const clearButton = document.getElementById('clearButton');
+      const consoleEl = document.getElementById('console');
+      const statusEl = document.getElementById('status');
+      const runtimeState = document.getElementById('runtimeState');
+      const codeInput = document.getElementById('codeInput');
+
+      const keepInputFocused = () => requestAnimationFrame(() => {
+        codeInput.focus({ preventScroll: true });
+        const end = codeInput.value.length;
+        codeInput.setSelectionRange(end, end);
+      });
+
+      [runButton, clearButton].forEach((btn) => {
+        btn.addEventListener('pointerdown', (event) => event.preventDefault());
+      });
+
+      const appendLine = (line = '') => {
+        consoleEl.textContent += `${line}\n`;
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      };
+
+      const appendPrompt = (code) => {
+        const lines = code.split(/\r?\n/);
+        lines.forEach((line, index) => {
+          const prefix = index === 0 ? '>>> ' : '... ';
+          appendLine(prefix + line);
+        });
+      };
+
+      let mp;
+      let activeCapture = null;
+
+      const forwardOutput = (kind, text) => {
+        if (!text) return;
+        if (activeCapture) {
+          activeCapture[kind] += text;
+        } else {
+          appendLine(text.trimEnd());
+        }
+      };
+
+      const runWithCapture = async (source) => {
+        const src = source.endsWith('\n') ? source : `${source}\n`;
+        activeCapture = { stdout: '', stderr: '' };
+        let error;
+        try {
+          await mp.runPythonAsync(src);
+        } catch (err) {
+          error = err;
+        }
+        const result = activeCapture;
+        activeCapture = null;
+        if (error && typeof error === 'object') {
+          error.stdout = result.stdout;
+          error.stderr = result.stderr;
+        }
+        if (error) throw error;
+        return result;
+      };
+
+      const setReady = (message) => {
+        statusEl.textContent = message;
+        runtimeState.textContent = 'Ready';
+        runButton.disabled = false;
+        runButton.textContent = 'Run snippet';
+        keepInputFocused();
+      };
+
+      const setRunning = (message) => {
+        statusEl.textContent = message;
+        runtimeState.textContent = 'Running…';
+        runButton.disabled = true;
+      };
+
+      const setError = (message) => {
+        statusEl.textContent = message;
+        runtimeState.textContent = 'Error';
+        runButton.disabled = true;
+      };
+
+      try {
+        mp = await mpjs.loadMicroPython({
+          linebuffer: true,
+          stdout: (text) => forwardOutput('stdout', text),
+          stderr: (text) => forwardOutput('stderr', text),
+        });
+        setReady('MicroPython runtime is ready.');
+      } catch (error) {
+        setError('Failed to initialize MicroPython.');
+        appendLine(String(error?.message || error));
+        throw error;
+      }
+
+      runButton.addEventListener('click', async () => {
+        setRunning('Executing snippet…');
+        const snippet = codeInput.value;
+        appendPrompt(snippet);
+        try {
+          const { stdout, stderr } = await runWithCapture(snippet);
+          if (stdout.trim()) appendLine(stdout.trimEnd());
+          if (stderr.trim()) appendLine(stderr.trimEnd());
+        } catch (err) {
+          if (err?.stdout) appendLine(err.stdout.trimEnd());
+          if (err?.stderr) appendLine(err.stderr.trimEnd());
+          appendLine(String(err?.message || err));
+        } finally {
+          setReady('Ready to run more code.');
+        }
+      });
+
+      clearButton.addEventListener('click', () => {
+        consoleEl.textContent = '';
+        keepInputFocused();
+      });
+
+      keepInputFocused();
+    </script>
+  </body>
+</html>
