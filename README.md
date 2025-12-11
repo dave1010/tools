@@ -49,6 +49,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [DNS Lookup](https://tools.dave.engineer/tools/dns-lookup) — Query DNS records using Cloudflare's resolver
 - [DuckDB Playground](https://tools.dave.engineer/tools/duckdb-playground) — Run DuckDB SQL in browser
 - [GitHub Device Login](https://tools.dave.engineer/tools/github-device-login) — Start the GitHub device flow and store the resulting access token locally.
+- [GitHub File to Scratch Pad](https://tools.dave.engineer/tools/github-file-to-scratchpad) — Import GitHub files into Scratch Pad
 - [JSON Formatter](https://tools.dave.engineer/tools/json-formatter) — Format and validate JSON data
 - [Regex Playground](https://tools.dave.engineer/tools/regex-playground) — Experiment with regular expressions and sample strings
 
