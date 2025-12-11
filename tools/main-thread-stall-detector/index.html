@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Main Thread Stall Detector</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Main Thread Stall Detector</h1>
+        <p class="text-gray-600">Catch long tasks that freeze the UI and see when they happen.</p>
+      </header>
+
+      <section class="card space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <button id="start-button" class="btn btn-primary">Start monitoring</button>
+          <button id="stop-button" class="btn btn-secondary" disabled>Stop monitoring</button>
+          <button id="clear-button" class="btn btn-secondary">Clear log</button>
+          <button id="simulate-button" class="btn btn-secondary">Simulate heavy work</button>
+          <span id="status" class="text-sm text-gray-600">Monitoring is stopped.</span>
+        </div>
+
+        <div id="error-banner" class="hidden rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert" aria-live="assertive"></div>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div class="rounded-xl border border-gray-200 bg-brand-50/60 p-3">
+            <p class="text-sm text-gray-600">Long tasks</p>
+            <p id="count" class="text-3xl font-semibold text-gray-900">0</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-brand-50/60 p-3">
+            <p class="text-sm text-gray-600">Longest stall</p>
+            <p id="longest" class="text-3xl font-semibold text-gray-900">0.0 ms</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-brand-50/60 p-3">
+            <p class="text-sm text-gray-600">Total blocked</p>
+            <p id="blocked" class="text-3xl font-semibold text-gray-900">0.0 ms</p>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-lg font-semibold text-gray-900">Captured long tasks</h2>
+            <p id="capture-window" class="text-sm text-gray-500"></p>
+          </div>
+          <div class="overflow-hidden rounded-xl border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Start (ms)</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Duration (ms)</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Attribution</th>
+                </tr>
+              </thead>
+              <tbody id="log-rows" class="divide-y divide-gray-100 bg-white">
+                <tr>
+                  <td colspan="3" class="px-3 py-4 text-center text-gray-500">Start monitoring to capture long tasks.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p class="text-sm text-gray-600">
+          Tip: Open DevTools and reproduce the slowdown while monitoring is on. Long tasks over 50 ms will appear here with when
+          they started relative to the session start and how long they blocked the thread.
+        </p>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/main-thread-stall-detector" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const startButton = document.getElementById("start-button");
+      const stopButton = document.getElementById("stop-button");
+      const clearButton = document.getElementById("clear-button");
+      const simulateButton = document.getElementById("simulate-button");
+      const statusText = document.getElementById("status");
+      const countEl = document.getElementById("count");
+      const longestEl = document.getElementById("longest");
+      const blockedEl = document.getElementById("blocked");
+      const logRows = document.getElementById("log-rows");
+      const captureWindow = document.getElementById("capture-window");
+      const errorBanner = document.getElementById("error-banner");
+
+      let observer = null;
+      let startTime = performance.now();
+      let entries = [];
+      let monitoring = false;
+
+      const formatMs = (value) => `${value.toFixed(1)} ms`;
+
+      const toggleButtons = (running) => {
+        monitoring = running;
+        startButton.disabled = running;
+        stopButton.disabled = !running;
+        statusText.textContent = running
+          ? "Monitoring long tasks…"
+          : "Monitoring is stopped.";
+      };
+
+      const showError = (message) => {
+        errorBanner.textContent = message;
+        errorBanner.classList.remove("hidden");
+      };
+
+      const hideError = () => {
+        errorBanner.textContent = "";
+        errorBanner.classList.add("hidden");
+      };
+
+      const renderMetrics = () => {
+        const total = entries.length;
+        const longest = entries.reduce((max, entry) => Math.max(max, entry.duration), 0);
+        const blocked = entries.reduce((sum, entry) => sum + entry.duration, 0);
+
+        countEl.textContent = total;
+        longestEl.textContent = formatMs(longest);
+        blockedEl.textContent = formatMs(blocked);
+      };
+
+      const renderRows = () => {
+        logRows.innerHTML = "";
+
+        if (entries.length === 0) {
+          const row = document.createElement("tr");
+          row.innerHTML = '<td colspan="3" class="px-3 py-4 text-center text-gray-500">Start monitoring to capture long tasks.</td>';
+          logRows.appendChild(row);
+          return;
+        }
+
+        entries.forEach((entry) => {
+          const row = document.createElement("tr");
+          const attribution = entry.attribution.length
+            ? entry.attribution.map((item) => item.name || "unknown").join(", ")
+            : "—";
+          row.innerHTML = `
+            <td class="px-3 py-2 font-mono text-gray-800">${entry.start.toFixed(1)}</td>
+            <td class="px-3 py-2 font-mono text-gray-800">${entry.duration.toFixed(1)}</td>
+            <td class="px-3 py-2 text-gray-700">${attribution}</td>
+          `;
+          logRows.appendChild(row);
+        });
+      };
+
+      const resetLog = () => {
+        entries = [];
+        startTime = performance.now();
+        captureWindow.textContent = "";
+        renderMetrics();
+        renderRows();
+      };
+
+      const startMonitoring = () => {
+        if (monitoring) return;
+        resetLog();
+
+        try {
+          observer = new PerformanceObserver((list) => {
+            const newEntries = list.getEntries();
+            newEntries.forEach((entry) => {
+              entries.push({
+                start: entry.startTime - startTime,
+                duration: entry.duration,
+                attribution: entry.attribution || [],
+              });
+            });
+            renderMetrics();
+            renderRows();
+            captureWindow.textContent = `Monitoring started at ${new Date().toLocaleTimeString()}`;
+          });
+          observer.observe({ type: "longtask", buffered: true });
+          toggleButtons(true);
+          hideError();
+        } catch (error) {
+          showError(error instanceof Error ? error.message : "Unable to start PerformanceObserver.");
+        }
+      };
+
+      const stopMonitoring = () => {
+        if (!monitoring) return;
+        if (observer) {
+          observer.disconnect();
+          observer = null;
+        }
+        toggleButtons(false);
+        captureWindow.textContent = entries.length
+          ? `Captured ${entries.length} long task${entries.length === 1 ? "" : "s"}.`
+          : "No long tasks captured.";
+      };
+
+      const simulateHeavyWork = () => {
+        const duration = 200 + Math.random() * 400;
+        const start = performance.now();
+        while (performance.now() - start < duration) {
+          // Block the main thread with some work.
+          Math.sqrt(Math.random());
+        }
+      };
+
+      startButton.addEventListener("click", startMonitoring);
+      stopButton.addEventListener("click", stopMonitoring);
+      clearButton.addEventListener("click", resetLog);
+      simulateButton.addEventListener("click", simulateHeavyWork);
+
+      window.addEventListener("error", (event) => {
+        showError(event.message || "Unknown error");
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        showError(event.reason instanceof Error ? event.reason.message : String(event.reason));
+      });
+    </script>
+  </body>
+</html>
