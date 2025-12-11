@@ -45,6 +45,7 @@ Tools live in the [`./tools`](./tools) directory.
 ### Developer Tools
 
 - [Copilot Session Viewer](https://tools.dave.engineer/tools/copilot-session-viewer) — Render Copilot JSON exports like chat transcripts.
+- [Debug Log Inspector](https://tools.dave.engineer/tools/debug-log-inspector) — Spot and summarize runtime errors
 - [DNS Lookup](https://tools.dave.engineer/tools/dns-lookup) — Query DNS records using Cloudflare's resolver
 - [DuckDB Playground](https://tools.dave.engineer/tools/duckdb-playground) — Run DuckDB SQL in browser
 - [GitHub Device Login](https://tools.dave.engineer/tools/github-device-login) — Start the GitHub device flow and store the resulting access token locally.
