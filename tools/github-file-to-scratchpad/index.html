@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub File to Scratch Pad</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-brand-50/60 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <p class="text-sm font-semibold tracking-wide text-brand-700">Scratch Pad helper</p>
+        <h1 class="text-3xl font-semibold text-gray-900">GitHub File to Scratch Pad</h1>
+        <p class="text-gray-600">Paste a GitHub file link to load its contents directly into the Scratch Pad.</p>
+      </header>
+
+      <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6 space-y-4">
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-800" for="githubUrl">GitHub file URL</label>
+          <p class="text-sm text-gray-600">Links like <span class="font-mono">github.com/owner/repo/blob/branch/path/to/file</span> are automatically converted to raw content.</p>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input
+              id="githubUrl"
+              type="url"
+              placeholder="https://github.com/owner/repo/blob/main/path/to/file.txt"
+              class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 shadow-inner focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              aria-label="GitHub file URL"
+              required
+            />
+            <button
+              id="fetchButton"
+              type="button"
+              class="btn btn-primary shrink-0"
+            >
+              Load file
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-brand-50/80 p-4 text-sm text-gray-800">
+          <p class="font-semibold text-brand-800">What happens?</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-gray-700">
+            <li>We convert the link to the raw GitHub user-content URL if needed.</li>
+            <li>The file is fetched and saved to the Scratch Pad's local storage key.</li>
+            <li>Open the <a class="font-medium text-brand-700 underline" href="/tools/scratch-pad/" target="_blank" rel="noopener noreferrer">Scratch Pad</a> to use the imported text.</li>
+          </ul>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-medium text-gray-800">Status</p>
+            <a class="text-sm font-medium text-brand-700 hover:text-brand-600" href="/tools/scratch-pad/" target="_blank" rel="noopener noreferrer">Open Scratch Pad ↗</a>
+          </div>
+          <p id="status" class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">Waiting for a GitHub URL…</p>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-sm font-medium text-gray-800">Preview (first 2000 characters)</p>
+            <span id="previewMeta" class="text-xs text-gray-500"></span>
+          </div>
+          <pre id="preview" class="h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800"></pre>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/github-file-to-scratchpad" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const STORAGE_KEY = 'scratch-pad-content';
+      const githubUrlInput = document.getElementById('githubUrl');
+      const fetchButton = document.getElementById('fetchButton');
+      const statusEl = document.getElementById('status');
+      const previewEl = document.getElementById('preview');
+      const previewMetaEl = document.getElementById('previewMeta');
+
+      let storageAvailable = true;
+      let storage = null;
+
+      function updateStatus(message, { isError = false } = {}) {
+        statusEl.textContent = message;
+        statusEl.classList.toggle('text-red-700', isError);
+        statusEl.classList.toggle('text-gray-700', !isError);
+      }
+
+      function getLocalStorage() {
+        try {
+          const testKey = '__github_file_import_test__';
+          window.localStorage.setItem(testKey, '1');
+          window.localStorage.removeItem(testKey);
+          return window.localStorage;
+        } catch (error) {
+          storageAvailable = false;
+          updateStatus('localStorage is unavailable in this browser.', { isError: true });
+          return null;
+        }
+      }
+
+      function convertToRawGithubUrl(inputUrl) {
+        let parsed;
+        try {
+          parsed = new URL(inputUrl);
+        } catch (error) {
+          throw new Error('Enter a valid GitHub URL.');
+        }
+
+        const hostname = parsed.hostname.toLowerCase();
+
+        if (hostname === 'raw.githubusercontent.com') {
+          return parsed.toString();
+        }
+
+        if (hostname === 'github.com') {
+          const pathParts = parsed.pathname.split('/').filter(Boolean);
+          const blobIndex = pathParts.indexOf('blob');
+
+          if (blobIndex === -1 || blobIndex + 2 >= pathParts.length) {
+            throw new Error('GitHub URL must include "/blob/branch/path/to/file".');
+          }
+
+          const owner = pathParts[0];
+          const repo = pathParts[1];
+          const branch = pathParts[blobIndex + 1];
+          const filePath = pathParts.slice(blobIndex + 2).join('/');
+
+          if (!owner || !repo || !branch || !filePath) {
+            throw new Error('Missing repository, branch, or file path in URL.');
+          }
+
+          const rawUrl = new URL(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`);
+          return rawUrl.toString();
+        }
+
+        throw new Error('Only GitHub file URLs are supported.');
+      }
+
+      async function handleFetch() {
+        const urlValue = githubUrlInput.value.trim();
+        previewEl.textContent = '';
+        previewMetaEl.textContent = '';
+
+        if (!urlValue) {
+          updateStatus('Please paste a GitHub file URL to continue.', { isError: true });
+          return;
+        }
+
+        let rawUrl;
+        try {
+          rawUrl = convertToRawGithubUrl(urlValue);
+        } catch (error) {
+          updateStatus(error.message, { isError: true });
+          return;
+        }
+
+        if (!storage) {
+          storage = getLocalStorage();
+        }
+
+        if (!storageAvailable || !storage) {
+          return;
+        }
+
+        fetchButton.disabled = true;
+        updateStatus('Fetching file content…');
+
+        try {
+          const response = await fetch(rawUrl, { headers: { Accept: 'text/plain' } });
+          if (!response.ok) {
+            throw new Error(`GitHub returned ${response.status} ${response.statusText}`);
+          }
+
+          const text = await response.text();
+          storage.setItem(STORAGE_KEY, text);
+
+          const truncated = text.slice(0, 2000);
+          previewEl.textContent = truncated;
+          const metaDetails = [
+            `Stored ${text.length.toLocaleString()} characters`,
+            truncated.length < text.length ? 'Preview truncated.' : 'Full content shown.',
+          ];
+          previewMetaEl.textContent = metaDetails.join(' · ');
+
+          updateStatus('Saved to Scratch Pad. Open the Scratch Pad to edit or continue.');
+        } catch (error) {
+          const message = error?.message || 'Unable to fetch the file.';
+          updateStatus(message, { isError: true });
+        } finally {
+          fetchButton.disabled = false;
+        }
+      }
+
+      storage = getLocalStorage();
+
+      fetchButton.addEventListener('click', handleFetch);
+      githubUrlInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          handleFetch();
+        }
+      });
+    </script>
+  </body>
+</html>
