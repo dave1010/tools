@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug Log Inspector</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-gradient-to-b from-brand-50/70 to-white">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 text-center">
+        <h1 class="text-3xl font-semibold text-gray-900">Debug Log Inspector</h1>
+        <p class="text-gray-600">Quickly triage logs, highlight errors, and extract stack traces.</p>
+      </header>
+
+      <section class="card space-y-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-soft md:p-6">
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <label for="log-input" class="font-medium text-gray-800">Log input</label>
+            <div class="flex gap-2 text-sm text-gray-500">
+              <span class="flex items-center gap-1"><span class="h-3 w-3 rounded-full bg-red-500"></span>Error</span>
+              <span class="flex items-center gap-1"><span class="h-3 w-3 rounded-full bg-amber-400"></span>Warning</span>
+              <span class="flex items-center gap-1"><span class="h-3 w-3 rounded-full bg-blue-400"></span>Info</span>
+            </div>
+          </div>
+          <textarea
+            id="log-input"
+            class="h-48 w-full rounded-xl border border-gray-300 bg-white p-3 font-mono text-sm shadow-soft focus:border-brand-500 focus:ring-2 focus:ring-brand-500"
+            placeholder="Paste console output, stack traces, or server logs here..."
+            spellcheck="false"
+            wrap="off"
+          ></textarea>
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              id="analyze-btn"
+              class="btn btn-primary rounded-xl bg-brand-600 px-4 py-2 text-white shadow-soft hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              type="button"
+            >
+              Analyze log
+            </button>
+            <button
+              id="clear-btn"
+              class="btn btn-secondary rounded-xl border border-gray-300 px-4 py-2 text-gray-700 shadow-soft hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              type="button"
+            >
+              Clear
+            </button>
+            <p class="text-sm text-gray-500">Analysis runs automatically while you type.</p>
+          </div>
+        </div>
+
+        <div class="grid gap-3 md:grid-cols-3">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 shadow-soft">
+            <p class="text-sm font-medium text-gray-600">Errors</p>
+            <p id="error-count" class="text-2xl font-semibold text-red-600">0</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 shadow-soft">
+            <p class="text-sm font-medium text-gray-600">Warnings</p>
+            <p id="warning-count" class="text-2xl font-semibold text-amber-500">0</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 shadow-soft">
+            <p class="text-sm font-medium text-gray-600">Info / Other</p>
+            <p id="info-count" class="text-2xl font-semibold text-blue-600">0</p>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h2 class="text-lg font-semibold text-gray-900">Filters</h2>
+          <div class="flex flex-wrap gap-3 text-sm text-gray-700">
+            <label class="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5 shadow-soft">
+              <input type="checkbox" id="filter-error" class="h-4 w-4 text-red-600" checked />
+              <span class="font-medium text-red-600">Show errors</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5 shadow-soft">
+              <input type="checkbox" id="filter-warning" class="h-4 w-4 text-amber-500" checked />
+              <span class="font-medium text-amber-600">Show warnings</span>
+            </label>
+            <label class="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5 shadow-soft">
+              <input type="checkbox" id="filter-info" class="h-4 w-4 text-blue-500" checked />
+              <span class="font-medium text-blue-600">Show info</span>
+            </label>
+            <button
+              id="copy-btn"
+              class="btn btn-secondary rounded-full border border-gray-300 px-4 py-1.5 text-gray-700 shadow-soft hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              type="button"
+            >
+              Copy filtered view
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h2 class="text-lg font-semibold text-gray-900">Unique issues</h2>
+          <p class="text-sm text-gray-600">Repeated errors are grouped so you can spot the main culprits.</p>
+          <ul id="unique-list" class="space-y-2 text-sm"></ul>
+        </div>
+
+        <div class="space-y-3">
+          <h2 class="text-lg font-semibold text-gray-900">Stack traces</h2>
+          <p class="text-sm text-gray-600">File paths and line numbers pulled from the log.</p>
+          <div id="stack-list" class="space-y-2 text-sm"></div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">Filtered view</h2>
+            <span id="line-count" class="text-sm text-gray-500"></span>
+          </div>
+          <pre
+            id="filtered-output"
+            class="max-h-80 overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-3 font-mono text-xs text-gray-900 shadow-soft"
+            aria-live="polite"
+          ></pre>
+        </div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/debug-log-inspector"
+            class="font-medium text-brand-700 hover:text-brand-600"
+          >
+            About
+          </a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const logInput = document.getElementById("log-input");
+      const analyzeBtn = document.getElementById("analyze-btn");
+      const clearBtn = document.getElementById("clear-btn");
+      const copyBtn = document.getElementById("copy-btn");
+      const output = document.getElementById("filtered-output");
+      const errorCount = document.getElementById("error-count");
+      const warningCount = document.getElementById("warning-count");
+      const infoCount = document.getElementById("info-count");
+      const uniqueList = document.getElementById("unique-list");
+      const stackList = document.getElementById("stack-list");
+      const lineCount = document.getElementById("line-count");
+      const filterError = document.getElementById("filter-error");
+      const filterWarning = document.getElementById("filter-warning");
+      const filterInfo = document.getElementById("filter-info");
+
+      const severityPatterns = {
+        error: /(\berror\b|\bexception\b|\bfatal\b|\btraceback\b|\bfailed\b)/i,
+        warning: /(\bwarn(ing)?\b|\bdeprecated\b)/i,
+        info: /(info|debug|notice)/i
+      };
+
+      const stackPatterns = [
+        /at\s+[^\s].*:\d+:\d+/i,
+        /File\s+".*",\s+line\s+\d+/i,
+        /\b\w+\.\w+\s+\(.*:\d+\)/
+      ];
+
+      const classifySeverity = (line) => {
+        if (severityPatterns.error.test(line)) return "error";
+        if (severityPatterns.warning.test(line)) return "warning";
+        if (severityPatterns.info.test(line)) return "info";
+        return "info";
+      };
+
+      const isStackLine = (line) => stackPatterns.some((pattern) => pattern.test(line));
+
+      const parseStackInfo = (line) => {
+        const fileMatch = line.match(/(\S+\.\w+):(\d+)(?::(\d+))?/);
+        if (fileMatch) {
+          return {
+            file: fileMatch[1],
+            line: fileMatch[2],
+            column: fileMatch[3] || null
+          };
+        }
+        const pythonMatch = line.match(/File\s+"([^"]+)",\s+line\s+(\d+)/);
+        if (pythonMatch) {
+          return { file: pythonMatch[1], line: pythonMatch[2], column: null };
+        }
+        return null;
+      };
+
+      const analyze = () => {
+        const raw = logInput.value.replace(/\r\n/g, "\n");
+        const lines = raw.split("\n").map((text) => text.trimEnd());
+
+        const entries = lines
+          .filter((text) => text.length > 0)
+          .map((text) => {
+            const severity = classifySeverity(text);
+            return {
+              text,
+              severity,
+              stackInfo: isStackLine(text) ? parseStackInfo(text) : null
+            };
+          });
+
+        const counts = {
+          error: entries.filter((entry) => entry.severity === "error").length,
+          warning: entries.filter((entry) => entry.severity === "warning").length,
+          info: entries.filter((entry) => entry.severity === "info").length
+        };
+
+        errorCount.textContent = counts.error;
+        warningCount.textContent = counts.warning;
+        infoCount.textContent = counts.info;
+
+        const uniqueMap = new Map();
+        entries
+          .filter((entry) => entry.severity !== "info")
+          .forEach((entry) => {
+            const key = entry.text.replace(/\d+/g, "#").toLowerCase();
+            const existing = uniqueMap.get(key) || { count: 0, sample: entry.text, severity: entry.severity };
+            uniqueMap.set(key, { ...existing, count: existing.count + 1 });
+          });
+
+        uniqueList.innerHTML = "";
+        if (uniqueMap.size === 0) {
+          uniqueList.innerHTML = '<li class="text-gray-500">No repeated issues detected.</li>';
+        } else {
+          uniqueMap.forEach((value) => {
+            const item = document.createElement("li");
+            const badgeColor = value.severity === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+            item.className = "rounded-xl border border-gray-200 bg-gray-50 p-3 shadow-soft";
+            item.innerHTML = `
+              <div class="flex items-start justify-between gap-3">
+                <span class="text-sm font-medium text-gray-800">${value.sample}</span>
+                <span class="rounded-full px-3 py-1 text-xs font-semibold ${badgeColor}">×${value.count}</span>
+              </div>
+            `;
+            uniqueList.appendChild(item);
+          });
+        }
+
+        const stacks = entries
+          .map((entry) => ({ ...entry, stackInfo: entry.stackInfo }))
+          .filter((entry) => entry.stackInfo);
+
+        stackList.innerHTML = "";
+        if (stacks.length === 0) {
+          stackList.innerHTML = '<p class="text-gray-500">No stack frames found.</p>';
+        } else {
+          stacks.forEach((entry) => {
+            const stackRow = document.createElement("div");
+            stackRow.className = "flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 shadow-soft";
+            const location = entry.stackInfo?.file
+              ? `${entry.stackInfo.file}${entry.stackInfo.line ? ":" + entry.stackInfo.line : ""}${
+                  entry.stackInfo.column ? ":" + entry.stackInfo.column : ""
+                }`
+              : "Stack frame";
+            stackRow.innerHTML = `
+              <div class="space-y-1">
+                <p class="text-sm font-semibold text-gray-900">${location}</p>
+                <p class="font-mono text-xs text-gray-700">${entry.text}</p>
+              </div>
+              <span class="rounded-full px-3 py-1 text-xs font-semibold ${
+                entry.severity === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+              }">${entry.severity.toUpperCase()}</span>
+            `;
+            stackList.appendChild(stackRow);
+          });
+        }
+
+        const filtered = entries.filter((entry) => {
+          if (entry.severity === "error" && !filterError.checked) return false;
+          if (entry.severity === "warning" && !filterWarning.checked) return false;
+          if (entry.severity === "info" && !filterInfo.checked) return false;
+          return true;
+        });
+
+        const formattedLines = filtered.map((entry) => {
+          const colorClass =
+            entry.severity === "error"
+              ? "text-red-600"
+              : entry.severity === "warning"
+              ? "text-amber-600"
+              : "text-blue-700";
+          return `<span class="${colorClass}">${entry.text.replace(/</g, "&lt;")}</span>`;
+        });
+
+        output.innerHTML = formattedLines.join("\n") || '<span class="text-gray-500">Nothing to show with current filters.</span>';
+        lineCount.textContent = filtered.length ? `${filtered.length} line${filtered.length === 1 ? "" : "s"}` : "";
+      };
+
+      const copyFiltered = async () => {
+        const tempElement = document.createElement("div");
+        tempElement.innerHTML = output.innerHTML;
+        const text = tempElement.textContent || "";
+        if (!text.trim()) return;
+        try {
+          await navigator.clipboard.writeText(text.trim());
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => {
+            copyBtn.textContent = "Copy filtered view";
+          }, 1500);
+        } catch (error) {
+          copyBtn.textContent = "Copy failed";
+          setTimeout(() => {
+            copyBtn.textContent = "Copy filtered view";
+          }, 1500);
+        }
+      };
+
+      let debounceTimer = null;
+      const scheduleAnalyze = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(analyze, 150);
+      };
+
+      analyzeBtn.addEventListener("click", analyze);
+      clearBtn.addEventListener("click", () => {
+        logInput.value = "";
+        output.innerHTML = "";
+        uniqueList.innerHTML = "";
+        stackList.innerHTML = "";
+        errorCount.textContent = "0";
+        warningCount.textContent = "0";
+        infoCount.textContent = "0";
+        lineCount.textContent = "";
+        logInput.focus();
+      });
+      copyBtn.addEventListener("click", copyFiltered);
+      logInput.addEventListener("input", scheduleAnalyze);
+      filterError.addEventListener("change", analyze);
+      filterWarning.addEventListener("change", analyze);
+      filterInfo.addEventListener("change", analyze);
+
+      window.addEventListener("error", (event) => {
+        const message = event.message || "Unknown script error";
+        output.innerHTML = `<span class="text-red-700 font-semibold">Page error: ${message}</span>`;
+      });
+    </script>
+  </body>
+</html>
