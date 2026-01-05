@@ -4,10 +4,10 @@
     "build": "node scripts/generate-index.mjs && tailwindcss -i src/base.css -o assets/tw.css --minify"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.14",
-    "postcss": "^8.4.47",
-    "autoprefixer": "^10.4.20",
-    "@tailwindcss/forms": "^0.5.9",
+    "tailwindcss": "^3.4.19",
+    "postcss": "^8.5.6",
+    "autoprefixer": "^10.4.23",
+    "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.15"
   }
 }
