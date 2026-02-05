@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expiring Note Link</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-brand-50 text-gray-900">
+    <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-2">
+        <p class="inline-flex items-center rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">
+          Cloudflare KV Notes
+        </p>
+        <h1 class="text-3xl font-bold">Expiring Note Link</h1>
+        <p class="text-gray-600">Save a private note and share a URL that expires automatically.</p>
+      </header>
+
+      <section id="create-panel" class="space-y-4 rounded-2xl bg-white p-5 shadow-sm">
+        <div class="space-y-2">
+          <label for="note" class="text-sm font-semibold text-gray-800">Note</label>
+          <textarea
+            id="note"
+            rows="6"
+            class="w-full rounded-xl border border-gray-200 p-3 text-base shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            placeholder="Write something you want to share..."
+          ></textarea>
+          <p class="text-sm text-gray-500">Keep it under 5,000 characters.</p>
+        </div>
+
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div class="space-y-2">
+            <label for="ttl" class="text-sm font-semibold text-gray-800">Expires in</label>
+            <select
+              id="ttl"
+              class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+            >
+              <option value="3600">1 hour</option>
+              <option value="86400" selected>24 hours</option>
+              <option value="604800">7 days</option>
+            </select>
+          </div>
+          <button id="save" class="btn btn-primary" type="button">Create expiring link</button>
+        </div>
+
+        <p id="status" class="hidden rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"></p>
+      </section>
+
+      <section id="share-panel" class="hidden space-y-3 rounded-2xl border border-brand-100 bg-white p-5 shadow-sm">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">Share link</h2>
+          <p class="text-sm text-gray-600">Copy the URL before it expires.</p>
+        </div>
+        <div class="rounded-xl border border-dashed border-brand-200 bg-brand-50/60 p-3 text-sm text-gray-700">
+          <p id="share-url" class="break-all font-medium"></p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="copy-link" class="btn btn-secondary" type="button">Copy link</button>
+          <button id="start-new" class="btn" type="button">Start a new note</button>
+        </div>
+      </section>
+
+      <section id="view-panel" class="hidden space-y-4 rounded-2xl bg-white p-5 shadow-sm">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">Shared note</h2>
+          <p id="expiry" class="text-sm text-gray-500"></p>
+        </div>
+        <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+          <p id="note-content" class="whitespace-pre-wrap text-base text-gray-900"></p>
+        </div>
+        <button id="create-another" class="btn" type="button">Create your own note</button>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/expiring-note" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const createPanel = document.getElementById("create-panel");
+      const sharePanel = document.getElementById("share-panel");
+      const viewPanel = document.getElementById("view-panel");
+      const noteInput = document.getElementById("note");
+      const ttlSelect = document.getElementById("ttl");
+      const saveButton = document.getElementById("save");
+      const status = document.getElementById("status");
+      const shareUrl = document.getElementById("share-url");
+      const copyLinkButton = document.getElementById("copy-link");
+      const startNewButton = document.getElementById("start-new");
+      const noteContent = document.getElementById("note-content");
+      const expiry = document.getElementById("expiry");
+      const createAnotherButton = document.getElementById("create-another");
+
+      const MAX_LENGTH = 5000;
+
+      const setStatus = (message, isError = false) => {
+        if (!message) {
+          status.textContent = "";
+          status.classList.add("hidden");
+          return;
+        }
+        status.textContent = message;
+        status.className = `rounded-xl border px-3 py-2 text-sm ${
+          isError
+            ? "border-red-200 bg-red-50 text-red-700"
+            : "border-gray-200 bg-gray-50 text-gray-600"
+        }`;
+      };
+
+      const showCreate = () => {
+        createPanel.classList.remove("hidden");
+        sharePanel.classList.add("hidden");
+        viewPanel.classList.add("hidden");
+        setStatus("");
+      };
+
+      const showShare = () => {
+        createPanel.classList.remove("hidden");
+        sharePanel.classList.remove("hidden");
+        viewPanel.classList.add("hidden");
+      };
+
+      const showView = () => {
+        createPanel.classList.add("hidden");
+        sharePanel.classList.add("hidden");
+        viewPanel.classList.remove("hidden");
+      };
+
+      const formatExpiry = (iso) => {
+        if (!iso) return "";
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return "";
+        return `Expires ${date.toLocaleString()}`;
+      };
+
+      const updateShareUrl = (id) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("id", id);
+        shareUrl.textContent = url.toString();
+      };
+
+      const copyShareUrl = async () => {
+        const text = shareUrl.textContent;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus("Link copied to clipboard.");
+        } catch (error) {
+          console.error("Copy failed", error);
+          setStatus("Copy failed. Select the link and copy it manually.", true);
+        }
+      };
+
+      const createNote = async () => {
+        const content = noteInput.value.trim();
+        if (!content) {
+          setStatus("Add a note before creating the link.", true);
+          noteInput.focus();
+          return;
+        }
+        if (content.length > MAX_LENGTH) {
+          setStatus("That note is too long. Keep it under 5,000 characters.", true);
+          noteInput.focus();
+          return;
+        }
+
+        saveButton.disabled = true;
+        saveButton.textContent = "Saving…";
+        setStatus("");
+
+        try {
+          const response = await fetch("/expiring-note", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content,
+              ttlSeconds: Number(ttlSelect.value),
+            }),
+          });
+
+          if (!response.ok) {
+            const message = await response.text();
+            throw new Error(message || `Failed with status ${response.status}.`);
+          }
+
+          const data = await response.json();
+          if (!data?.id) {
+            throw new Error("Unexpected response from server.");
+          }
+
+          updateShareUrl(data.id);
+          showShare();
+          setStatus(`Saved! ${formatExpiry(data.expiresAt)}`.trim());
+          history.replaceState(null, "", `?id=${data.id}`);
+        } catch (error) {
+          console.error("Save failed", error);
+          setStatus(error?.message || "Unable to save note.", true);
+        } finally {
+          saveButton.disabled = false;
+          saveButton.textContent = "Create expiring link";
+        }
+      };
+
+      const loadNote = async (id) => {
+        showView();
+        noteContent.textContent = "Loading note…";
+        expiry.textContent = "";
+
+        try {
+          const response = await fetch(`/expiring-note?id=${encodeURIComponent(id)}`);
+          if (!response.ok) {
+            const message = await response.text();
+            throw new Error(message || `Failed with status ${response.status}.`);
+          }
+
+          const data = await response.json();
+          noteContent.textContent = data.content || "";
+          expiry.textContent = formatExpiry(data.expiresAt);
+        } catch (error) {
+          console.error("Load failed", error);
+          noteContent.textContent = "This note is missing or has expired.";
+          expiry.textContent = "";
+        }
+      };
+
+      saveButton.addEventListener("click", createNote);
+      copyLinkButton.addEventListener("click", copyShareUrl);
+      startNewButton.addEventListener("click", () => {
+        history.replaceState(null, "", window.location.pathname);
+        noteInput.value = "";
+        shareUrl.textContent = "";
+        showCreate();
+      });
+      createAnotherButton.addEventListener("click", () => {
+        history.replaceState(null, "", window.location.pathname);
+        noteInput.value = "";
+        showCreate();
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      const existingId = params.get("id");
+
+      if (existingId) {
+        loadNote(existingId);
+      } else {
+        showCreate();
+      }
+    </script>
+  </body>
+</html>
