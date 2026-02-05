@@ -4,7 +4,7 @@ description: Share notes that expire automatically
 category: Productivity & Writing
 ---
 
-Create a private note and get a shareable link that expires automatically. Choose a lifetime, save the note, and share the URL with anyone who needs access before it disappears.
+Create a private note and get a shareable link that expires automatically after 15 minutes. Save the note, and share the URL with anyone who needs access before it disappears.
 
 ## Data stored in Cloudflare KV
 
