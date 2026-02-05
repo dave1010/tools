@@ -82,6 +82,7 @@ Tools live in the [`./tools`](./tools) directory.
 ### Productivity & Writing
 
 - [Bible Verse Explorer](https://tools.dave.engineer/tools/bible-browser) — Browse NET Bible passages by book and chapter.
+- [Decision Matrix Builder](https://tools.dave.engineer/tools/decision-matrix-builder) — Compare options with weighted criteria
 - [Live HTML Previewer](https://tools.dave.engineer/tools/html-live-preview) — Paste HTML and see an instant rendered preview with copy options
 - [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html) — Convert Markdown content into HTML
 - [Rich Text to Markdown Converter](https://tools.dave.engineer/tools/rich-text-to-markdown) — Paste formatted content and copy the Markdown result
