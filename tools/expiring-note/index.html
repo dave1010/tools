@@ -29,16 +29,8 @@
         </div>
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div class="space-y-2">
-            <label for="ttl" class="text-sm font-semibold text-gray-800">Expires in</label>
-            <select
-              id="ttl"
-              class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            >
-              <option value="3600">1 hour</option>
-              <option value="86400" selected>24 hours</option>
-              <option value="604800">7 days</option>
-            </select>
+          <div class="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-700">
+            Links expire after <span class="font-semibold">15 minutes</span>.
           </div>
           <button id="save" class="btn btn-primary" type="button">Create expiring link</button>
         </div>
@@ -84,7 +76,6 @@
       const sharePanel = document.getElementById("share-panel");
       const viewPanel = document.getElementById("view-panel");
       const noteInput = document.getElementById("note");
-      const ttlSelect = document.getElementById("ttl");
       const saveButton = document.getElementById("save");
       const status = document.getElementById("status");
       const shareUrl = document.getElementById("share-url");
@@ -175,10 +166,7 @@
           const response = await fetch("/expiring-note", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              content,
-              ttlSeconds: Number(ttlSelect.value),
-            }),
+            body: JSON.stringify({ content }),
           });
 
           if (!response.ok) {

@@ -4,8 +4,7 @@ interface Env {
 
 const TOOL_PREFIX = "expiring-note";
 const MAX_LENGTH = 5000;
-const MIN_TTL = 60;
-const MAX_TTL = 60 * 60 * 24 * 7;
+const TTL_SECONDS = 15 * 60;
 
 const jsonResponse = (data: unknown, init: ResponseInit = {}) => {
   const headers = new Headers(init.headers);
@@ -30,12 +29,6 @@ const createNoteId = () => {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 };
 
-const clampTtl = (ttl: number) => {
-  if (!Number.isFinite(ttl)) {
-    return null;
-  }
-  return Math.min(Math.max(Math.floor(ttl), MIN_TTL), MAX_TTL);
-};
 
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   const { TOOLS_KV } = env;
@@ -71,7 +64,6 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   if (request.method === "POST") {
     const payload = await parseJson(request);
     const content = typeof payload?.content === "string" ? payload.content.trim() : "";
-    const ttlInput = payload?.ttlSeconds;
 
     if (!content) {
       return jsonResponse({ error: "Note content is required" }, { status: 400 });
@@ -81,10 +73,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       return jsonResponse({ error: "Note is too long" }, { status: 400 });
     }
 
-    const ttl = clampTtl(Number(ttlInput));
-    if (!ttl) {
-      return jsonResponse({ error: "Invalid TTL" }, { status: 400 });
-    }
+    const ttl = TTL_SECONDS;
 
     const id = createNoteId();
     const now = new Date();
