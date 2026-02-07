@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - '.skills/**'
+      - '.agents/skills/**'
   workflow_dispatch:
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: dave1010/skills-to-agents@v1
+      - uses: dave1010/skills-to-agents@v2
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: 'chore: sync AGENTS skills list'

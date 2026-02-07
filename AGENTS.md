@@ -50,10 +50,10 @@ If the developer reports that JS is completely broken then surface all errors. E
 
 You have new skills. If any skill might be relevant then you MUST read it.
 
-- [cdn-usage](.skills/cdn-usage/SKILL.md) - Use when adding external browser dependencies via CDN - Provides CDN selection guidance to ensure reliable script loading.
-- [cloudflare-kv](.skills/cloudflare-kv/SKILL.md) - Use when persisting tool data in Cloudflare KV - Describes bindings, key naming, and function conventions.
-- [github-integration](.skills/github-integration/SKILL.md) - Use when building GitHub-based features - Explains auth token usage, Gist reading/writing and rendering helpers.
-- [llm-inference](.skills/llm-inference/SKILL.md) - Use when wanting to interact with any LLM - Explains available inference endpoints so the agent selects suitable models.
-- [maps](.skills/maps/SKILL.md) - Use when building interactive map tools - Explains MapLibre setup, tiles, and common UI patterns.
-- [writing-skills](.skills/writing-skills/SKILL.md) - Use when creating or updating SKILL.md documentation - Explains how and why to create a skill.
+- [cdn-usage](.agents/skills/cdn-usage/SKILL.md) - Use when adding external browser dependencies via CDN - Provides CDN selection guidance to ensure reliable script loading.
+- [cloudflare-kv](.agents/skills/cloudflare-kv/SKILL.md) - Use when persisting tool data in Cloudflare KV - Describes bindings, key naming, and function conventions.
+- [github-integration](.agents/skills/github-integration/SKILL.md) - Use when building GitHub-based features - Explains auth token usage, Gist reading/writing and rendering helpers.
+- [llm-inference](.agents/skills/llm-inference/SKILL.md) - Use when wanting to interact with any LLM - Explains available inference endpoints so the agent selects suitable models.
+- [maps](.agents/skills/maps/SKILL.md) - Use when building interactive map tools - Explains MapLibre setup, tiles, and common UI patterns.
+- [writing-skills](.agents/skills/writing-skills/SKILL.md) - Use when creating or updating SKILL.md documentation - Explains how and why to create a skill.
 </skills>
