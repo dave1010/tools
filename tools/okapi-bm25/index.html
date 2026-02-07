@@ -23,6 +23,11 @@
             class="min-h-[220px] w-full rounded-md border border-slate-200 bg-white p-3 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
             placeholder="Example:\nThe quick brown fox jumps over the lazy dog.\nBM25 ranks documents using term frequency and inverse document frequency.\nSearch engines rely on ranking algorithms."
           ></textarea>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn btn-secondary" type="button" data-sample="news">Load news set</button>
+            <button class="btn btn-secondary" type="button" data-sample="tech">Load tech set</button>
+            <button class="btn btn-secondary" type="button" data-sample="travel">Load travel set</button>
+          </div>
         </div>
         <div class="space-y-4">
           <div class="space-y-2">
@@ -113,6 +118,26 @@
       const bEl = byId("b");
       const resultsEl = byId("results");
       const emptyEl = byId("empty");
+      const sampleSets = {
+        news: [
+          "City council approves downtown park renovation plans.",
+          "Sports fans celebrate as underdogs win the championship.",
+          "Local bakery introduces a new seasonal menu.",
+          "Scientists announce breakthrough in battery storage research."
+        ],
+        tech: [
+          "Neural search models improve ranking quality.",
+          "Engineers optimize latency for distributed databases.",
+          "Open source tools accelerate developer workflows.",
+          "Edge devices now support efficient on-device inference."
+        ],
+        travel: [
+          "Mountain trails offer breathtaking sunrise views.",
+          "A coastal town is famous for fresh seafood markets.",
+          "Travelers prefer scenic train routes across the countryside.",
+          "Historic districts attract photographers year-round."
+        ]
+      };
 
       const clearResults = () => {
         resultsEl.innerHTML = "";
@@ -198,6 +223,15 @@
       byId("rank").addEventListener("click", rankDocuments);
       documentsEl.addEventListener("input", () => clearResults());
       queryEl.addEventListener("input", () => clearResults());
+
+      document.querySelectorAll("[data-sample]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.dataset.sample;
+          if (!sampleSets[key]) return;
+          documentsEl.value = sampleSets[key].join("\n");
+          clearResults();
+        });
+      });
 
       byId("copy").addEventListener("click", async () => {
         const rows = Array.from(resultsEl.querySelectorAll("tr"));
