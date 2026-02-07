@@ -13,6 +13,7 @@ Tools live in the [`./tools`](./tools) directory.
 ### AI & Machine Learning
 
 - [Cerebras LLM Inference](https://tools.dave.engineer/tools/cerebras-llm-inference) — Chat with Cerebras models via the built-in proxy worker
+- [Okapi BM25 Ranker](https://tools.dave.engineer/tools/okapi-bm25) — Score documents with Okapi BM25
 - [Prompt to Web Page](https://tools.dave.engineer/tools/prompt-to-web-page) — Turn a short idea into a rendered web page
 - [TensorFlow.js Linear Fit Lab](https://tools.dave.engineer/tools/js-tensorflow-linear-fit) — Train a tiny regression demo.
 - [Tool Calling Demo](https://tools.dave.engineer/tools/tool-calling-demo) — Watch Cerebras tool calls unfold
