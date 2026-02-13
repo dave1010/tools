@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FFmpeg Video Transcoder</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-brand-50 text-gray-900">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-6 font-sans">
+      <header class="space-y-2">
+        <h1 class="text-3xl font-semibold text-brand-700">FFmpeg Video Transcoder</h1>
+        <p class="text-gray-600">
+          Upload a video, pick export settings, and transcode it locally in your browser with
+          WebAssembly-powered FFmpeg.
+        </p>
+      </header>
+
+      <section class="space-y-4 rounded-lg border border-brand-100 bg-white p-4 shadow-sm">
+        <div>
+          <label for="file-input" class="block text-sm font-medium text-gray-700">Source video</label>
+          <input
+            type="file"
+            id="file-input"
+            accept="video/*,audio/*"
+            class="mt-1 block w-full rounded border border-gray-300 p-2"
+          />
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div>
+            <label for="preset-select" class="mb-1 block text-sm font-medium text-gray-700"
+              >Export preset</label
+            >
+            <select id="preset-select" class="w-full rounded border border-gray-300 p-2">
+              <option value="mp4" selected>MP4 (H.264 + AAC)</option>
+              <option value="webm">WebM (VP9 + Opus)</option>
+              <option value="mp3">MP3 (Audio only)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="resolution-select" class="mb-1 block text-sm font-medium text-gray-700"
+              >Max resolution</label
+            >
+            <select id="resolution-select" class="w-full rounded border border-gray-300 p-2">
+              <option value="original" selected>Keep original</option>
+              <option value="1280:720">720p (1280×720)</option>
+              <option value="854:480">480p (854×480)</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="flex items-center gap-2 text-sm text-gray-700" id="mute-wrapper">
+          <input
+            type="checkbox"
+            id="mute-audio"
+            class="h-4 w-4 rounded border-gray-300 text-brand-600"
+          />
+          Remove audio track
+        </label>
+
+        <button id="transcode-button" type="button" class="btn btn-primary w-full justify-center">
+          Transcode
+        </button>
+
+        <p id="status" class="min-h-[1.5rem] text-sm text-gray-600" role="status" aria-live="polite"></p>
+
+        <div id="result" class="hidden flex-col gap-3">
+          <video id="output-video" controls class="w-full rounded border border-gray-200"></video>
+          <a
+            id="download-link"
+            class="btn btn-secondary inline-flex items-center justify-center gap-2"
+            download
+          >
+            Download file
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="py-6 text-center text-sm text-gray-500">
+      <div class="flex justify-center gap-4">
+        <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+        <a
+          href="https://github.com/dave1010/tools/tree/main/tools/ffmpeg-transcoder"
+          class="font-medium text-brand-700 hover:text-brand-600"
+          >About</a
+        >
+      </div>
+    </footer>
+
+    <script type="module">
+      import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js";
+      import { fetchFile } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js";
+
+      const statusEl = document.getElementById("status");
+      const buttonEl = document.getElementById("transcode-button");
+      const fileInputEl = document.getElementById("file-input");
+      const presetEl = document.getElementById("preset-select");
+      const resolutionEl = document.getElementById("resolution-select");
+      const muteAudioEl = document.getElementById("mute-audio");
+      const resultEl = document.getElementById("result");
+      const videoEl = document.getElementById("output-video");
+      const downloadEl = document.getElementById("download-link");
+      const muteWrapperEl = document.getElementById("mute-wrapper");
+
+      let ffmpegInstance = null;
+      let lastInputName = null;
+      let currentObjectUrl = null;
+
+      const presets = {
+        mp4: {
+          output: "output.mp4",
+          videoArgs: ["-c:v", "libx264", "-preset", "medium", "-crf", "23", "-pix_fmt", "yuv420p"],
+          audioArgs: ["-c:a", "aac", "-b:a", "128k"],
+        },
+        webm: {
+          output: "output.webm",
+          videoArgs: ["-c:v", "libvpx-vp9", "-b:v", "1.5M", "-pix_fmt", "yuv420p"],
+          audioArgs: ["-c:a", "libopus", "-b:a", "128k"],
+        },
+        mp3: {
+          output: "output.mp3",
+          videoArgs: ["-vn"],
+          audioArgs: ["-c:a", "libmp3lame", "-b:a", "192k"],
+        },
+      };
+
+      const ensureFFmpeg = async () => {
+        if (ffmpegInstance) return ffmpegInstance;
+        statusEl.textContent = "Loading FFmpeg core (this can take a few seconds)…";
+        const ffmpeg = new FFmpeg();
+        ffmpeg.on("log", ({ message }) => console.log(message));
+        ffmpeg.on("progress", ({ progress }) => {
+          statusEl.textContent = `Processing… ${(progress * 100).toFixed(1)}%`;
+        });
+        await ffmpeg.load({
+          coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.4/dist/esm/ffmpeg-core.js",
+        });
+        ffmpegInstance = ffmpeg;
+        statusEl.textContent = "FFmpeg ready. Choose export settings and transcode.";
+        return ffmpeg;
+      };
+
+      const clearPreviousOutput = async (ffmpeg, filename) => {
+        try {
+          await ffmpeg.deleteFile(filename);
+        } catch (error) {
+          console.warn("No previous output to clear", error);
+        }
+      };
+
+      const getScaleArgs = () => {
+        const value = resolutionEl.value;
+        if (value === "original" || presetEl.value === "mp3") {
+          return [];
+        }
+        const [width, height] = value.split(":");
+        return ["-vf", `scale=${width}:${height}:force_original_aspect_ratio=decrease`];
+      };
+
+      const buildArgs = () => {
+        const presetKey = presetEl.value;
+        const { output, videoArgs, audioArgs } = presets[presetKey];
+        const args = ["-i", lastInputName, ...videoArgs];
+        if (presetKey !== "mp3") {
+          if (muteAudioEl.checked) {
+            args.push("-an");
+          } else {
+            args.push(...audioArgs);
+          }
+        } else {
+          args.push(...audioArgs);
+        }
+        args.push(...getScaleArgs());
+        args.push(output);
+        return { args, output };
+      };
+
+      const resetResult = () => {
+        if (currentObjectUrl) {
+          URL.revokeObjectURL(currentObjectUrl);
+          currentObjectUrl = null;
+        }
+        resultEl.classList.add("hidden");
+        videoEl.removeAttribute("src");
+        videoEl.load();
+        downloadEl.removeAttribute("href");
+        downloadEl.removeAttribute("download");
+      };
+
+      const updateControlsForPreset = () => {
+        const audioOnly = presetEl.value === "mp3";
+        resolutionEl.disabled = audioOnly;
+        resolutionEl.classList.toggle("opacity-60", audioOnly);
+        muteAudioEl.checked = audioOnly ? false : muteAudioEl.checked;
+        muteAudioEl.disabled = audioOnly;
+        muteWrapperEl.classList.toggle("opacity-60", audioOnly);
+      };
+
+      updateControlsForPreset();
+      presetEl.addEventListener("change", updateControlsForPreset);
+
+      buttonEl.addEventListener("click", async () => {
+        if (!fileInputEl.files.length) {
+          statusEl.textContent = "Please choose a media file first.";
+          return;
+        }
+
+        buttonEl.disabled = true;
+        buttonEl.textContent = "Transcoding…";
+        resetResult();
+
+        try {
+          const file = fileInputEl.files[0];
+          const ffmpeg = await ensureFFmpeg();
+
+          statusEl.textContent = "Preparing input file…";
+
+          const data = await fetchFile(file);
+          if (lastInputName && lastInputName !== file.name) {
+            try {
+              await ffmpeg.deleteFile(lastInputName);
+            } catch (error) {
+              console.warn("Unable to delete previous input", error);
+            }
+          }
+
+          await ffmpeg.writeFile(file.name, data);
+          lastInputName = file.name;
+
+          const { args, output } = buildArgs();
+          await clearPreviousOutput(ffmpeg, output);
+
+          statusEl.textContent = "Starting FFmpeg…";
+          await ffmpeg.exec(args);
+          statusEl.textContent = "Transcode complete.";
+
+          const outputData = await ffmpeg.readFile(output);
+          const blob = new Blob([outputData.buffer], {
+            type:
+              presetEl.value === "mp4"
+                ? "video/mp4"
+                : presetEl.value === "webm"
+                ? "video/webm"
+                : "audio/mpeg",
+          });
+
+          const url = URL.createObjectURL(blob);
+          currentObjectUrl = url;
+          downloadEl.href = url;
+          downloadEl.download = output;
+          resultEl.classList.remove("hidden");
+
+          if (presetEl.value === "mp3") {
+            videoEl.classList.add("hidden");
+          } else {
+            videoEl.classList.remove("hidden");
+            videoEl.src = url;
+            videoEl.load();
+          }
+        } catch (error) {
+          console.error(error);
+          statusEl.textContent = "Transcode failed. Check the console for details.";
+        } finally {
+          buttonEl.disabled = false;
+          buttonEl.textContent = "Transcode";
+        }
+      });
+    </script>
+  </body>
+</html>
