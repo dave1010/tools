@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Timezone Overlap Finder</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <main class="mx-auto max-w-3xl space-y-4 p-4 font-sans md:p-6">
+      <header class="space-y-2">
+        <p class="text-sm font-semibold uppercase tracking-wide text-brand-600">
+          Calculators &amp; Planners
+        </p>
+        <h1 class="text-3xl font-semibold">Timezone Overlap Finder</h1>
+        <p class="text-slate-600">Find realistic meeting windows across distributed teams.</p>
+      </header>
+
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <div class="grid gap-3 md:grid-cols-2">
+          <label class="space-y-1 text-sm">
+            <span class="font-medium text-slate-700">Date</span>
+            <input
+              id="meeting-date"
+              type="date"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2"
+            />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="font-medium text-slate-700">Meeting duration (minutes)</span>
+            <input
+              id="meeting-duration"
+              type="number"
+              min="15"
+              step="15"
+              value="60"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold">Participants</h2>
+          <button id="add-participant" class="btn btn-secondary">Add participant</button>
+        </div>
+        <div id="participants" class="space-y-3"></div>
+      </section>
+
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold">Overlap windows</h2>
+          <button id="calculate" class="btn btn-primary">Find windows</button>
+        </div>
+        <div id="results" class="space-y-2 text-sm text-slate-700"></div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600"
+            >← Back to tools.dave.engineer</a
+          >
+          <a
+            href="https://github.com/dave1010/tools/tree/main/tools/timezone-overlap-finder"
+            class="font-medium text-brand-700 hover:text-brand-600"
+            >About</a
+          >
+        </div>
+      </footer>
+    </main>
+
+    <datalist id="common-timezones"></datalist>
+
+    <script>
+      const participantsEl = document.getElementById("participants");
+      const addButton = document.getElementById("add-participant");
+      const calculateButton = document.getElementById("calculate");
+      const resultsEl = document.getElementById("results");
+      const dateInput = document.getElementById("meeting-date");
+      const durationInput = document.getElementById("meeting-duration");
+      const timezoneList = document.getElementById("common-timezones");
+
+      const COMMON_TIMEZONES = [
+        "America/Los_Angeles",
+        "America/Denver",
+        "America/Chicago",
+        "America/New_York",
+        "America/Sao_Paulo",
+        "UTC",
+        "Europe/London",
+        "Europe/Berlin",
+        "Europe/Paris",
+        "Europe/Athens",
+        "Africa/Johannesburg",
+        "Asia/Dubai",
+        "Asia/Kolkata",
+        "Asia/Bangkok",
+        "Asia/Singapore",
+        "Asia/Tokyo",
+        "Australia/Perth",
+        "Australia/Sydney",
+        "Pacific/Auckland",
+      ];
+
+      const STEP_MINUTES = 30;
+      const DAY_MINUTES = 24 * 60;
+      let participants = [];
+
+      const toInputDate = (date) => {
+        const year = date.getFullYear();
+        const month = `${date.getMonth() + 1}`.padStart(2, "0");
+        const day = `${date.getDate()}`.padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const parseMinutes = (timeString) => {
+        const [hours = "0", minutes = "0"] = timeString.split(":");
+        return Number(hours) * 60 + Number(minutes);
+      };
+
+      const toTimeString = (minutes) => {
+        const clamped = ((minutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+        const hours = Math.floor(clamped / 60)
+          .toString()
+          .padStart(2, "0");
+        const mins = (clamped % 60).toString().padStart(2, "0");
+        return `${hours}:${mins}`;
+      };
+
+      const formatLocal = (date, timezone) => {
+        const formatter = new Intl.DateTimeFormat(undefined, {
+          timeZone: timezone,
+          weekday: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          month: "short",
+          day: "numeric",
+        });
+        return formatter.format(date);
+      };
+
+      const offsetMinutesAt = (date, timezone) => {
+        const dtf = new Intl.DateTimeFormat("en-US", {
+          timeZone: timezone,
+          hour12: false,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+        const parts = Object.fromEntries(
+          dtf.formatToParts(date)
+            .filter((part) => part.type !== "literal")
+            .map((part) => [part.type, part.value]),
+        );
+
+        const asUTC = Date.UTC(
+          Number(parts.year),
+          Number(parts.month) - 1,
+          Number(parts.day),
+          Number(parts.hour),
+          Number(parts.minute),
+          Number(parts.second),
+        );
+        return (asUTC - date.getTime()) / 60000;
+      };
+
+      const localMinuteOfDay = (utcDate, timezone) => {
+        const offset = offsetMinutesAt(utcDate, timezone);
+        const utcMinutes = utcDate.getUTCHours() * 60 + utcDate.getUTCMinutes();
+        return ((utcMinutes + offset) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
+      };
+
+      const isWithinWindow = (localMinute, startMinute, endMinute) => {
+        if (startMinute === endMinute) {
+          return true;
+        }
+        if (startMinute < endMinute) {
+          return localMinute >= startMinute && localMinute < endMinute;
+        }
+        return localMinute >= startMinute || localMinute < endMinute;
+      };
+
+      const createParticipant = (seed) => ({
+        id: crypto.randomUUID(),
+        name: seed?.name ?? `Person ${participants.length + 1}`,
+        timezone: seed?.timezone ?? "America/New_York",
+        start: seed?.start ?? "09:00",
+        end: seed?.end ?? "17:00",
+      });
+
+      const renderTimezones = () => {
+        timezoneList.innerHTML = "";
+        for (const timezone of COMMON_TIMEZONES) {
+          const option = document.createElement("option");
+          option.value = timezone;
+          timezoneList.appendChild(option);
+        }
+      };
+
+      const removeParticipant = (id) => {
+        participants = participants.filter((participant) => participant.id !== id);
+        renderParticipants();
+      };
+
+      const renderParticipants = () => {
+        participantsEl.innerHTML = "";
+
+        for (const participant of participants) {
+          const card = document.createElement("div");
+          card.className =
+            "grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[1fr,1fr,120px,120px,44px]";
+
+          const nameInput = document.createElement("input");
+          nameInput.className = "rounded-lg border border-slate-300 px-3 py-2 text-sm";
+          nameInput.value = participant.name;
+          nameInput.placeholder = "Name";
+          nameInput.addEventListener("input", (event) => {
+            participant.name = event.target.value;
+          });
+
+          const timezoneInput = document.createElement("input");
+          timezoneInput.className = "rounded-lg border border-slate-300 px-3 py-2 text-sm";
+          timezoneInput.value = participant.timezone;
+          timezoneInput.setAttribute("list", "common-timezones");
+          timezoneInput.placeholder = "Area/City";
+          timezoneInput.addEventListener("change", (event) => {
+            participant.timezone = event.target.value.trim() || "UTC";
+          });
+
+          const startInput = document.createElement("input");
+          startInput.className = "rounded-lg border border-slate-300 px-3 py-2 text-sm";
+          startInput.type = "time";
+          startInput.value = participant.start;
+          startInput.title = "Workday start";
+          startInput.addEventListener("input", (event) => {
+            participant.start = event.target.value;
+          });
+
+          const endInput = document.createElement("input");
+          endInput.className = "rounded-lg border border-slate-300 px-3 py-2 text-sm";
+          endInput.type = "time";
+          endInput.value = participant.end;
+          endInput.title = "Workday end";
+          endInput.addEventListener("input", (event) => {
+            participant.end = event.target.value;
+          });
+
+          const removeButton = document.createElement("button");
+          removeButton.className = "btn btn-secondary";
+          removeButton.type = "button";
+          removeButton.textContent = "×";
+          removeButton.title = "Remove participant";
+          removeButton.addEventListener("click", () => removeParticipant(participant.id));
+
+          card.append(nameInput, timezoneInput, startInput, endInput, removeButton);
+          participantsEl.appendChild(card);
+        }
+      };
+
+      const validateTimezone = (timezone) => {
+        try {
+          new Intl.DateTimeFormat(undefined, { timeZone: timezone });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      const calculateWindows = () => {
+        const dateString = dateInput.value;
+        const durationMinutes = Number(durationInput.value || 0);
+
+        if (!dateString) {
+          resultsEl.innerHTML =
+            '<p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">Pick a date first.</p>';
+          return;
+        }
+
+        if (!Number.isFinite(durationMinutes) || durationMinutes < STEP_MINUTES) {
+          resultsEl.innerHTML =
+            '<p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">Duration must be at least 30 minutes.</p>';
+          return;
+        }
+
+        if (participants.length < 2) {
+          resultsEl.innerHTML =
+            '<p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">Add at least two participants.</p>';
+          return;
+        }
+
+        const invalid = participants.find((participant) => !validateTimezone(participant.timezone));
+        if (invalid) {
+          resultsEl.innerHTML = `<p class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-700">${invalid.name || "A participant"} has an invalid timezone: <code>${invalid.timezone}</code>.</p>`;
+          return;
+        }
+
+        const [year, month, day] = dateString.split("-").map(Number);
+        const startUtc = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+        const endUtc = new Date(startUtc.getTime() + DAY_MINUTES * 60000);
+
+        const candidateStarts = [];
+
+        for (
+          let current = new Date(startUtc);
+          current.getTime() + durationMinutes * 60000 <= endUtc.getTime();
+          current = new Date(current.getTime() + STEP_MINUTES * 60000)
+        ) {
+          let worksForEveryone = true;
+
+          for (const participant of participants) {
+            const startMinute = parseMinutes(participant.start);
+            const endMinute = parseMinutes(participant.end);
+
+            const slotStartLocal = localMinuteOfDay(current, participant.timezone);
+            const slotEndLocal = localMinuteOfDay(
+              new Date(current.getTime() + durationMinutes * 60000 - 60000),
+              participant.timezone,
+            );
+
+            if (
+              !isWithinWindow(slotStartLocal, startMinute, endMinute) ||
+              !isWithinWindow(slotEndLocal, startMinute, endMinute)
+            ) {
+              worksForEveryone = false;
+              break;
+            }
+          }
+
+          if (worksForEveryone) {
+            candidateStarts.push(new Date(current));
+          }
+        }
+
+        if (candidateStarts.length === 0) {
+          resultsEl.innerHTML =
+            '<p class="rounded-lg border border-slate-200 bg-slate-50 p-3">No overlap found for that day and duration. Try widening availability or reducing duration.</p>';
+          return;
+        }
+
+        const list = document.createElement("div");
+        list.className = "space-y-2";
+
+        for (const start of candidateStarts.slice(0, 15)) {
+          const end = new Date(start.getTime() + durationMinutes * 60000);
+          const row = document.createElement("div");
+          row.className = "rounded-lg border border-slate-200 p-3";
+
+          const utcLabel = document.createElement("p");
+          utcLabel.className = "font-medium text-slate-900";
+          utcLabel.textContent = `UTC ${toTimeString(
+            start.getUTCHours() * 60 + start.getUTCMinutes(),
+          )}–${toTimeString(end.getUTCHours() * 60 + end.getUTCMinutes())}`;
+
+          const localList = document.createElement("ul");
+          localList.className = "mt-1 space-y-0.5 text-slate-600";
+
+          for (const participant of participants) {
+            const item = document.createElement("li");
+            item.textContent = `${participant.name}: ${formatLocal(start, participant.timezone)} → ${formatLocal(
+              end,
+              participant.timezone,
+            )}`;
+            localList.appendChild(item);
+          }
+
+          row.append(utcLabel, localList);
+          list.appendChild(row);
+        }
+
+        const intro = document.createElement("p");
+        intro.className = "text-slate-600";
+        intro.textContent = `Showing ${Math.min(candidateStarts.length, 15)} of ${candidateStarts.length} valid windows.`;
+
+        resultsEl.innerHTML = "";
+        resultsEl.append(intro, list);
+      };
+
+      addButton.addEventListener("click", () => {
+        participants.push(createParticipant());
+        renderParticipants();
+      });
+
+      calculateButton.addEventListener("click", calculateWindows);
+
+      renderTimezones();
+      dateInput.value = toInputDate(new Date());
+      participants = [
+        createParticipant({ name: "SF", timezone: "America/Los_Angeles" }),
+        createParticipant({ name: "NYC", timezone: "America/New_York" }),
+        createParticipant({ name: "London", timezone: "Europe/London" }),
+      ];
+      renderParticipants();
+    </script>
+  </body>
+</html>
