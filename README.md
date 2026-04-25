@@ -68,7 +68,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [GBFS Explorer](https://tools.dave.engineer/tools/gbfs-explorer) — Browse shared mobility feeds on an interactive map
 - [Map Explorer](https://tools.dave.engineer/tools/map-explorer) — Full screen map with geolocation button
 - [Map Overlay Aligner](https://tools.dave.engineer/tools/map-overlay-aligner) — Align custom map images with basemap
-- [Multi Timezone Visualizer](https://tools.dave.engineer/tools/multi-timezone-visualizer) — Visualize daylight and work overlap windows.
+- [Multi Timezone Visualizer](https://tools.dave.engineer/tools/multi-timezone-visualizer) — Compare global time windows at center.
 - [Pendulum Studio](https://tools.dave.engineer/tools/pendulum-visualizer) — Interactive single, double, and triple pendulum playground.
 - [Perspective Grid Designer](https://tools.dave.engineer/tools/perspective-grid-designer) — Interactive vanishing-point grid generator
 - [Venn Diagram Creator](https://tools.dave.engineer/tools/venn-diagram-creator) — Build customizable Venn diagrams with adjustable overlaps and styling.

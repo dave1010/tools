@@ -1,17 +1,18 @@
 ---
 title: Multi Timezone Visualizer
-description: Visualize daylight and work overlap windows.
+description: Compare global time windows at center.
 category: Mapping & Visualization
 ---
 
-Compare multiple time zones at a glance with:
+Compare multiple time zones with a compact 24-hour lane per city.
 
-- **Current local time** marker for each location.
-- **Day/night shading** across the full 24-hour lane.
-- **Work-hour overlay** (customizable start/end, weekdays only).
+- The selected time is always centered in every lane.
+- Drag left/right on any lane to scrub through time.
+- Day/night and weekday work windows are shown in one bar.
+- Tick labels are rendered inside each lane to maximize width.
 
 ## Tips
 
 - Use IANA timezone names like `America/New_York` or `Asia/Tokyo`.
-- Work-hour overlays apply to Monday through Friday in each zone's local calendar.
-- The daylight band is a simple visual estimate (06:00–18:00 local).
+- Work-hour overlays apply to Monday through Friday in each zone.
+- Daylight is a simplified local estimate (06:00–18:00).

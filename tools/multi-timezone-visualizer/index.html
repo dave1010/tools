@@ -7,65 +7,58 @@
     <link rel="stylesheet" href="/assets/tw.css" />
   </head>
   <body class="bg-slate-50 text-slate-900">
-    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
-      <header class="space-y-2">
-        <h1 class="text-3xl font-semibold text-slate-900">Multi Timezone Visualizer</h1>
-        <p class="text-sm text-slate-600">Track daylight, work windows, and current local time across cities.</p>
+    <main class="mx-auto max-w-3xl space-y-3 p-3 font-sans md:p-4">
+      <header class="space-y-1">
+        <h1 class="text-2xl font-semibold">Multi Timezone Visualizer</h1>
+        <p class="text-xs text-slate-600">Current time is centered. Drag any lane left/right to scrub time.</p>
       </header>
 
-      <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
-        <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-          <label class="space-y-1 text-sm font-medium text-slate-700" for="timezone-input">
-            <span>Add timezone (IANA name)</span>
-            <input
-              id="timezone-input"
-              list="timezone-suggestions"
-              placeholder="e.g. Europe/London"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </label>
-          <button id="add-timezone" class="btn btn-primary">Add timezone</button>
+      <section class="space-y-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <input
+            id="timezone-input"
+            list="timezone-suggestions"
+            placeholder="Add timezone (e.g. Europe/London)"
+            class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <button id="add-timezone" class="btn btn-primary py-1.5 text-sm">Add</button>
         </div>
 
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="space-y-1 text-sm font-medium text-slate-700" for="work-start">
-            <span>Workday starts at</span>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-[auto_auto_1fr_auto] sm:items-end">
+          <label class="space-y-1 text-xs font-medium text-slate-700" for="work-start">
+            <span>Work start</span>
             <input
               id="work-start"
               type="time"
               value="09:00"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </label>
-          <label class="space-y-1 text-sm font-medium text-slate-700" for="work-end">
-            <span>Workday ends at</span>
+          <label class="space-y-1 text-xs font-medium text-slate-700" for="work-end">
+            <span>Work end</span>
             <input
               id="work-end"
               type="time"
               value="17:00"
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </label>
+          <p id="timestamp" class="self-end text-xs text-slate-500 sm:text-right"></p>
+          <button id="reset-now" class="btn btn-secondary py-1.5 text-sm">Now</button>
         </div>
       </section>
 
-      <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="mb-3 flex items-center justify-between gap-4">
-          <h2 class="text-lg font-semibold text-slate-900">Timezone lanes</h2>
-          <p id="timestamp" class="text-xs text-slate-500"></p>
+      <section class="space-y-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div class="flex flex-wrap gap-2 text-[11px]">
+          <span class="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900">Day</span>
+          <span class="rounded bg-indigo-100 px-1.5 py-0.5 text-indigo-900">Night</span>
+          <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-900">Work (Mon–Fri)</span>
+          <span class="rounded bg-rose-100 px-1.5 py-0.5 text-rose-900">Centered time</span>
         </div>
-
-        <div class="mb-3 flex flex-wrap gap-2 text-xs">
-          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Daylight</span>
-          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-indigo-500"></span>Night</span>
-          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Work hours (Mon–Fri)</span>
-          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-rose-500"></span>Current local time</span>
-        </div>
-
-        <div id="lanes" class="space-y-3"></div>
+        <div id="lanes" class="space-y-1.5"></div>
       </section>
 
-      <footer class="py-6 text-center text-sm text-gray-500">
+      <footer class="py-3 text-center text-sm text-gray-500">
         <div class="flex justify-center gap-4">
           <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
           <a href="https://github.com/dave1010/tools/tree/main/tools/multi-timezone-visualizer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
@@ -87,13 +80,17 @@
       ];
 
       const POPULAR_TIMEZONES = [
-        'UTC','Pacific/Honolulu','America/Anchorage','America/Los_Angeles','America/Denver','America/Chicago','America/New_York',
-        'America/Sao_Paulo','Europe/London','Europe/Paris','Europe/Berlin','Africa/Johannesburg','Asia/Dubai','Asia/Kolkata',
-        'Asia/Singapore','Asia/Hong_Kong','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'
+        'UTC', 'Pacific/Honolulu', 'America/Anchorage', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
+        'America/Sao_Paulo', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Africa/Johannesburg', 'Asia/Dubai', 'Asia/Kolkata',
+        'Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland'
       ];
+
+      const MS_PER_HOUR = 60 * 60 * 1000;
 
       const state = {
         zones: [...DEFAULT_TIMEZONES],
+        focusTimeMs: Date.now(),
+        dragging: null,
       };
 
       const lanesEl = document.getElementById('lanes');
@@ -103,6 +100,7 @@
       const addTimezoneButton = document.getElementById('add-timezone');
       const workStartInput = document.getElementById('work-start');
       const workEndInput = document.getElementById('work-end');
+      const resetNowButton = document.getElementById('reset-now');
 
       POPULAR_TIMEZONES.forEach((zone) => {
         const option = document.createElement('option');
@@ -113,6 +111,48 @@
       function parseTimeInput(value) {
         const [hour, minute] = value.split(':').map(Number);
         return hour + (minute / 60);
+      }
+
+      function mod24(value) {
+        return ((value % 24) + 24) % 24;
+      }
+
+      function isWithinRange(hour, start, end) {
+        if (start === end) return false;
+        if (start < end) return hour >= start && hour < end;
+        return hour >= start || hour < end;
+      }
+
+      function getColor(hour, isWeekday, workStart, workEnd) {
+        if (isWeekday && isWithinRange(hour, workStart, workEnd)) {
+          return '#10b981';
+        }
+        return hour >= 6 && hour < 18 ? '#fcd34d' : '#4338ca';
+      }
+
+      function buildWindowGradient(centerHour, isWeekday, workStart, workEnd) {
+        const slices = 96;
+        const step = 24 / slices;
+        const segments = [];
+
+        for (let i = 0; i < slices; i += 1) {
+          const laneHour = mod24(centerHour - 12 + (i * step));
+          const color = getColor(laneHour, isWeekday, workStart, workEnd);
+
+          if (segments.length && segments[segments.length - 1].color === color) {
+            segments[segments.length - 1].end = i + 1;
+          } else {
+            segments.push({ color, start: i, end: i + 1 });
+          }
+        }
+
+        const stops = segments.map((segment) => {
+          const start = (segment.start / slices) * 100;
+          const end = (segment.end / slices) * 100;
+          return `${segment.color} ${start}% ${end}%`;
+        });
+
+        return `linear-gradient(to right, ${stops.join(', ')})`;
       }
 
       function isValidTimezone(zone) {
@@ -142,9 +182,6 @@
         const lookup = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
 
         return {
-          year: Number(lookup.year),
-          month: Number(lookup.month),
-          day: Number(lookup.day),
           weekday: lookup.weekday,
           hour: Number(lookup.hour),
           minute: Number(lookup.minute),
@@ -172,7 +209,7 @@
         );
 
         const asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
-        return (asUTC - date.getTime()) / 60000;
+        return Math.round((asUTC - date.getTime()) / 60000);
       }
 
       function formatOffset(minutes) {
@@ -183,100 +220,110 @@
         return `UTC${sign}${hours}:${mins}`;
       }
 
-      function buildLaneBackground(workStart, workEnd, isWeekday) {
-        const dayColor = '#fcd34d';
-        const nightColor = '#4338ca';
-        const workColor = '#10b981';
+      function formatTime(hourFraction) {
+        const normalized = mod24(hourFraction);
+        const hours = Math.floor(normalized);
+        const minutes = Math.floor((normalized - hours) * 60 + 1e-6);
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+      }
 
-        const stops = [
-          `${nightColor} 0%`,
-          `${nightColor} 25%`,
-          `${dayColor} 25%`,
-          `${dayColor} 75%`,
-          `${nightColor} 75%`,
-          `${nightColor} 100%`
-        ];
+      function createTickOverlay(centerHour) {
+        const ticks = document.createElement('div');
+        ticks.className = 'pointer-events-none absolute inset-0 flex items-end justify-between px-1 pb-0.5 text-[10px] font-medium text-slate-800/90';
 
-        if (isWeekday && workStart !== workEnd) {
-          const start = ((workStart / 24) * 100);
-          const end = ((workEnd / 24) * 100);
+        [-12, -8, -4, 0, 4, 8, 12].forEach((delta, index) => {
+          const tick = document.createElement('span');
+          tick.className = index === 3 ? 'rounded bg-rose-500/90 px-1 text-white' : 'rounded bg-white/60 px-1';
+          tick.textContent = formatTime(centerHour + delta);
+          ticks.appendChild(tick);
+        });
 
-          if (workStart < workEnd) {
-            stops.push(`${workColor} ${start}%`, `${workColor} ${end}%`);
-          } else {
-            stops.push(`${workColor} 0%`, `${workColor} ${end}%`, `${workColor} ${start}%`, `${workColor} 100%`);
+        return ticks;
+      }
+
+      function bindDrag(trackEl) {
+        trackEl.addEventListener('pointerdown', (event) => {
+          state.dragging = {
+            startX: event.clientX,
+            startTimeMs: state.focusTimeMs,
+            width: trackEl.getBoundingClientRect().width || 1,
+          };
+          trackEl.setPointerCapture(event.pointerId);
+        });
+
+        trackEl.addEventListener('pointermove', (event) => {
+          if (!state.dragging) return;
+          const dx = event.clientX - state.dragging.startX;
+          const hoursShift = (dx / state.dragging.width) * 24;
+          state.focusTimeMs = state.dragging.startTimeMs - (hoursShift * MS_PER_HOUR);
+          render();
+        });
+
+        function endDrag(event) {
+          if (!state.dragging) return;
+          state.dragging = null;
+          if (event.pointerId !== undefined) {
+            trackEl.releasePointerCapture(event.pointerId);
           }
         }
 
-        return `linear-gradient(to right, ${stops.join(', ')})`;
-      }
-
-      function createHourTicks() {
-        const row = document.createElement('div');
-        row.className = 'mt-2 grid grid-cols-6 text-[10px] text-slate-500';
-        ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'].forEach((label) => {
-          const span = document.createElement('span');
-          span.textContent = label;
-          row.appendChild(span);
+        trackEl.addEventListener('pointerup', endDrag);
+        trackEl.addEventListener('pointercancel', endDrag);
+        trackEl.addEventListener('lostpointercapture', () => {
+          state.dragging = null;
         });
-        return row;
       }
 
       function render() {
-        const now = new Date();
+        const focus = new Date(state.focusTimeMs);
         const workStart = parseTimeInput(workStartInput.value);
         const workEnd = parseTimeInput(workEndInput.value);
 
-        timestampEl.textContent = `Updated ${now.toISOString().replace('T', ' ').slice(0, 16)} UTC`;
-
+        timestampEl.textContent = `Centered at ${focus.toISOString().replace('T', ' ').slice(0, 16)} UTC`;
         lanesEl.innerHTML = '';
 
         state.zones.forEach((zone, index) => {
-          const zoned = getZonedParts(now, zone);
-          const offsetMinutes = getOffsetMinutes(now, zone);
-          const hourPosition = ((zoned.hour + zoned.minute / 60 + zoned.second / 3600) / 24) * 100;
+          const zoned = getZonedParts(focus, zone);
+          const offsetMinutes = getOffsetMinutes(focus, zone);
+          const centerHour = zoned.hour + (zoned.minute / 60) + (zoned.second / 3600);
           const isWeekday = !['Sat', 'Sun'].includes(zoned.weekday);
 
           const lane = document.createElement('article');
-          lane.className = 'rounded-xl border border-slate-200 p-3';
+          lane.className = 'rounded-lg border border-slate-200 p-2';
 
           const top = document.createElement('div');
-          top.className = 'mb-2 flex flex-wrap items-center justify-between gap-2';
+          top.className = 'mb-1 flex items-center justify-between gap-2 text-xs';
 
-          const title = document.createElement('h3');
-          title.className = 'font-semibold text-slate-900';
-          title.textContent = zone;
+          const label = document.createElement('div');
+          label.className = 'min-w-0';
+          label.innerHTML = `<p class="truncate font-semibold text-slate-900">${zone}</p><p class="truncate text-slate-600">${zoned.weekday} ${formatTime(centerHour)} · ${zoned.timeZoneName} · ${formatOffset(offsetMinutes)}</p>`;
 
-          const details = document.createElement('p');
-          details.className = 'text-xs text-slate-600';
-          details.textContent = `${zoned.weekday} ${String(zoned.hour).padStart(2, '0')}:${String(zoned.minute).padStart(2, '0')} (${zoned.timeZoneName}, ${formatOffset(offsetMinutes)})`;
-
-          const removeButton = document.createElement('button');
-          removeButton.className = 'btn btn-secondary text-xs';
-          removeButton.textContent = 'Remove';
-          removeButton.disabled = state.zones.length <= 1;
-          removeButton.addEventListener('click', () => {
+          const remove = document.createElement('button');
+          remove.className = 'btn btn-secondary py-0.5 text-xs';
+          remove.textContent = 'Remove';
+          remove.disabled = state.zones.length <= 1;
+          remove.addEventListener('click', () => {
             state.zones.splice(index, 1);
             render();
           });
 
-          top.append(title, details, removeButton);
+          top.append(label, remove);
 
           const track = document.createElement('div');
-          track.className = 'relative h-10 overflow-hidden rounded-lg border border-slate-200';
-          track.style.background = buildLaneBackground(workStart, workEnd, isWeekday);
+          track.className = 'relative h-12 cursor-ew-resize overflow-hidden rounded border border-slate-300';
+          track.style.background = buildWindowGradient(centerHour, isWeekday, workStart, workEnd);
 
-          const nowMarker = document.createElement('div');
-          nowMarker.className = 'absolute inset-y-0 w-0.5 bg-rose-500 shadow-[0_0_0_1px_rgba(255,255,255,0.6)]';
-          nowMarker.style.left = `${hourPosition}%`;
+          const centerMarker = document.createElement('div');
+          centerMarker.className = 'pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-rose-500';
 
-          const nowLabel = document.createElement('div');
-          nowLabel.className = 'absolute -translate-x-1/2 -top-1 rounded bg-rose-500 px-1.5 py-0.5 text-[10px] font-medium text-white';
-          nowLabel.style.left = `${hourPosition}%`;
-          nowLabel.textContent = `${String(zoned.hour).padStart(2, '0')}:${String(zoned.minute).padStart(2, '0')}`;
+          const centerLabel = document.createElement('div');
+          centerLabel.className = 'pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 rounded-b bg-rose-500 px-1 text-[10px] font-semibold text-white';
+          centerLabel.textContent = 'Now';
 
-          track.append(nowMarker, nowLabel);
-          lane.append(top, track, createHourTicks());
+          track.append(centerMarker, centerLabel, createTickOverlay(centerHour));
+          bindDrag(track);
+
+          lane.append(top, track);
           lanesEl.appendChild(lane);
         });
       }
@@ -309,9 +356,18 @@
 
       workStartInput.addEventListener('input', render);
       workEndInput.addEventListener('input', render);
+      resetNowButton.addEventListener('click', () => {
+        state.focusTimeMs = Date.now();
+        render();
+      });
+
+      setInterval(() => {
+        if (state.dragging) return;
+        state.focusTimeMs = Date.now();
+        render();
+      }, 30000);
 
       render();
-      setInterval(render, 1000 * 30);
     </script>
   </body>
 </html>
