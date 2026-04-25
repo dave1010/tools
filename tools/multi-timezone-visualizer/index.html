@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi Timezone Visualizer</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2">
+        <h1 class="text-3xl font-semibold text-slate-900">Multi Timezone Visualizer</h1>
+        <p class="text-sm text-slate-600">Track daylight, work windows, and current local time across cities.</p>
+      </header>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+        <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+          <label class="space-y-1 text-sm font-medium text-slate-700" for="timezone-input">
+            <span>Add timezone (IANA name)</span>
+            <input
+              id="timezone-input"
+              list="timezone-suggestions"
+              placeholder="e.g. Europe/London"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </label>
+          <button id="add-timezone" class="btn btn-primary">Add timezone</button>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="space-y-1 text-sm font-medium text-slate-700" for="work-start">
+            <span>Workday starts at</span>
+            <input
+              id="work-start"
+              type="time"
+              value="09:00"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </label>
+          <label class="space-y-1 text-sm font-medium text-slate-700" for="work-end">
+            <span>Workday ends at</span>
+            <input
+              id="work-end"
+              type="time"
+              value="17:00"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="mb-3 flex items-center justify-between gap-4">
+          <h2 class="text-lg font-semibold text-slate-900">Timezone lanes</h2>
+          <p id="timestamp" class="text-xs text-slate-500"></p>
+        </div>
+
+        <div class="mb-3 flex flex-wrap gap-2 text-xs">
+          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Daylight</span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-indigo-500"></span>Night</span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Work hours (Mon–Fri)</span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-slate-700"><span class="h-2 w-2 rounded-full bg-rose-500"></span>Current local time</span>
+        </div>
+
+        <div id="lanes" class="space-y-3"></div>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/multi-timezone-visualizer" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <datalist id="timezone-suggestions"></datalist>
+
+    <script>
+      const DEFAULT_TIMEZONES = [
+        'America/Los_Angeles',
+        'America/New_York',
+        'Europe/London',
+        'Europe/Berlin',
+        'Asia/Dubai',
+        'Asia/Tokyo',
+        'Australia/Sydney'
+      ];
+
+      const POPULAR_TIMEZONES = [
+        'UTC','Pacific/Honolulu','America/Anchorage','America/Los_Angeles','America/Denver','America/Chicago','America/New_York',
+        'America/Sao_Paulo','Europe/London','Europe/Paris','Europe/Berlin','Africa/Johannesburg','Asia/Dubai','Asia/Kolkata',
+        'Asia/Singapore','Asia/Hong_Kong','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'
+      ];
+
+      const state = {
+        zones: [...DEFAULT_TIMEZONES],
+      };
+
+      const lanesEl = document.getElementById('lanes');
+      const timestampEl = document.getElementById('timestamp');
+      const timezoneInput = document.getElementById('timezone-input');
+      const suggestions = document.getElementById('timezone-suggestions');
+      const addTimezoneButton = document.getElementById('add-timezone');
+      const workStartInput = document.getElementById('work-start');
+      const workEndInput = document.getElementById('work-end');
+
+      POPULAR_TIMEZONES.forEach((zone) => {
+        const option = document.createElement('option');
+        option.value = zone;
+        suggestions.appendChild(option);
+      });
+
+      function parseTimeInput(value) {
+        const [hour, minute] = value.split(':').map(Number);
+        return hour + (minute / 60);
+      }
+
+      function isValidTimezone(zone) {
+        try {
+          Intl.DateTimeFormat(undefined, { timeZone: zone }).format(new Date());
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function getZonedParts(date, timeZone) {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23',
+          weekday: 'short',
+          timeZoneName: 'short'
+        });
+
+        const parts = formatter.formatToParts(date);
+        const lookup = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+
+        return {
+          year: Number(lookup.year),
+          month: Number(lookup.month),
+          day: Number(lookup.day),
+          weekday: lookup.weekday,
+          hour: Number(lookup.hour),
+          minute: Number(lookup.minute),
+          second: Number(lookup.second),
+          timeZoneName: lookup.timeZoneName,
+        };
+      }
+
+      function getOffsetMinutes(date, zone) {
+        const dtf = new Intl.DateTimeFormat('en-US', {
+          timeZone: zone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23',
+        });
+
+        const parts = Object.fromEntries(
+          dtf.formatToParts(date)
+            .filter((part) => part.type !== 'literal')
+            .map((part) => [part.type, Number(part.value)])
+        );
+
+        const asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+        return (asUTC - date.getTime()) / 60000;
+      }
+
+      function formatOffset(minutes) {
+        const sign = minutes >= 0 ? '+' : '-';
+        const absolute = Math.abs(minutes);
+        const hours = String(Math.floor(absolute / 60)).padStart(2, '0');
+        const mins = String(absolute % 60).padStart(2, '0');
+        return `UTC${sign}${hours}:${mins}`;
+      }
+
+      function buildLaneBackground(workStart, workEnd, isWeekday) {
+        const dayColor = '#fcd34d';
+        const nightColor = '#4338ca';
+        const workColor = '#10b981';
+
+        const stops = [
+          `${nightColor} 0%`,
+          `${nightColor} 25%`,
+          `${dayColor} 25%`,
+          `${dayColor} 75%`,
+          `${nightColor} 75%`,
+          `${nightColor} 100%`
+        ];
+
+        if (isWeekday && workStart !== workEnd) {
+          const start = ((workStart / 24) * 100);
+          const end = ((workEnd / 24) * 100);
+
+          if (workStart < workEnd) {
+            stops.push(`${workColor} ${start}%`, `${workColor} ${end}%`);
+          } else {
+            stops.push(`${workColor} 0%`, `${workColor} ${end}%`, `${workColor} ${start}%`, `${workColor} 100%`);
+          }
+        }
+
+        return `linear-gradient(to right, ${stops.join(', ')})`;
+      }
+
+      function createHourTicks() {
+        const row = document.createElement('div');
+        row.className = 'mt-2 grid grid-cols-6 text-[10px] text-slate-500';
+        ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'].forEach((label) => {
+          const span = document.createElement('span');
+          span.textContent = label;
+          row.appendChild(span);
+        });
+        return row;
+      }
+
+      function render() {
+        const now = new Date();
+        const workStart = parseTimeInput(workStartInput.value);
+        const workEnd = parseTimeInput(workEndInput.value);
+
+        timestampEl.textContent = `Updated ${now.toISOString().replace('T', ' ').slice(0, 16)} UTC`;
+
+        lanesEl.innerHTML = '';
+
+        state.zones.forEach((zone, index) => {
+          const zoned = getZonedParts(now, zone);
+          const offsetMinutes = getOffsetMinutes(now, zone);
+          const hourPosition = ((zoned.hour + zoned.minute / 60 + zoned.second / 3600) / 24) * 100;
+          const isWeekday = !['Sat', 'Sun'].includes(zoned.weekday);
+
+          const lane = document.createElement('article');
+          lane.className = 'rounded-xl border border-slate-200 p-3';
+
+          const top = document.createElement('div');
+          top.className = 'mb-2 flex flex-wrap items-center justify-between gap-2';
+
+          const title = document.createElement('h3');
+          title.className = 'font-semibold text-slate-900';
+          title.textContent = zone;
+
+          const details = document.createElement('p');
+          details.className = 'text-xs text-slate-600';
+          details.textContent = `${zoned.weekday} ${String(zoned.hour).padStart(2, '0')}:${String(zoned.minute).padStart(2, '0')} (${zoned.timeZoneName}, ${formatOffset(offsetMinutes)})`;
+
+          const removeButton = document.createElement('button');
+          removeButton.className = 'btn btn-secondary text-xs';
+          removeButton.textContent = 'Remove';
+          removeButton.disabled = state.zones.length <= 1;
+          removeButton.addEventListener('click', () => {
+            state.zones.splice(index, 1);
+            render();
+          });
+
+          top.append(title, details, removeButton);
+
+          const track = document.createElement('div');
+          track.className = 'relative h-10 overflow-hidden rounded-lg border border-slate-200';
+          track.style.background = buildLaneBackground(workStart, workEnd, isWeekday);
+
+          const nowMarker = document.createElement('div');
+          nowMarker.className = 'absolute inset-y-0 w-0.5 bg-rose-500 shadow-[0_0_0_1px_rgba(255,255,255,0.6)]';
+          nowMarker.style.left = `${hourPosition}%`;
+
+          const nowLabel = document.createElement('div');
+          nowLabel.className = 'absolute -translate-x-1/2 -top-1 rounded bg-rose-500 px-1.5 py-0.5 text-[10px] font-medium text-white';
+          nowLabel.style.left = `${hourPosition}%`;
+          nowLabel.textContent = `${String(zoned.hour).padStart(2, '0')}:${String(zoned.minute).padStart(2, '0')}`;
+
+          track.append(nowMarker, nowLabel);
+          lane.append(top, track, createHourTicks());
+          lanesEl.appendChild(lane);
+        });
+      }
+
+      addTimezoneButton.addEventListener('click', () => {
+        const zone = timezoneInput.value.trim();
+        if (!zone) return;
+
+        if (!isValidTimezone(zone)) {
+          alert('Invalid timezone. Use an IANA timezone such as Europe/London.');
+          return;
+        }
+
+        if (state.zones.includes(zone)) {
+          alert('Timezone is already in the list.');
+          return;
+        }
+
+        state.zones.push(zone);
+        timezoneInput.value = '';
+        render();
+      });
+
+      timezoneInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          addTimezoneButton.click();
+        }
+      });
+
+      workStartInput.addEventListener('input', render);
+      workEndInput.addEventListener('input', render);
+
+      render();
+      setInterval(render, 1000 * 30);
+    </script>
+  </body>
+</html>
