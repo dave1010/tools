@@ -33,6 +33,7 @@ Tools live in the [`./tools`](./tools) directory.
 - [Running Pace Planner](https://tools.dave.engineer/tools/running-pace-planner) — Plan running pace, splits, and finish time
 - [Software Development Estimator](https://tools.dave.engineer/tools/software-development-estimator) — Rough timelines for development projects.
 - [Speed Unit Converter](https://tools.dave.engineer/tools/speed-unit-converter) — Convert speed units instantly
+- [Timezone Overlap Finder](https://tools.dave.engineer/tools/timezone-overlap-finder) — Find meeting windows across timezones
 
 ### Data & File Conversion
 
