@@ -31,6 +31,7 @@
         <div class="flex flex-wrap items-center justify-center gap-3">
           <button id="generate" class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700">Generate QR Code</button>
           <button id="download" disabled class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">Download PNG</button>
+          <button id="copy" disabled class="bg-brand-600 text-white rounded-lg px-3 py-1.5 hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">Copy Image</button>
         </div>
         <div id="qr-container" class="mx-auto hidden w-fit items-center justify-center rounded-xl border border-gray-900 bg-white p-4"></div>
         <footer class="text-sm text-gray-500">
@@ -47,8 +48,10 @@
       const errorCorrectionSelect = document.getElementById("error-correction");
       const generateButton = document.getElementById("generate");
       const downloadButton = document.getElementById("download");
+      const copyButton = document.getElementById("copy");
       const qrContainer = document.getElementById("qr-container");
       const validErrorCorrectionLevels = new Set(["L", "M", "Q", "H"]);
+      const qrPadding = 24;
       let qrCodeInstance = null;
 
       const updateUrl = (value) => {
@@ -63,37 +66,38 @@
         window.history.replaceState({}, "", url);
       };
 
-      const setDownloadState = (enabled) => {
+      const setOutputActionsState = (enabled) => {
         downloadButton.disabled = !enabled;
+        copyButton.disabled = !enabled;
       };
 
-      const updateDownloadButton = () => {
-        const canvas = qrContainer.querySelector("canvas");
-        if (canvas) {
-          setDownloadState(true);
-        } else {
-          const img = qrContainer.querySelector("img");
-          if (!img) {
-            setDownloadState(false);
-            return;
-          }
-
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = img.width;
-          tempCanvas.height = img.height;
-          const context = tempCanvas.getContext("2d");
-          context.drawImage(img, 0, 0);
-          qrContainer.replaceChildren(tempCanvas);
-          setDownloadState(true);
+      const addQrPadding = () => {
+        const source = qrContainer.querySelector("canvas") || qrContainer.querySelector("img");
+        if (!source) {
+          setOutputActionsState(false);
+          return;
         }
+
+        const paddedCanvas = document.createElement("canvas");
+        paddedCanvas.width = source.width + qrPadding * 2;
+        paddedCanvas.height = source.height + qrPadding * 2;
+        const context = paddedCanvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, paddedCanvas.width, paddedCanvas.height);
+        context.drawImage(source, qrPadding, qrPadding);
+        qrContainer.replaceChildren(paddedCanvas);
+        setOutputActionsState(true);
       };
+
+      const getQrCanvas = () => qrContainer.querySelector("canvas");
 
       const clearQr = () => {
         qrContainer.replaceChildren();
+        copyButton.textContent = "Copy Image";
         qrContainer.classList.add("hidden");
         qrContainer.classList.remove("flex");
         qrCodeInstance = null;
-        setDownloadState(false);
+        setOutputActionsState(false);
       };
 
       const renderQr = ({ updateHistory = true } = {}) => {
@@ -117,7 +121,7 @@
         });
 
         if (updateHistory) updateUrl(value);
-        requestAnimationFrame(updateDownloadButton);
+        requestAnimationFrame(addQrPadding);
       };
 
       const loadFromUrl = () => {
@@ -141,7 +145,7 @@
       downloadButton.addEventListener("click", () => {
         const canvas = qrContainer.querySelector("canvas");
         if (!canvas) {
-          setDownloadState(false);
+          setOutputActionsState(false);
           return;
         }
 
@@ -149,6 +153,25 @@
         link.href = canvas.toDataURL("image/png");
         link.download = "qr-code.png";
         link.click();
+      });
+
+      copyButton.addEventListener("click", async () => {
+        const canvas = getQrCanvas();
+        if (!canvas) {
+          setOutputActionsState(false);
+          return;
+        }
+
+        try {
+          const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Could not create QR image.")), "image/png");
+          });
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          copyButton.textContent = "Copied!";
+          window.setTimeout(() => { copyButton.textContent = "Copy Image"; }, 1500);
+        } catch (error) {
+          alert("Could not copy the QR image to the clipboard.");
+        }
       });
 
       loadFromUrl();
