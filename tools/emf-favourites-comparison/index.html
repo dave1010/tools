@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EMF Favourites Comparison</title>
+    <link rel="stylesheet" href="/assets/tw.css" />
+  </head>
+  <body class="min-h-screen bg-blue-50 text-gray-900">
+    <main class="mx-auto max-w-3xl p-4 md:p-6 space-y-4 font-sans">
+      <header class="space-y-2 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-blue-100">
+        <p class="text-sm font-semibold uppercase tracking-wide text-brand-700">EMF Camp</p>
+        <h1 class="text-3xl font-bold tracking-tight text-gray-950">Favourites comparison</h1>
+        <p class="text-gray-600">Paste EMF favourites JSON feed links for you and friends, then compare what you all want to see.</p>
+      </header>
+
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-blue-100 md:p-5" aria-labelledby="add-feed-heading">
+        <h2 id="add-feed-heading" class="text-lg font-semibold">Add a favourites feed</h2>
+        <form id="feed-form" class="mt-3 grid gap-3 md:grid-cols-[1fr_2fr_auto]">
+          <label class="space-y-1">
+            <span class="text-sm font-medium text-gray-700">Name</span>
+            <input id="person-name" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="Alice" autocomplete="name" required />
+          </label>
+          <label class="space-y-1">
+            <span class="text-sm font-medium text-gray-700">JSON feed URL</span>
+            <input id="feed-url" class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="https://www.emfcamp.org/favourites/…json…" inputmode="url" type="url" required />
+          </label>
+          <div class="flex items-end">
+            <button class="btn btn-primary w-full" type="submit">Save</button>
+          </div>
+        </form>
+        <p id="status" class="mt-3 min-h-5 text-sm text-gray-600" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-blue-100 md:p-5" aria-labelledby="people-heading">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="people-heading" class="text-lg font-semibold">People to compare</h2>
+          <button id="refresh-selected" class="btn btn-secondary" type="button">Refresh selected</button>
+        </div>
+        <div id="people-list" class="mt-3 space-y-2"></div>
+      </section>
+
+      <section class="grid gap-4 md:grid-cols-2">
+        <article class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-blue-100 md:p-5" aria-labelledby="intersection-heading">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 id="intersection-heading" class="text-lg font-semibold">In common</h2>
+            <span id="intersection-count" class="rounded-full bg-blue-100 px-2.5 py-1 text-sm font-semibold text-brand-700">0</span>
+          </div>
+          <div id="intersection-list" class="mt-3 space-y-2"></div>
+        </article>
+
+        <article class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-blue-100 md:p-5" aria-labelledby="union-heading">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 id="union-heading" class="text-lg font-semibold">Not shared by everyone</h2>
+            <span id="union-count" class="rounded-full bg-blue-100 px-2.5 py-1 text-sm font-semibold text-brand-700">0</span>
+          </div>
+          <div id="union-list" class="mt-3 space-y-2"></div>
+        </article>
+      </section>
+
+      <footer class="py-6 text-center text-sm text-gray-500">
+        <div class="flex justify-center gap-4">
+          <a href="/" class="font-medium text-brand-700 hover:text-brand-600">← Back to tools.dave.engineer</a>
+          <a href="https://github.com/dave1010/tools/tree/main/tools/emf-favourites-comparison" class="font-medium text-brand-700 hover:text-brand-600">About</a>
+        </div>
+      </footer>
+    </main>
+
+    <template id="item-template">
+      <a class="block rounded-xl border border-gray-200 bg-white p-3 transition hover:border-brand-500 hover:bg-blue-50" target="_blank" rel="noopener noreferrer">
+        <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-gray-700"></span>
+        <strong class="mt-1 block text-sm leading-snug text-gray-950"></strong>
+        <em class="mt-1 block text-xs not-italic text-gray-500"></em>
+      </a>
+    </template>
+
+    <script>
+      const STORAGE_KEY = 'emf-favourites-comparison.people.v1';
+      const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+      const form = document.querySelector('#feed-form');
+      const nameInput = document.querySelector('#person-name');
+      const urlInput = document.querySelector('#feed-url');
+      const statusEl = document.querySelector('#status');
+      const peopleList = document.querySelector('#people-list');
+      const refreshButton = document.querySelector('#refresh-selected');
+      const intersectionList = document.querySelector('#intersection-list');
+      const unionList = document.querySelector('#union-list');
+      const intersectionCount = document.querySelector('#intersection-count');
+      const unionCount = document.querySelector('#union-count');
+      const itemTemplate = document.querySelector('#item-template');
+
+      let people = loadPeople();
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = nameInput.value.trim();
+        const url = urlInput.value.trim();
+        if (!name || !url) return;
+
+        const existing = people.find((person) => person.url === url);
+        if (existing) {
+          existing.name = name;
+          existing.selected = true;
+          setStatus(`Updated ${name}.`);
+        } else {
+          people.push({ id: crypto.randomUUID(), name, url, selected: true, favourites: [], error: '' });
+          setStatus(`Saved ${name}. Fetching feed…`);
+        }
+        savePeople();
+        render();
+        await refreshPerson(people.find((person) => person.url === url));
+        form.reset();
+      });
+
+      refreshButton.addEventListener('click', async () => {
+        const selected = people.filter((person) => person.selected);
+        if (selected.length === 0) {
+          setStatus('Select at least one person to refresh.');
+          return;
+        }
+        setStatus('Refreshing selected feeds…');
+        await Promise.all(selected.map(refreshPerson));
+        setStatus('Selected feeds refreshed.');
+      });
+
+      function loadPeople() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch {
+          return [];
+        }
+      }
+
+      function savePeople() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(people));
+      }
+
+      async function refreshPerson(person) {
+        if (!person) return;
+        person.error = '';
+        savePeople();
+        render();
+        try {
+          const response = await fetch(CORS_PROXY + encodeURIComponent(person.url), { headers: { accept: 'application/json' } });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const json = await response.json();
+          if (!Array.isArray(json)) throw new Error('Feed did not return a JSON array');
+          person.favourites = json.filter((item) => item && item.is_fave !== false).map(normaliseItem);
+          person.lastFetched = new Date().toISOString();
+          setStatus(`Fetched ${person.favourites.length} favourites for ${person.name}.`);
+        } catch (error) {
+          person.error = error.message || 'Could not fetch feed';
+          setStatus(`Could not fetch ${person.name}: ${person.error}`);
+        }
+        savePeople();
+        render();
+      }
+
+      function normaliseItem(item) {
+        return {
+          id: String(item.id ?? item.link ?? item.title),
+          type: String(item.type || 'item'),
+          title: String(item.title || 'Untitled'),
+          link: String(item.link || '#'),
+        };
+      }
+
+      function render() {
+        renderPeople();
+        renderComparison();
+      }
+
+      function renderPeople() {
+        peopleList.innerHTML = '';
+        if (people.length === 0) {
+          peopleList.innerHTML = '<p class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">Add your JSON feed URL to get started.</p>';
+          return;
+        }
+
+        for (const person of people) {
+          const row = document.createElement('div');
+          row.className = 'flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 p-3';
+          row.innerHTML = `
+            <label class="flex min-w-0 flex-1 items-start gap-3">
+              <input type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300 text-brand-600" ${person.selected ? 'checked' : ''} />
+              <span class="min-w-0">
+                <strong class="block truncate text-sm text-gray-950"></strong>
+                <span class="block truncate text-xs text-gray-500"></span>
+                <span class="block text-xs ${person.error ? 'text-red-600' : 'text-gray-500'}"></span>
+              </span>
+            </label>
+            <button type="button" class="btn btn-secondary text-sm" data-action="refresh">Refresh</button>
+            <button type="button" class="btn btn-secondary text-sm" data-action="remove">Remove</button>
+          `;
+          row.querySelector('strong').textContent = person.name;
+          row.querySelectorAll('span')[1].textContent = `${person.favourites?.length || 0} favourites saved`;
+          row.querySelectorAll('span')[2].textContent = person.error || formatLastFetched(person.lastFetched);
+          row.querySelector('input').addEventListener('change', (event) => {
+            person.selected = event.target.checked;
+            savePeople();
+            renderComparison();
+          });
+          row.querySelector('[data-action="refresh"]').addEventListener('click', () => refreshPerson(person));
+          row.querySelector('[data-action="remove"]').addEventListener('click', () => {
+            people = people.filter((candidate) => candidate.id !== person.id);
+            savePeople();
+            render();
+          });
+          peopleList.append(row);
+        }
+      }
+
+      function renderComparison() {
+        const selected = people.filter((person) => person.selected);
+        const comparison = compare(selected);
+        intersectionCount.textContent = comparison.intersection.length;
+        unionCount.textContent = comparison.notShared.length;
+        renderItems(intersectionList, comparison.intersection, selected.length < 2 ? 'Select at least two people to compare common favourites.' : 'No favourites are shared by everyone selected.');
+        renderItems(unionList, comparison.notShared, selected.length < 2 ? 'Select at least two people to compare differences.' : 'Everything is shared by everyone selected.');
+      }
+
+      function compare(selected) {
+        if (selected.length < 2) return { intersection: [], notShared: [] };
+        const byId = new Map();
+        for (const person of selected) {
+          const seen = new Set();
+          for (const item of person.favourites || []) {
+            if (seen.has(item.id)) continue;
+            seen.add(item.id);
+            if (!byId.has(item.id)) byId.set(item.id, { ...item, people: [] });
+            byId.get(item.id).people.push(person.name);
+          }
+        }
+        const all = [...byId.values()].sort(sortItem);
+        return {
+          intersection: all.filter((item) => item.people.length === selected.length),
+          notShared: all.filter((item) => item.people.length !== selected.length),
+        };
+      }
+
+      function sortItem(a, b) {
+        return a.type.localeCompare(b.type) || a.title.localeCompare(b.title);
+      }
+
+      function renderItems(container, items, emptyText) {
+        container.innerHTML = '';
+        if (items.length === 0) {
+          container.innerHTML = `<p class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">${emptyText}</p>`;
+          return;
+        }
+        for (const item of items) {
+          const node = itemTemplate.content.firstElementChild.cloneNode(true);
+          node.href = item.link;
+          node.querySelector('span').textContent = item.type;
+          node.querySelector('strong').textContent = item.title;
+          node.querySelector('em').textContent = item.people.length ? `Saved by ${item.people.join(', ')}` : '';
+          container.append(node);
+        }
+      }
+
+      function formatLastFetched(value) {
+        if (!value) return 'Not fetched yet';
+        return `Fetched ${new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`;
+      }
+
+      function setStatus(message) {
+        statusEl.textContent = message;
+      }
+
+      render();
+    </script>
+  </body>
+</html>
