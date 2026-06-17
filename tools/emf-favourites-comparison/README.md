@@ -15,4 +15,4 @@ Compare EMF Camp schedule favourites with friends.
 
 The tool stores names and feed URLs in your browser's local storage. Feed URLs are fetched through a Cloudflare Pages Function so the browser can load the EMF JSON feed without relying on a third-party CORS proxy.
 
-Select two or more people to compare their schedules. The **in common** section shows favourites everyone selected has saved. The **not shared by everyone** section shows each selected person's favourites that are missing from at least one other selected person.
+Select two or more people to compare their schedules. The **in common** section shows favourites everyone selected has saved. The **who has what** section uses coloured initials to show who has saved each favourite and who has not.
