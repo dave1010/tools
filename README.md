@@ -86,6 +86,7 @@ Tools live in the [`./tools`](./tools) directory.
 
 - [Bible Verse Explorer](https://tools.dave.engineer/tools/bible-browser) — Browse NET Bible passages by book and chapter.
 - [Decision Matrix Builder](https://tools.dave.engineer/tools/decision-matrix-builder) — Compare options with weighted criteria
+- [EMF Favourites Comparison](https://tools.dave.engineer/tools/emf-favourites-comparison) — Compare EMF Camp favourite schedules
 - [Expiring Note Link](https://tools.dave.engineer/tools/expiring-note) — Share notes that expire automatically
 - [Live HTML Previewer](https://tools.dave.engineer/tools/html-live-preview) — Paste HTML and see an instant rendered preview with copy options
 - [Markdown to HTML Converter](https://tools.dave.engineer/tools/markdown-to-html) — Convert Markdown content into HTML
